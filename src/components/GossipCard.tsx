@@ -2,7 +2,6 @@ import { playGistAudio, stopGistAudio } from "@/lib/audio";
 import { cn } from "@/lib/utils";
 import { Play, Pause } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 interface GossipCardProps {
   imageUrl: string;
@@ -46,12 +45,12 @@ export const GossipCard = ({
 
         {/* Play Button */}
         <Button
-  onClick={onPlay}
-  disabled={isPlaying}
-  ...
->
-  {isPlaying ? "Playing..." : "Play Gist"}
-</Button>
+          onClick={onPlay}
+          disabled={isPlaying}
+          className="w-full rounded-xl bg-primary hover:bg-primary/90 transition-all duration-200"
+        >
+          {isPlaying ? "Playing..." : "Play Gist"}
+        </Button>
 
 
         {/* Quick Replies */}

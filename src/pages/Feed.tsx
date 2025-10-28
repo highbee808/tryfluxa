@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { GossipCard } from "@/components/GossipCard";
-import { AudioPlayer } from "@/lib/audio";
+import { playGistAudio, stopGistAudio } from "@/lib/audio";
 import { mockGists } from "@/data/mockGists";
 import { toast } from "sonner";
 import useEmblaCarousel from "embla-carousel-react";
@@ -8,22 +8,7 @@ import useEmblaCarousel from "embla-carousel-react";
 const Feed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const audioPlayerRef = useRef<AudioPlayer | null>(null);
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
-
-  useEffect(() => {
-    audioPlayerRef.current = new AudioPlayer();
-    audioPlayerRef.current.onEnd(() => {
-      setIsPlaying(false);
-      toast.success("Gist finished! What's next?");
-    });
-
-    return () => {
-      if (audioPlayerRef.current) {
-        audioPlayerRef.current.stop();
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (!emblaApi) return;
@@ -41,23 +26,15 @@ const Feed = () => {
   }, [emblaApi]);
 
   useEffect(() => {
-    // Load new audio when card changes
-    if (audioPlayerRef.current && mockGists.length > 0) {
-      audioPlayerRef.current.stop();
-      audioPlayerRef.current.load(mockGists[currentIndex].audioUrl);
-      setIsPlaying(false);
-    }
+    // Stop audio when card changes
+    stopGistAudio(setIsPlaying);
   }, [currentIndex]);
 
   const handlePlay = () => {
-    if (!audioPlayerRef.current) return;
-
     if (isPlaying) {
-      audioPlayerRef.current.pause();
-      setIsPlaying(false);
+      stopGistAudio(setIsPlaying);
     } else {
-      audioPlayerRef.current.play();
-      setIsPlaying(true);
+      playGistAudio(currentIndex, setIsPlaying);
     }
   };
 
