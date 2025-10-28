@@ -1,7 +1,7 @@
 const audioFiles = [
-  "/audio/fluxa_voice_1.mp3",
-  "/audio/fluxa_voice_2.mp3",
-  "/audio/fluxa_voice_3.mp3",
+  "/audio/fluxa_voice_1-2.mp3",
+  "/audio/fluxa_voice_2-2.mp3",
+  "/audio/fluxa_voice_3-2.mp3",
   "/audio/fluxa_voice_4.mp3",
   "/audio/fluxa_voice_5.mp3",
   "/audio/fluxa_voice_6.mp3",
