@@ -22,7 +22,7 @@ export const GossipCard = ({
   onTellMore,
 }: GossipCardProps) => {
   return (
-    <div className="bg-card rounded-3xl shadow-soft overflow-hidden max-w-md w-full animate-scale-in">
+    <div className="bg-card rounded-3xl overflow-hidden max-w-md w-full animate-scale-in" style={{ boxShadow: 'var(--shadow-soft)' }}>
       {/* Image */}
       <div className="relative aspect-[4/5] overflow-hidden">
         <img
@@ -48,8 +48,9 @@ export const GossipCard = ({
           className={cn(
             "w-full py-6 rounded-2xl font-semibold text-lg transition-all duration-300",
             "bg-accent text-accent-foreground hover:bg-accent/90",
-            "shadow-soft hover:shadow-hover hover:scale-[1.02] active:scale-[0.98]"
+            "hover:scale-[1.02] active:scale-[0.98]"
           )}
+          style={{ boxShadow: 'var(--shadow-soft)' }}
         >
           {isPlaying ? (
             <>
@@ -69,14 +70,14 @@ export const GossipCard = ({
           <Button
             onClick={onTellMore}
             variant="outline"
-            className="flex-1 rounded-xl border-2 hover:border-accent/50 hover:bg-accent/10"
+            className="flex-1 rounded-xl border-2 hover:border-accent/50 hover:bg-accent/10 transition-all duration-200"
           >
             Tell me more
           </Button>
           <Button
             onClick={onNext}
             variant="outline"
-            className="flex-1 rounded-xl border-2 hover:border-accent/50 hover:bg-accent/10"
+            className="flex-1 rounded-xl border-2 hover:border-accent/50 hover:bg-accent/10 transition-all duration-200"
           >
             Next gist →
           </Button>
