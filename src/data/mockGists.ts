@@ -22,8 +22,7 @@ export const mockGists: Gist[] = [
     context:
       "You won't believe what happened at last night's award show. The drama unfolded right on stage!",
     imageUrl: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800",
-    // Replace with your MP3 file path:
-    audioUrl: "/audio/gist-1.mp3",
+    audioUrl: "/audio/fluxa_voice_1.mp3",
   },
   {
     id: 2,
@@ -31,8 +30,7 @@ export const mockGists: Gist[] = [
     context:
       "After months of speculation, insiders finally spill the details about this power couple's secret getaway.",
     imageUrl: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=800",
-    // Replace with your MP3 file path:
-    audioUrl: "/audio/gist-2.mp3",
+    audioUrl: "/audio/fluxa_voice_2.mp3",
   },
   {
     id: 3,
@@ -40,7 +38,6 @@ export const mockGists: Gist[] = [
     context:
       "A surprise runway moment left everyone shocked. Let's dive into what really went down backstage.",
     imageUrl: "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=800",
-    // Replace with your MP3 file path:
-    audioUrl: "/audio/gist-3.mp3",
+    audioUrl: "/audio/fluxa_voice_3.mp3",
   },
 ];
