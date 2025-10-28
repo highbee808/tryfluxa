@@ -1,43 +1,72 @@
-/**
- * Mock Gist Data
- * 
- * TO CUSTOMIZE:
- * 1. Replace audioUrl with your actual MP3 file paths
- * 2. Update imageUrl with real gossip subject images
- * 3. Edit headline and context for your gist content
- */
-
-export interface Gist {
-  id: number;
-  headline: string;
-  context: string;
-  imageUrl: string;
-  audioUrl: string;
-}
-
-export const mockGists: Gist[] = [
+export const mockGists = [
   {
     id: 1,
-    headline: "The tea is piping hot on this one! 🔥",
-    context:
-      "You won't believe what happened at last night's award show. The drama unfolded right on stage!",
-    imageUrl: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800",
-    audioUrl: "/audio/fluxa_voice_1.mp3",
+    imageUrl: "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?auto=format&fit=crop&w=900&q=80",
+    headline: "Drake unfollowed somebody 👀",
+    context: "The internet is screaming.\nEveryone wants answers.",
+    audioIndex: 1,
   },
   {
     id: 2,
-    headline: "This celebrity couple is causing waves!",
-    context:
-      "After months of speculation, insiders finally spill the details about this power couple's secret getaway.",
-    imageUrl: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=800",
-    audioUrl: "/audio/fluxa_voice_2.mp3",
+    imageUrl: "https://images.unsplash.com/photo-1520975918318-3a4f9c2ca06e?auto=format&fit=crop&w=900&q=80",
+    headline: "Messi’s celebration shocked fans ⚽",
+    context: "He did something unexpected.\nEveryone is analyzing it.",
+    audioIndex: 2,
   },
   {
     id: 3,
-    headline: "Fashion week just got messy! 👗",
-    context:
-      "A surprise runway moment left everyone shocked. Let's dive into what really went down backstage.",
-    imageUrl: "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=800",
-    audioUrl: "/audio/fluxa_voice_3.mp3",
+    imageUrl: "https://images.unsplash.com/photo-1525182008055-f88b95ff7980?auto=format&fit=crop&w=900&q=80",
+    headline: "TikTok prank gone wrong 😂",
+    context: "A prank turned into a fail.\nPeople are dragging the prankster.",
+    audioIndex: 3,
+  },
+  {
+    id: 4,
+    imageUrl: "https://images.unsplash.com/photo-1602233158242-3de7f8915817?auto=format&fit=crop&w=900&q=80",
+    headline: "Influencer apology again 🎭",
+    context: "Tears, soft music.\nAre we believing this one?",
+    audioIndex: 4,
+  },
+  {
+    id: 5,
+    imageUrl: "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?auto=format&fit=crop&w=900&q=80",
+    headline: "Fashion show chaos 😳",
+    context: "Wardrobe malfunction caught.\nInternet is laughing.",
+    audioIndex: 5,
+  },
+  {
+    id: 6,
+    imageUrl: "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=900&q=80",
+    headline: "Gamer rage quit LIVE 😡",
+    context: "Controller in the air.\nFans quoting the moment.",
+    audioIndex: 6,
+  },
+  {
+    id: 7,
+    imageUrl: "https://images.unsplash.com/photo-1612536071077-dad41e41bcc7?auto=format&fit=crop&w=900&q=80",
+    headline: "Cat thief of the year 🐱",
+    context: "Stole pizza.\nBecame a legend.",
+    audioIndex: 7,
+  },
+  {
+    id: 8,
+    imageUrl: "https://images.unsplash.com/photo-1523961131990-5ea7c61b2107?auto=format&fit=crop&w=900&q=80",
+    headline: "Confusing new update 😵‍💫",
+    context: "Nobody understands it.\nWe suffer together.",
+    audioIndex: 8,
+  },
+  {
+    id: 9,
+    imageUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=900&q=80",
+    headline: "Concert fainting challenge 🎤",
+    context: "A fan passed out dramatically.\nNow it’s a remix meme.",
+    audioIndex: 9,
+  },
+  {
+    id: 10,
+    imageUrl: "https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d?auto=format&fit=crop&w=900&q=80",
+    headline: "Phone tossed back 📱😅",
+    context: "Phone thrown on stage.\nArtist returned with energy.",
+    audioIndex: 10,
   },
 ];
