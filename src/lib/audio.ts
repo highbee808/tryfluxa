@@ -1,66 +1,33 @@
-/**
- * Audio Player Utility for Fluxa
- * 
- * Usage:
- * const player = new AudioPlayer();
- * player.load('path/to/audio.mp3');
- * player.play();
- */
+// Fluxa Audio Player - supports multiple gist audio files
 
-export class AudioPlayer {
-  private audio: HTMLAudioElement | null = null;
-  private onEndCallback: (() => void) | null = null;
+const audioFiles = [
+  "/audio/fluxa_voice_1.mp3",
+  "/audio/fluxa_voice_2.mp3",
+  "/audio/fluxa_voice_3.mp3"
+];
 
-  constructor() {
-    this.audio = new Audio();
-    this.setupEventListeners();
+let currentAudio: HTMLAudioElement | null = null;
+
+export function playGistAudio(
+  index: number,
+  setIsPlaying: (p: boolean) => void
+) {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
   }
 
-  private setupEventListeners() {
-    if (!this.audio) return;
+  currentAudio = new Audio(audioFiles[index]);
+  currentAudio.play();
+  setIsPlaying(true);
 
-    this.audio.addEventListener("ended", () => {
-      if (this.onEndCallback) {
-        this.onEndCallback();
-      }
-    });
-  }
+  currentAudio.onended = () => setIsPlaying(false);
+}
 
-  load(src: string) {
-    if (!this.audio) return;
-    this.audio.src = src;
-    this.audio.load();
-  }
-
-  play() {
-    if (!this.audio) return;
-    return this.audio.play();
-  }
-
-  pause() {
-    if (!this.audio) return;
-    this.audio.pause();
-  }
-
-  stop() {
-    if (!this.audio) return;
-    this.audio.pause();
-    this.audio.currentTime = 0;
-  }
-
-  onEnd(callback: () => void) {
-    this.onEndCallback = callback;
-  }
-
-  get isPlaying() {
-    return this.audio ? !this.audio.paused : false;
-  }
-
-  get duration() {
-    return this.audio?.duration || 0;
-  }
-
-  get currentTime() {
-    return this.audio?.currentTime || 0;
+export function stopGistAudio(setIsPlaying: (p: boolean) => void) {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    setIsPlaying(false);
   }
 }
