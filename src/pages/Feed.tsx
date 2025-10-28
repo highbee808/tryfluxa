@@ -7,7 +7,7 @@ import useEmblaCarousel from "embla-carousel-react";
 
 const Feed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlayingIndex, setIsPlayingIndex] = useState<number | null>(null);
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
 
   useEffect(() => {
@@ -26,15 +26,17 @@ const Feed = () => {
   }, [emblaApi]);
 
   useEffect(() => {
-    // Stop audio when card changes
-    stopGistAudio(setIsPlaying);
-  }, [currentIndex]);
+    // Stop audio when user swipes to another card
+    if (isPlayingIndex !== null && isPlayingIndex !== currentIndex) {
+      stopGistAudio(() => setIsPlayingIndex(null));
+    }
+  }, [currentIndex, isPlayingIndex]);
 
-  const handlePlay = () => {
-    if (isPlaying) {
-      stopGistAudio(setIsPlaying);
+  const handlePlay = (index: number) => {
+    if (isPlayingIndex === index) {
+      stopGistAudio(() => setIsPlayingIndex(null));
     } else {
-      playGistAudio(currentIndex, setIsPlaying);
+      playGistAudio(index, () => setIsPlayingIndex(index));
     }
   };
 
@@ -65,8 +67,8 @@ const Feed = () => {
                 imageUrl={gist.imageUrl}
                 headline={gist.headline}
                 context={gist.context}
-                isPlaying={isPlaying && index === currentIndex}
-                onPlay={handlePlay}
+                isPlaying={isPlayingIndex === index}
+                onPlay={() => handlePlay(index)}
                 onNext={handleNext}
                 onTellMore={handleTellMore}
               />
