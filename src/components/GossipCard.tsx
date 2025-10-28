@@ -1,3 +1,5 @@
+import { playGistAudio, stopGistAudio } from "@/lib/audio";
+import { cn } from "@/lib/utils";
 import { Play, Pause } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -44,26 +46,13 @@ export const GossipCard = ({
 
         {/* Play Button */}
         <Button
-          onClick={onPlay}
-          className={cn(
-            "w-full py-6 rounded-2xl font-semibold text-lg transition-all duration-300",
-            "bg-accent text-accent-foreground hover:bg-accent/90",
-            "hover:scale-[1.02] active:scale-[0.98]"
-          )}
-          style={{ boxShadow: 'var(--shadow-soft)' }}
-        >
-          {isPlaying ? (
-            <>
-              <Pause className="mr-2 h-5 w-5" />
-              Pause Gist
-            </>
-          ) : (
-            <>
-              <Play className="mr-2 h-5 w-5" />
-              Play Gist
-            </>
-          )}
-        </Button>
+  onClick={onPlay}
+  disabled={isPlaying}
+  ...
+>
+  {isPlaying ? "Playing..." : "Play Gist"}
+</Button>
+
 
         {/* Quick Replies */}
         <div className="flex gap-3">
