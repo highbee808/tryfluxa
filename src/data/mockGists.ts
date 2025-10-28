@@ -8,8 +8,7 @@ export const mockGists = [
   },
   {
     id: 2,
-    imageUrl:
-      "https://images.unsplash.com/photo-1600340158181-1016a0e53d34?ixlib=rb-4.0.3&auto=format&fit=crop&w=900&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1607345365483-158a8d75e5ab?auto=format&fit=crop&w=900&q=80",
     headline: "Messi’s celebration shocked fans ⚽",
     context: "He did something unexpected.\nEveryone is analyzing it.",
     audioIndex: 2,
