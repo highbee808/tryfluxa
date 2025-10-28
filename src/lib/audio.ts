@@ -11,8 +11,23 @@ const audioFiles = [
   "/audio/fluxa_voice_10.mp3",
 ];
 
-export const playGistAudio = (index: number, onEnd: () => void) => {
-  const audio = new Audio(audioFiles[index]);
-  audio.play();
-  audio.onended = onEnd;
+let currentAudio: HTMLAudioElement | null = null;
+
+export const playGistAudio = (index: number, onStart: () => void) => {
+  stopGistAudio();
+  currentAudio = new Audio(audioFiles[index]);
+  currentAudio.play();
+  onStart();
+  currentAudio.onended = () => {
+    currentAudio = null;
+  };
+};
+
+export const stopGistAudio = (onStop?: () => void) => {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+  }
+  onStop?.();
 };
