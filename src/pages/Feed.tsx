@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { GossipCard } from "@/components/GossipCard";
+import { ChatBox } from "@/components/ChatBox";
 import { playGistAudio, stopGistAudio } from "@/lib/audio";
 import { mockGists } from "@/data/mockGists";
 import { toast } from "sonner";
@@ -45,7 +46,7 @@ const Feed = () => {
     emblaApi?.scrollNext();
   };
 
-  // ✅ “Tell me more” button
+  // ✅ "Tell me more" button
   const handleTellMore = () => {
     toast.info("Bestie relax 😂 Chat mode is coming soon...");
   };
@@ -98,8 +99,11 @@ const Feed = () => {
 
       {/* Navigation Hint */}
       <p className="mt-6 text-sm text-muted-foreground animate-fade-in font-medium">
-        Swipe or tap “Next gist” to continue
+        Swipe or tap "Next gist" to continue
       </p>
+
+      {/* Chat Box */}
+      <ChatBox />
     </div>
   );
 };
