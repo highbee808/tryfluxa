@@ -1,14 +1,14 @@
 export const mockGists = [
   {
     id: 1,
-    imageUrl: "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?auto=format&fit=crop&w=900&q=80",
+    imageUrl: "/images/Drake.jpg",
     headline: "Drake unfollowed somebody 👀",
     context: "The internet is screaming.\nEveryone wants answers.",
     audioIndex: 1,
   },
   {
     id: 2,
-    imageUrl: "https://images.unsplash.com/photo-1607345365483-158a8d75e5ab?auto=format&fit=crop&w=900&q=80",
+    imageUrl: "/images/messi.jpg",
     headline: "Messi’s celebration shocked fans ⚽",
     context: "He did something unexpected.\nEveryone is analyzing it.",
     audioIndex: 2,
