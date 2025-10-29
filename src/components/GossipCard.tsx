@@ -1,6 +1,4 @@
-import { playGistAudio, stopGistAudio } from "@/lib/audio";
-import { cn } from "@/lib/utils";
-import { Play, Pause } from "lucide-react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 
 interface GossipCardProps {
@@ -13,59 +11,56 @@ interface GossipCardProps {
   onTellMore: () => void;
 }
 
-export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onNext, onTellMore }: GossipCardProps) => {
+export const GossipCard: React.FC<GossipCardProps> = ({
+  imageUrl,
+  headline,
+  context,
+  isPlaying,
+  onPlay,
+  onNext,
+  onTellMore,
+}) => {
   return (
     <div
-      className="bg-card rounded-3xl overflow-hidden max-w-md w-full animate-scale-in"
-      style={{ boxShadow: "var(--shadow-soft)" }}
+      className="rounded-2xl overflow-hidden shadow-lg transform transition-all duration-300 ease-out
+      hover:scale-[1.01] animate-slide-in bg-background border border-border"
     >
-      {/* Image */}
-      <div className="relative aspect-[4/5] overflow-hidden">
+      <div className="relative w-full h-64">
         <img src={imageUrl} alt={headline} className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
       </div>
 
-      {/* Content */}
-      <div className="p-6 space-y-4">
-        <div className="space-y-2">
-          <h3 className="text-xl font-bold text-foreground leading-tight">{headline}</h3>
-          <p className="text-muted-foreground leading-relaxed">{context}</p>
-        </div>
+      <div className="p-5 flex flex-col gap-3">
+        <h2 className="text-2xl font-bold leading-tight text-foreground">{headline}</h2>
+
+        <p className="text-base text-muted-foreground whitespace-pre-line">{context}</p>
 
         {/* Play Button */}
-        <button
+        <Button
           onClick={onPlay}
           disabled={isPlaying}
-          className="w-full py-3 rounded-full font-fredoka font-bold transition-all hover:scale-105 shadow-md
-    disabled:opacity-60 disabled:scale-100 bg-primary text-primary-foreground"
+          className="w-full py-3 rounded-full font-extrabold transition-all hover:scale-105
+          disabled:opacity-60 bg-primary text-primary-foreground shadow-md"
         >
           {isPlaying ? (
             <div className="flex items-center gap-2 justify-center">
-              <span className="w-2 h-2 bg-primary-foreground rounded-full animate-pulse"></span>
-              <span className="w-2 h-2 bg-primary-foreground rounded-full animate-ping"></span>
+              <span className="w-2 h-2 bg-primary-foreground rounded-full animate-pulse" />
+              <span className="w-2 h-2 bg-primary-foreground rounded-full animate-ping" />
               Playing...
             </div>
           ) : (
             "Play Gist"
           )}
-        </button>
+        </Button>
 
-        {/* Quick Replies */}
-        <div className="flex gap-3">
-          <Button
-            onClick={onTellMore}
-            variant="outline"
-            className="flex-1 rounded-xl border-2 hover:border-accent/50 hover:bg-accent/10 transition-all duration-200"
-          >
+        {/* Action Buttons */}
+        <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground font-medium">
+          <button onClick={onTellMore} className="hover:underline">
             Tell me more
-          </Button>
-          <Button
-            onClick={onNext}
-            variant="outline"
-            className="flex-1 rounded-xl border-2 hover:border-accent/50 hover:bg-accent/10 transition-all duration-200"
-          >
+          </button>
+
+          <button onClick={onNext} className="hover:underline text-right">
             Next gist →
-          </Button>
+          </button>
         </div>
       </div>
     </div>
