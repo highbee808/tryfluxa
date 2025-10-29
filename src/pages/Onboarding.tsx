@@ -79,7 +79,8 @@ const Onboarding = () => {
           <div className="flex justify-center animate-slide-up">
             <Button
               onClick={handleContinue}
-              className="px-12 py-6 text-lg font-semibold rounded-2xl bg-accent text-accent-foreground hover:bg-accent/90 shadow-soft hover:shadow-hover transition-all duration-300 hover:scale-105"
+              size="lg"
+              className="text-lg hover:scale-105"
             >
               Continue to Feed →
             </Button>

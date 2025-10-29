@@ -10,48 +10,48 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Fluxa Design System - Warm & Playful */
-    --background: 25 35% 98%;
-    --foreground: 20 8% 20%;
+    /* Fluxa Design System - Modern & Vibrant */
+    --background: 220 15% 96%;
+    --foreground: 220 10% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 20 8% 20%;
+    --card-foreground: 220 10% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 20 8% 20%;
+    --popover-foreground: 220 10% 15%;
 
-    /* Primary: Soft peach (#FFDCC9 equivalent) */
-    --primary: 20 100% 89%;
-    --primary-foreground: 20 8% 20%;
+    /* Primary: Vibrant Blue */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
     
-    /* Secondary: Warm beige */
-    --secondary: 30 25% 95%;
-    --secondary-foreground: 20 8% 20%;
+    /* Secondary: Light Blue */
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 220 10% 15%;
 
-    /* Muted: Soft gray with warmth */
-    --muted: 25 15% 92%;
-    --muted-foreground: 20 8% 45%;
+    /* Muted: Cool Gray */
+    --muted: 220 15% 92%;
+    --muted-foreground: 220 10% 45%;
 
-    /* Accent: Playful coral/peach */
-    --accent: 20 100% 89%;
-    --accent-foreground: 20 8% 20%;
+    /* Accent: Bright Blue */
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 25 20% 90%;
-    --input: 25 20% 90%;
-    --ring: 20 100% 75%;
+    --border: 220 15% 90%;
+    --input: 220 15% 90%;
+    --ring: 217 91% 60%;
 
-    --radius: 1rem;
+    --radius: 1.25rem;
 
     /* Gradients */
-    --gradient-warm: linear-gradient(135deg, hsl(20 100% 92%), hsl(30 100% 95%));
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(25 35% 98%));
+    --gradient-warm: linear-gradient(135deg, hsl(217 91% 60%), hsl(210 100% 70%));
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(220 15% 98%));
     
     /* Shadows */
-    --shadow-soft: 0 4px 20px -4px hsl(20 30% 80% / 0.4);
-    --shadow-hover: 0 8px 30px -6px hsl(20 40% 70% / 0.5);
+    --shadow-soft: 0 4px 24px -4px hsl(217 91% 60% / 0.15);
+    --shadow-hover: 0 8px 32px -6px hsl(217 91% 60% / 0.25);
     
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
