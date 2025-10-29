@@ -27,7 +27,12 @@ export const GossipCard: React.FC<GossipCardProps> = ({
       hover:scale-[1.01] animate-slide-in bg-background border border-border"
     >
       <div className="relative w-full h-64">
-        <img src={imageUrl} alt={headline} className="w-full h-full object-cover" />
+       <img
+  src={imageUrl}
+  alt={headline}
+  className="w-full h-[60%] object-cover transition-opacity duration-700 opacity-0 animate-[fadeIn_0.7s_ease-out_forwards]"
+  onLoad={(e) => e.currentTarget.classList.add('opacity-100')}
+/>
       </div>
 
       <div className="p-5 flex flex-col gap-3">
