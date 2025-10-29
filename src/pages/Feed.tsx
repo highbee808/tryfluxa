@@ -9,6 +9,22 @@ const Feed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
+  const [filteredGists, setFilteredGists] = useState(mockGists);
+
+  // ✅ Load user interests from localStorage
+  useEffect(() => {
+    const savedInterests = JSON.parse(localStorage.getItem("fluxaInterests") || "[]");
+
+    if (savedInterests.length > 0) {
+      const filtered = mockGists.filter((gist) =>
+        savedInterests.some((interest: string) => gist.category?.toLowerCase().includes(interest.toLowerCase())),
+      );
+
+      setFilteredGists(filtered.length > 0 ? filtered : mockGists);
+    } else {
+      setFilteredGists(mockGists);
+    }
+  }, []);
 
   // ✅ Handle carousel selection
   useEffect(() => {
@@ -28,15 +44,15 @@ const Feed = () => {
 
   // ✅ Stop audio when changing cards
   useEffect(() => {
-    stopGistAudio(() => setIsPlaying(false));
+    stopGistAudio(setIsPlaying);
   }, [currentIndex]);
 
   // ✅ Play or stop gist audio
   const handlePlay = () => {
     if (isPlaying) {
-      stopGistAudio(() => setIsPlaying(false));
+      stopGistAudio(setIsPlaying);
     } else {
-      playGistAudio(currentIndex, () => setIsPlaying(true));
+      playGistAudio(currentIndex, setIsPlaying);
     }
   };
 
@@ -56,14 +72,14 @@ const Feed = () => {
       <div className="mb-8 text-center animate-fade-in">
         <h1 className="text-5xl font-bold text-foreground mb-2">Fluxa</h1>
         <p className="text-muted-foreground font-medium">
-          {currentIndex + 1} of {mockGists.length}
+          {filteredGists.length > 0 ? `${currentIndex + 1} of ${filteredGists.length}` : "Loading gists..."}
         </p>
       </div>
 
       {/* Swipeable Carousel */}
       <div className="overflow-hidden max-w-md w-full" ref={emblaRef}>
         <div className="flex">
-          {mockGists.map((gist, index) => (
+          {filteredGists.map((gist, index) => (
             <div key={gist.id} className="flex-[0_0_100%] min-w-0">
               <GossipCard
                 imageUrl={gist.imageUrl}
