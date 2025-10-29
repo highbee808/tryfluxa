@@ -2,14 +2,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { topics } from "@/data/topics";
 
 const Admin = () => {
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [topic, setTopic] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -62,27 +59,6 @@ const Admin = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Category (optional)</label>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={isGenerating}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {topics.map((topic) => (
-                    <SelectItem key={topic.id} value={topic.label}>
-                      {topic.emoji} {topic.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedCategory && (
-                <p className="text-xs text-muted-foreground">
-                  {topics.find(t => t.label === selectedCategory)?.description}
-                </p>
-              )}
-            </div>
-
             <div className="space-y-2">
               <label className="text-sm font-medium">Topic *</label>
               <Input

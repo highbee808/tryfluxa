@@ -13,42 +13,45 @@ interface GossipCardProps {
   onTellMore: () => void;
 }
 
-export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onNext, onTellMore }: GossipCardProps) => {
+export const GossipCard = ({
+  imageUrl,
+  headline,
+  context,
+  isPlaying,
+  onPlay,
+  onNext,
+  onTellMore,
+}: GossipCardProps) => {
   return (
-    <div
-      className="bg-card rounded-3xl overflow-hidden max-w-md w-full animate-scale-in"
-      style={{ boxShadow: "var(--shadow-soft)" }}
-    >
+    <div className="bg-card rounded-3xl overflow-hidden max-w-md w-full animate-scale-in" style={{ boxShadow: 'var(--shadow-soft)' }}>
       {/* Image */}
       <div className="relative aspect-[4/5] overflow-hidden">
-        <img src={imageUrl} alt={headline} className="w-full h-full object-cover" />
+        <img
+          src={imageUrl}
+          alt={headline}
+          className="w-full h-full object-cover"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
       </div>
 
       {/* Content */}
       <div className="p-6 space-y-4">
         <div className="space-y-2">
-          <h3 className="text-xl font-bold text-foreground leading-tight">{headline}</h3>
+          <h3 className="text-xl font-bold text-foreground leading-tight">
+            {headline}
+          </h3>
           <p className="text-muted-foreground leading-relaxed">{context}</p>
         </div>
 
         {/* Play Button */}
-        <button
+        <Button
           onClick={onPlay}
           disabled={isPlaying}
-          className="w-full py-3 rounded-full font-fredoka font-bold transition-all hover:scale-105 shadow-md
-    disabled:opacity-60 disabled:scale-100 bg-primary text-primary-foreground"
+          className="w-full rounded-xl bg-primary hover:bg-primary/90 transition-all duration-200"
         >
-          {isPlaying ? (
-            <div className="flex items-center gap-2 justify-center">
-              <span className="w-2 h-2 bg-primary-foreground rounded-full animate-pulse"></span>
-              <span className="w-2 h-2 bg-primary-foreground rounded-full animate-ping"></span>
-              Playing...
-            </div>
-          ) : (
-            "Play Gist"
-          )}
-        </button>
+          {isPlaying ? "Playing..." : "Play Gist"}
+        </Button>
+
 
         {/* Quick Replies */}
         <div className="flex gap-3">

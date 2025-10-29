@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { GossipCard } from "@/components/GossipCard";
-import { ChatBox } from "@/components/ChatBox";
 import { playGistAudio, stopGistAudio } from "@/lib/audio";
 import { mockGists } from "@/data/mockGists";
 import { toast } from "sonner";
@@ -8,14 +7,9 @@ import useEmblaCarousel from "embla-carousel-react";
 
 const Feed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlayingIndex, setIsPlayingIndex] = useState<number | null>(null);
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
 
-  // ✅ Filter gists based on selected interests
-  const selectedInterests = JSON.parse(localStorage.getItem("fluxaInterests") || "[]");
-  const filteredGists = mockGists.filter((gist) => selectedInterests.includes(gist.topic));
-
-  // ✅ Handle carousel selection
   useEffect(() => {
     if (!emblaApi) return;
 
@@ -31,83 +25,62 @@ const Feed = () => {
     };
   }, [emblaApi]);
 
-  // ✅ Stop audio when changing cards
   useEffect(() => {
-    stopGistAudio(() => setIsPlaying(false));
-  }, [currentIndex]);
+    // Stop audio when user swipes to another card
+    if (isPlayingIndex !== null && isPlayingIndex !== currentIndex) {
+      stopGistAudio(() => setIsPlayingIndex(null));
+    }
+  }, [currentIndex, isPlayingIndex]);
 
-  // ✅ Play or stop gist audio
-  const handlePlay = () => {
-    if (isPlaying) {
-      stopGistAudio(() => setIsPlaying(false));
+  const handlePlay = (index: number) => {
+    if (isPlayingIndex === index) {
+      stopGistAudio(() => setIsPlayingIndex(null));
     } else {
-      playGistAudio(currentIndex, () => setIsPlaying(true));
+      playGistAudio(index, () => setIsPlayingIndex(index));
     }
   };
 
-  // ✅ Go to next gist
   const handleNext = () => {
     emblaApi?.scrollNext();
   };
 
-  // ✅ "Tell me more" button
   const handleTellMore = () => {
-    toast.info("Bestie relax 😂 Chat mode is coming soon...");
+    toast.info("Conversational responses coming soon! 💬");
   };
 
   return (
     <div className="min-h-screen bg-gradient-warm flex flex-col items-center justify-center p-4">
       {/* Header */}
       <div className="mb-8 text-center animate-fade-in">
-        <h1 className={`text-5xl font-bold text-foreground mb-2 ${currentIndex === 0 ? "animate-bounce" : ""}`}>
-          Fluxa
-        </h1>
+        <h1 className="text-5xl font-bold text-foreground mb-2">Fluxa</h1>
         <p className="text-muted-foreground font-medium">
-          {filteredGists.length > 0 ? `${currentIndex + 1} of ${filteredGists.length}` : "Loading gists..."}
+          {currentIndex + 1} of {mockGists.length}
         </p>
       </div>
 
       {/* Swipeable Carousel */}
-      {filteredGists.length > 0 ? (
-        <div className="overflow-hidden max-w-md w-full" ref={emblaRef}>
-          <div className="flex">
-            {filteredGists.map((gist, index) => (
-              <div key={gist.id} className="flex-[0_0_100%] min-w-0">
-                <GossipCard
-                  imageUrl={gist.imageUrl}
-                  headline={gist.headline}
-                  context={gist.context}
-                  isPlaying={isPlaying && index === currentIndex}
-                  onPlay={handlePlay}
-                  onNext={handleNext}
-                  onTellMore={handleTellMore}
-                />
-              </div>
-            ))}
-          </div>
+      <div className="overflow-hidden max-w-md w-full" ref={emblaRef}>
+        <div className="flex">
+          {mockGists.map((gist, index) => (
+            <div key={gist.id} className="flex-[0_0_100%] min-w-0">
+              <GossipCard
+                imageUrl={gist.imageUrl}
+                headline={gist.headline}
+                context={gist.context}
+                isPlaying={isPlayingIndex === index}
+                onPlay={() => handlePlay(index)}
+                onNext={handleNext}
+                onTellMore={handleTellMore}
+              />
+            </div>
+          ))}
         </div>
-      ) : (
-        <div className="text-center text-muted-foreground mt-10">
-          <p>No matching gists found for your interests 😢</p>
-          <button
-            onClick={() => {
-              localStorage.removeItem("fluxaInterests");
-              window.location.href = "/";
-            }}
-            className="mt-4 underline text-primary font-medium"
-          >
-            Reset Interests
-          </button>
-        </div>
-      )}
+      </div>
 
       {/* Navigation Hint */}
       <p className="mt-6 text-sm text-muted-foreground animate-fade-in font-medium">
         Swipe or tap "Next gist" to continue
       </p>
-
-      {/* Chat Box */}
-      <ChatBox />
     </div>
   );
 };
