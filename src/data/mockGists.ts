@@ -5,13 +5,15 @@ export const mockGists = [
     headline: "Drake unfollowed somebody 👀",
     context: "The internet is screaming.\nEveryone wants answers.",
     audioIndex: 1,
+    topic: "Celebrity Gossip",
   },
   {
     id: 2,
     imageUrl: "/images/messi.jpg",
-    headline: "Messi’s celebration shocked fans ⚽",
+    headline: "Messi's celebration shocked fans ⚽",
     context: "He did something unexpected.\nEveryone is analyzing it.",
     audioIndex: 2,
+    topic: "Sports",
   },
   {
     id: 3,
@@ -19,6 +21,7 @@ export const mockGists = [
     headline: "TikTok prank gone wrong 😂",
     context: "A prank turned into a fail.\nPeople are dragging the prankster.",
     audioIndex: 3,
+    topic: "Memes",
   },
   {
     id: 4,
@@ -26,6 +29,7 @@ export const mockGists = [
     headline: "Influencer apology again 🎭",
     context: "Tears, soft music.\nAre we believing this one?",
     audioIndex: 4,
+    topic: "Celebrity Gossip",
   },
   {
     id: 5,
@@ -33,6 +37,7 @@ export const mockGists = [
     headline: "Fashion show chaos 😳",
     context: "Wardrobe malfunction caught.\nInternet is laughing.",
     audioIndex: 5,
+    topic: "Fashion",
   },
   {
     id: 6,
@@ -40,6 +45,7 @@ export const mockGists = [
     headline: "Gamer rage quit LIVE 😡",
     context: "Controller in the air.\nFans quoting the moment.",
     audioIndex: 6,
+    topic: "Gaming",
   },
   {
     id: 7,
@@ -47,6 +53,7 @@ export const mockGists = [
     headline: "Cat thief of the year 🐱",
     context: "Stole pizza.\nBecame a legend.",
     audioIndex: 7,
+    topic: "Memes",
   },
   {
     id: 8,
@@ -54,13 +61,15 @@ export const mockGists = [
     headline: "Confusing new update 😵‍💫",
     context: "Nobody understands it.\nWe suffer together.",
     audioIndex: 8,
+    topic: "Tech",
   },
   {
     id: 9,
     imageUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=900&q=80",
     headline: "Concert fainting challenge 🎤",
-    context: "A fan passed out dramatically.\nNow it’s a remix meme.",
+    context: "A fan passed out dramatically.\nNow it's a remix meme.",
     audioIndex: 9,
+    topic: "Music",
   },
   {
     id: 10,
@@ -68,5 +77,6 @@ export const mockGists = [
     headline: "Phone tossed back 📱😅",
     context: "Phone thrown on stage.\nArtist returned with energy.",
     audioIndex: 10,
+    topic: "Music",
   },
 ];

@@ -11,6 +11,10 @@ const Feed = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
 
+  // ✅ Filter gists based on selected interests
+  const selectedInterests = JSON.parse(localStorage.getItem("fluxaInterests") || "[]");
+  const filteredGists = mockGists.filter((gist) => selectedInterests.includes(gist.topic));
+
   // ✅ Handle carousel selection
   useEffect(() => {
     if (!emblaApi) return;
@@ -59,15 +63,15 @@ const Feed = () => {
           Fluxa
         </h1>
         <p className="text-muted-foreground font-medium">
-          {mockGists.length > 0 ? `${currentIndex + 1} of ${mockGists.length}` : "Loading gists..."}
+          {filteredGists.length > 0 ? `${currentIndex + 1} of ${filteredGists.length}` : "Loading gists..."}
         </p>
       </div>
 
       {/* Swipeable Carousel */}
-      {mockGists.length > 0 ? (
+      {filteredGists.length > 0 ? (
         <div className="overflow-hidden max-w-md w-full" ref={emblaRef}>
           <div className="flex">
-            {mockGists.map((gist, index) => (
+            {filteredGists.map((gist, index) => (
               <div key={gist.id} className="flex-[0_0_100%] min-w-0">
                 <GossipCard
                   imageUrl={gist.imageUrl}
