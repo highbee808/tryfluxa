@@ -9,6 +9,29 @@ const Feed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
+  const [filteredGists, setFilteredGists] = useState(mockGists);
+
+  // ✅ Load user interests from localStorage and filter gists
+  useEffect(() => {
+    const savedInterests = JSON.parse(localStorage.getItem("fluxaInterests") || "[]");
+
+    if (savedInterests.length > 0) {
+      const filtered = mockGists.filter((gist) =>
+        savedInterests.some((interest: string) => {
+          const interestLower = interest.toLowerCase();
+          return (
+            gist.category?.toLowerCase().includes(interestLower) ||
+            gist.headline.toLowerCase().includes(interestLower) ||
+            gist.context.toLowerCase().includes(interestLower)
+          );
+        }),
+      );
+
+      setFilteredGists(filtered.length > 0 ? filtered : mockGists);
+    } else {
+      setFilteredGists(mockGists);
+    }
+  }, []);
 
   // ✅ Handle carousel selection
   useEffect(() => {
@@ -28,15 +51,15 @@ const Feed = () => {
 
   // ✅ Stop audio when changing cards
   useEffect(() => {
-    stopGistAudio(() => setIsPlaying(false));
+    stopGistAudio(setIsPlaying);
   }, [currentIndex]);
 
   // ✅ Play or stop gist audio
   const handlePlay = () => {
     if (isPlaying) {
-      stopGistAudio(() => setIsPlaying(false));
+      stopGistAudio(setIsPlaying);
     } else {
-      playGistAudio(currentIndex, () => setIsPlaying(true));
+      playGistAudio(currentIndex, setIsPlaying);
     }
   };
 
@@ -58,15 +81,15 @@ const Feed = () => {
           Fluxa
         </h1>
         <p className="text-muted-foreground font-medium">
-          {mockGists.length > 0 ? `${currentIndex + 1} of ${mockGists.length}` : "Loading gists..."}
+          {filteredGists.length > 0 ? `${currentIndex + 1} of ${filteredGists.length}` : "Loading gists..."}
         </p>
       </div>
 
       {/* Swipeable Carousel */}
-      {mockGists.length > 0 ? (
+      {filteredGists.length > 0 ? (
         <div className="overflow-hidden max-w-md w-full" ref={emblaRef}>
           <div className="flex">
-            {mockGists.map((gist, index) => (
+            {filteredGists.map((gist, index) => (
               <div key={gist.id} className="flex-[0_0_100%] min-w-0">
                 <GossipCard
                   imageUrl={gist.imageUrl}
