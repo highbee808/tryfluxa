@@ -1,6 +1,7 @@
-import React from "react";
-import { Button } from "@/components/ui/button";
+import { playGistAudio, stopGistAudio } from "@/lib/audio";
 import { cn } from "@/lib/utils";
+import { Play, Pause } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface GossipCardProps {
   imageUrl: string;
@@ -12,61 +13,59 @@ interface GossipCardProps {
   onTellMore: () => void;
 }
 
-export const GossipCard: React.FC<GossipCardProps> = ({
-  imageUrl,
-  headline,
-  context,
-  isPlaying,
-  onPlay,
-  onNext,
-  onTellMore,
-}) => {
+export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onNext, onTellMore }: GossipCardProps) => {
   return (
     <div
-      className="rounded-2xl overflow-hidden shadow-lg transform transition-all duration-300 ease-out
-      hover:scale-[1.01] animate-slide-in bg-background border border-border"
+      className="bg-card rounded-3xl overflow-hidden max-w-md w-full animate-scale-in"
+      style={{ boxShadow: "var(--shadow-soft)" }}
     >
-      <div className="relative w-full h-64">
-       <img
-  src={imageUrl}
-  alt={headline}
-  className="w-full h-[60%] object-cover transition-opacity duration-700 opacity-0 animate-[fadeIn_0.7s_ease-out_forwards]"
-  onLoad={(e) => e.currentTarget.classList.add('opacity-100')}
-/>
+      {/* Image */}
+      <div className="relative aspect-[4/5] overflow-hidden">
+        <img src={imageUrl} alt={headline} className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
       </div>
 
-      <div className="p-5 flex flex-col gap-3">
-        <h2 className="text-2xl font-bold leading-tight text-foreground">{headline}</h2>
-
-        <p className="text-base text-muted-foreground whitespace-pre-line">{context}</p>
+      {/* Content */}
+      <div className="p-6 space-y-4">
+        <div className="space-y-2">
+          <h3 className="text-xl font-bold text-foreground leading-tight">{headline}</h3>
+          <p className="text-muted-foreground leading-relaxed">{context}</p>
+        </div>
 
         {/* Play Button */}
-        <Button
+        <button
           onClick={onPlay}
           disabled={isPlaying}
-          className="w-full py-3 rounded-full font-extrabold transition-all hover:scale-105
-          disabled:opacity-60 bg-primary text-primary-foreground shadow-md"
+          className="w-full py-3 rounded-full font-fredoka font-bold transition-all hover:scale-105 shadow-md
+    disabled:opacity-60 disabled:scale-100 bg-primary text-primary-foreground"
         >
           {isPlaying ? (
             <div className="flex items-center gap-2 justify-center">
-              <span className="w-2 h-2 bg-primary-foreground rounded-full animate-pulse" />
-              <span className="w-2 h-2 bg-primary-foreground rounded-full animate-ping" />
+              <span className="w-2 h-2 bg-primary-foreground rounded-full animate-pulse"></span>
+              <span className="w-2 h-2 bg-primary-foreground rounded-full animate-ping"></span>
               Playing...
             </div>
           ) : (
             "Play Gist"
           )}
-        </Button>
+        </button>
 
-        {/* Action Buttons */}
-        <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground font-medium">
-          <button onClick={onTellMore} className="hover:underline">
+        {/* Quick Replies */}
+        <div className="flex gap-3">
+          <Button
+            onClick={onTellMore}
+            variant="outline"
+            className="flex-1 rounded-xl border-2 hover:border-accent/50 hover:bg-accent/10 transition-all duration-200"
+          >
             Tell me more
-          </button>
-
-          <button onClick={onNext} className="hover:underline text-right">
+          </Button>
+          <Button
+            onClick={onNext}
+            variant="outline"
+            className="flex-1 rounded-xl border-2 hover:border-accent/50 hover:bg-accent/10 transition-all duration-200"
+          >
             Next gist →
-          </button>
+          </Button>
         </div>
       </div>
     </div>

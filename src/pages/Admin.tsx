@@ -2,9 +2,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { FeedbackButton } from "@/components/FeedbackButton";
-import { FeedbackList } from "@/components/FeedbackList";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -137,13 +134,7 @@ const Admin = () => {
             View Feed
           </Button>
         </div>
-
-        <Separator className="my-8" />
-
-        <FeedbackList />
       </div>
-      
-      <FeedbackButton />
     </div>
   );
 };
