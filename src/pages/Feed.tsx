@@ -7,9 +7,26 @@ import useEmblaCarousel from "embla-carousel-react";
 
 const Feed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPlayingIndex, setIsPlayingIndex] = useState<number | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
+  const [filteredGists, setFilteredGists] = useState(mockGists);
 
+  // ✅ Load user interests from localStorage
+  useEffect(() => {
+    const savedInterests = JSON.parse(localStorage.getItem("fluxaInterests") || "[]");
+
+    if (savedInterests.length > 0) {
+      const filtered = mockGists.filter((gist) =>
+        savedInterests.some((interest: string) => gist.category?.toLowerCase().includes(interest.toLowerCase())),
+      );
+
+      setFilteredGists(filtered.length > 0 ? filtered : mockGists);
+    } else {
+      setFilteredGists(mockGists);
+    }
+  }, []);
+
+  // ✅ Handle carousel selection
   useEffect(() => {
     if (!emblaApi) return;
 
@@ -25,27 +42,28 @@ const Feed = () => {
     };
   }, [emblaApi]);
 
+  // ✅ Stop audio when changing cards
   useEffect(() => {
-    // Stop audio when user swipes to another card
-    if (isPlayingIndex !== null && isPlayingIndex !== currentIndex) {
-      stopGistAudio(() => setIsPlayingIndex(null));
-    }
-  }, [currentIndex, isPlayingIndex]);
+    stopGistAudio(setIsPlaying);
+  }, [currentIndex]);
 
-  const handlePlay = (index: number) => {
-    if (isPlayingIndex === index) {
-      stopGistAudio(() => setIsPlayingIndex(null));
+  // ✅ Play or stop gist audio
+  const handlePlay = () => {
+    if (isPlaying) {
+      stopGistAudio(setIsPlaying);
     } else {
-      playGistAudio(index, () => setIsPlayingIndex(index));
+      playGistAudio(currentIndex, setIsPlaying);
     }
   };
 
+  // ✅ Go to next gist
   const handleNext = () => {
     emblaApi?.scrollNext();
   };
 
+  // ✅ “Tell me more” button
   const handleTellMore = () => {
-    toast.info("Conversational responses coming soon! 💬");
+    toast.info("Conversational mode coming soon 💬");
   };
 
   return (
@@ -54,21 +72,21 @@ const Feed = () => {
       <div className="mb-8 text-center animate-fade-in">
         <h1 className="text-5xl font-bold text-foreground mb-2">Fluxa</h1>
         <p className="text-muted-foreground font-medium">
-          {currentIndex + 1} of {mockGists.length}
+          {filteredGists.length > 0 ? `${currentIndex + 1} of ${filteredGists.length}` : "Loading gists..."}
         </p>
       </div>
 
       {/* Swipeable Carousel */}
       <div className="overflow-hidden max-w-md w-full" ref={emblaRef}>
         <div className="flex">
-          {mockGists.map((gist, index) => (
+          {filteredGists.map((gist, index) => (
             <div key={gist.id} className="flex-[0_0_100%] min-w-0">
               <GossipCard
                 imageUrl={gist.imageUrl}
                 headline={gist.headline}
                 context={gist.context}
-                isPlaying={isPlayingIndex === index}
-                onPlay={() => handlePlay(index)}
+                isPlaying={isPlaying && index === currentIndex}
+                onPlay={handlePlay}
                 onNext={handleNext}
                 onTellMore={handleTellMore}
               />
@@ -79,7 +97,7 @@ const Feed = () => {
 
       {/* Navigation Hint */}
       <p className="mt-6 text-sm text-muted-foreground animate-fade-in font-medium">
-        Swipe or tap "Next gist" to continue
+        Swipe or tap “Next gist” to continue
       </p>
     </div>
   );
