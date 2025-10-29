@@ -47,7 +47,7 @@ const Feed = () => {
 
   // ✅ “Tell me more” button
   const handleTellMore = () => {
-    toast.info("Bestie relax 😂 Chat mode is loading...");
+    toast.info("Bestie relax 😂 Chat mode is coming soon...");
   };
 
   return (
