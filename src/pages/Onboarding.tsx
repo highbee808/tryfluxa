@@ -2,21 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { InterestChip } from "@/components/InterestChip";
 import { Button } from "@/components/ui/button";
-
-const interests = [
-  "Afrobeats",
-  "Celebrity Gossip",
-  "Sports",
-  "Memes",
-  "Tech",
-  "Gaming",
-  "Fashion",
-  "Anime",
-  "Music",
-  "Movies",
-  "Politics",
-  "Food",
-];
+import { topics } from "@/data/topics";
 
 const Onboarding = () => {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
@@ -56,12 +42,12 @@ const Onboarding = () => {
 
         {/* Interest Chips */}
         <div className="flex flex-wrap gap-3 justify-center">
-          {interests.map((interest) => (
+          {topics.map((topic) => (
             <InterestChip
-              key={interest}
-              label={interest}
-              selected={selectedInterests.includes(interest)}
-              onClick={() => toggleInterest(interest)}
+              key={topic.id}
+              label={`${topic.emoji} ${topic.label}`}
+              selected={selectedInterests.includes(topic.label)}
+              onClick={() => toggleInterest(topic.label)}
             />
           ))}
         </div>
@@ -69,7 +55,7 @@ const Onboarding = () => {
         {/* Selection Counter */}
         <div className="text-center">
           <p className="text-muted-foreground">
-            {selectedInterests.length} / {interests.length} selected
+            {selectedInterests.length} / {topics.length} selected
           </p>
         </div>
 
