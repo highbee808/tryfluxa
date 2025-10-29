@@ -1,5 +1,4 @@
 import React from "react";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +27,7 @@ export const GossipCard: React.FC<GossipCardProps> = ({
       hover:scale-[1.01] animate-slide-in bg-background border border-border"
     >
       <div className="relative w-full h-64">
-        <Image src={imageUrl} alt={headline} fill className="object-cover" />
+        <img src={imageUrl} alt={headline} className="w-full h-full object-cover" />
       </div>
 
       <div className="p-5 flex flex-col gap-3">
