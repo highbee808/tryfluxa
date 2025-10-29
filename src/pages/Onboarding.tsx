@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { InterestChip } from "@/components/InterestChip";
+import { FeedbackButton } from "@/components/FeedbackButton";
 import { Button } from "@/components/ui/button";
 
 const interests = [
@@ -85,6 +86,8 @@ const Onboarding = () => {
           </div>
         )}
       </div>
+      
+      <FeedbackButton />
     </div>
   );
 };

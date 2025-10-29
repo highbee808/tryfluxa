@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { GossipCard } from "@/components/GossipCard";
 import { playGistAudio, stopGistAudio } from "@/lib/audio";
 import { mockGists } from "@/data/mockGists";
+import { FeedbackButton } from "@/components/FeedbackButton";
 import { toast } from "sonner";
 import useEmblaCarousel from "embla-carousel-react";
 
@@ -81,6 +82,8 @@ const Feed = () => {
       <p className="mt-6 text-sm text-muted-foreground animate-fade-in font-medium">
         Swipe or tap "Next gist" to continue
       </p>
+      
+      <FeedbackButton />
     </div>
   );
 };
