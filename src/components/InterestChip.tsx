@@ -11,11 +11,11 @@ export const InterestChip = ({ label, selected, onClick }: InterestChipProps) =>
     <button
       onClick={onClick}
       className={cn(
-        "px-6 py-3 rounded-full font-semibold transition-all duration-300",
-        "border-0 hover:scale-105 active:scale-95",
+        "px-6 py-3 rounded-full font-medium transition-all duration-300",
+        "border-2 hover:scale-105 active:scale-95",
         selected
-          ? "bg-primary text-primary-foreground shadow-soft"
-          : "bg-card text-foreground shadow-soft hover:shadow-hover"
+          ? "bg-accent text-accent-foreground border-accent shadow-soft"
+          : "bg-card text-foreground border-border hover:border-accent/50"
       )}
     >
       {label}
