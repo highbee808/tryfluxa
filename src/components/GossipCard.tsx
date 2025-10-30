@@ -57,7 +57,7 @@ export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onN
             variant="outline"
             className="flex-1 rounded-xl border-2 hover:border-accent/50 hover:bg-accent/10 transition-all duration-200"
           >
-            Tell me more
+            Ask Fluxa 💬
           </Button>
           <Button
             onClick={onNext}

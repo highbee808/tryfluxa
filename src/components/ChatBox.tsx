@@ -8,64 +8,53 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 type Message = {
-  role: "user" | "assistant";
+  role: "user" | "fluxa";
   content: string;
 };
 
-export const ChatBox = () => {
+interface ChatBoxProps {
+  initialContext?: {
+    topic: string;
+    summary: string;
+  };
+}
+
+export const ChatBox = ({ initialContext }: ChatBoxProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Load conversation history on mount
+  // Load chat history from localStorage
   useEffect(() => {
-    const loadConversation = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Get or create conversation
-      const { data: conversations } = await supabase
-        .from('user_conversations')
-        .select('conversation_id')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      let convId: string;
-      if (conversations && conversations.length > 0) {
-        convId = conversations[0].conversation_id;
-      } else {
-        // Create new conversation
-        convId = crypto.randomUUID();
-        await supabase
-          .from('user_conversations')
-          .insert({ user_id: user.id, conversation_id: convId });
+    const saved = localStorage.getItem("fluxa_feed_chat");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setMessages(parsed.map((m: any) => ({ ...m })));
+      } catch (e) {
+        console.error("Failed to load chat history:", e);
       }
-
-      setConversationId(convId);
-
-      // Load messages from this conversation
-      const { data: chatMessages } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('conversation_id', convId)
-        .order('created_at', { ascending: true });
-
-      if (chatMessages) {
-        const loadedMessages: Message[] = chatMessages.map(msg => ({
-          role: msg.role as "user" | "assistant",
-          content: msg.content
-        }));
-        setMessages(loadedMessages);
-      }
-    };
-
-    loadConversation();
+    }
   }, []);
+
+  // Save chat history to localStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem("fluxa_feed_chat", JSON.stringify(messages));
+    }
+  }, [messages]);
+
+  // Handle initial context (when "Ask Fluxa" is clicked)
+  useEffect(() => {
+    if (initialContext && isOpen) {
+      const contextMessage = `Tell me more about: ${initialContext.topic}`;
+      handleSend(contextMessage);
+    }
+  }, [initialContext, isOpen]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -73,146 +62,74 @@ export const ChatBox = () => {
     }
   }, [messages]);
 
-  const streamChat = async (userMessage: Message) => {
+  const playFluxaVoice = async (text: string) => {
+    setIsSpeaking(true);
     try {
-      const resp = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ messages: [...messages, userMessage] }),
+      const { data, error } = await supabase.functions.invoke("text-to-speech", {
+        body: { text, voice: "shimmer", speed: 1.0 }
       });
 
-      if (!resp.ok) {
-        if (resp.status === 429) {
-          toast.error("Whoa, slow down bestie! Try again in a sec 😅");
-          return;
+      if (error) throw error;
+
+      if (data?.audioUrl) {
+        if (currentAudioRef.current) {
+          currentAudioRef.current.pause();
         }
-        if (resp.status === 402) {
-          toast.error("Fluxa's taking a quick break. Try again soon! 🙏");
-          return;
-        }
-        throw new Error("Failed to start stream");
-      }
 
-      if (!resp.body) throw new Error("No response body");
+        const audio = new Audio(data.audioUrl);
+        currentAudioRef.current = audio;
+        
+        audio.onended = () => {
+          setIsSpeaking(false);
+          currentAudioRef.current = null;
+        };
+        
+        audio.onerror = () => {
+          setIsSpeaking(false);
+          currentAudioRef.current = null;
+        };
 
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = "";
-      let streamDone = false;
-      let assistantContent = "";
-
-      while (!streamDone) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") {
-            streamDone = true;
-            break;
-          }
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) {
-              assistantContent += content;
-              setMessages((prev) => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant") {
-                  return prev.map((m, i) =>
-                    i === prev.length - 1 ? { ...m, content: assistantContent } : m
-                  );
-                }
-                return [...prev, { role: "assistant", content: assistantContent }];
-              });
-            }
-          } catch {
-            textBuffer = line + "\n" + textBuffer;
-            break;
-          }
-        }
-      }
-
-      if (textBuffer.trim()) {
-        for (let raw of textBuffer.split("\n")) {
-          if (!raw) continue;
-          if (raw.endsWith("\r")) raw = raw.slice(0, -1);
-          if (raw.startsWith(":") || raw.trim() === "") continue;
-          if (!raw.startsWith("data: ")) continue;
-          const jsonStr = raw.slice(6).trim();
-          if (jsonStr === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) {
-              assistantContent += content;
-              setMessages((prev) => {
-                const last = prev[prev.length - 1];
-                if (last?.role === "assistant") {
-                  return prev.map((m, i) =>
-                    i === prev.length - 1 ? { ...m, content: assistantContent } : m
-                  );
-                }
-                return [...prev, { role: "assistant", content: assistantContent }];
-              });
-            }
-          } catch {}
-        }
-      }
-
-      // Save assistant message to database after streaming completes
-      if (assistantContent && conversationId) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase.from('chat_messages').insert({
-            conversation_id: conversationId,
-            role: 'assistant',
-            content: assistantContent
-          });
-        }
+        await audio.play();
       }
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error("Stream error:", error);
-      }
-      toast.error("Failed to send message. Please try again!");
-    } finally {
-      setIsLoading(false);
+      console.error("Error playing voice:", error);
+      setIsSpeaking(false);
     }
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading || !conversationId) return;
+  const handleSend = async (messageText?: string) => {
+    const textToSend = messageText || input.trim();
+    if (!textToSend || isLoading) return;
 
-    const userMessage: Message = { role: "user", content: input.trim() };
+    const userMessage: Message = { role: "user", content: textToSend };
     setMessages((prev) => [...prev, userMessage]);
-    setInput("");
+    if (!messageText) setInput("");
     setIsLoading(true);
 
-    // Save user message to database
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from('chat_messages').insert({
-        conversation_id: conversationId,
-        role: 'user',
-        content: userMessage.content
+    try {
+      const { data, error } = await supabase.functions.invoke("fluxa-chat", {
+        body: { 
+          message: userMessage.content,
+          conversationHistory: messages.slice(-5)
+        }
       });
-    }
 
-    await streamChat(userMessage);
+      if (error) throw error;
+
+      const fluxaMessage: Message = {
+        role: "fluxa",
+        content: data.reply,
+      };
+
+      setMessages((prev) => [...prev, fluxaMessage]);
+      await playFluxaVoice(data.reply);
+
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast.error("Oops! Fluxa got distracted for a sec 😅");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -237,12 +154,19 @@ export const ChatBox = () => {
 
       {/* Chat Panel */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-96 h-[32rem] bg-card border border-border rounded-2xl shadow-2xl flex flex-col z-50 animate-scale-in">
+        <div className="fixed bottom-0 left-0 right-0 md:bottom-6 md:right-6 md:left-auto w-full md:w-96 h-[85vh] md:h-[32rem] bg-card border-t md:border border-border md:rounded-2xl shadow-2xl flex flex-col z-50 animate-fade-in-up">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border bg-primary/5 rounded-t-2xl">
+          <div className="flex items-center justify-between p-4 border-b border-border bg-primary/5 md:rounded-t-2xl">
             <div className="flex items-center gap-2">
-              <MessageCircle className="w-5 h-5 text-primary" />
-              <h3 className="font-bold text-foreground">Chat with Fluxa 💬</h3>
+              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-2xl animate-pulse">
+                💅
+              </div>
+              <div>
+                <h3 className="font-bold text-foreground">Chat with Fluxa</h3>
+                {isSpeaking && (
+                  <p className="text-xs text-muted-foreground animate-pulse">Speaking...</p>
+                )}
+              </div>
             </div>
             <Button
               variant="ghost"
@@ -257,10 +181,12 @@ export const ChatBox = () => {
           {/* Messages */}
           <ScrollArea className="flex-1 p-4" ref={scrollRef}>
             {messages.length === 0 ? (
-              <div className="text-center text-muted-foreground py-8">
-                <MessageCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm">Hey bestie! 👋</p>
-                <p className="text-sm mt-1">Ask me anything about the gists!</p>
+              <div className="text-center text-muted-foreground py-8 space-y-3 animate-fade-in">
+                <div className="w-20 h-20 mx-auto rounded-full bg-primary/20 flex items-center justify-center text-4xl animate-bounce">
+                  💅
+                </div>
+                <p className="text-sm font-medium">Hey bestie! 👋</p>
+                <p className="text-sm">Ask me anything about the gists!</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -268,7 +194,7 @@ export const ChatBox = () => {
                   <div
                     key={idx}
                     className={cn(
-                      "flex",
+                      "flex animate-fade-in-up",
                       msg.role === "user" ? "justify-end" : "justify-start"
                     )}
                   >
@@ -277,13 +203,29 @@ export const ChatBox = () => {
                         "max-w-[80%] rounded-2xl px-4 py-2 text-sm",
                         msg.role === "user"
                           ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground"
+                          : "bg-card text-foreground shadow-soft border border-border/20"
                       )}
                     >
-                      {msg.content}
+                      {msg.role === "fluxa" && (
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-lg">💅</span>
+                          <span className="text-xs font-semibold text-primary">Fluxa</span>
+                        </div>
+                      )}
+                      <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                     </div>
                   </div>
                 ))}
+                {isLoading && (
+                  <div className="flex justify-start animate-fade-in-up">
+                    <div className="bg-card text-foreground rounded-2xl px-4 py-3 shadow-soft border border-border/20">
+                      <div className="flex items-center gap-2">
+                        <div className="loader" style={{ width: '20px', height: '20px', borderWidth: '3px' }} />
+                        <span className="text-sm text-muted-foreground">Fluxa is typing...</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </ScrollArea>
@@ -300,7 +242,7 @@ export const ChatBox = () => {
                 className="flex-1"
               />
               <Button
-                onClick={handleSend}
+                onClick={() => handleSend()}
                 disabled={isLoading || !input.trim()}
                 size="icon"
                 className="shrink-0"

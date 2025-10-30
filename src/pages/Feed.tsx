@@ -25,6 +25,7 @@ const Feed = () => {
   const [gists, setGists] = useState<Gist[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+  const [chatContext, setChatContext] = useState<{ topic: string; summary: string } | undefined>(undefined);
 
   // Fetch gists from backend
   useEffect(() => {
@@ -109,9 +110,13 @@ const Feed = () => {
     emblaApi?.scrollNext();
   };
 
-  // "Tell me more" button
+  // "Ask Fluxa" button
   const handleTellMore = () => {
-    toast.info("Chat with Fluxa using the chat box below!");
+    if (!gists[currentIndex]) return;
+    setChatContext({
+      topic: gists[currentIndex].headline,
+      summary: gists[currentIndex].context,
+    });
   };
 
   if (isLoading) {
@@ -193,7 +198,7 @@ const Feed = () => {
       </p>
 
       {/* Chat Box */}
-      <ChatBox />
+      <ChatBox initialContext={chatContext} />
     </div>
   );
 };
