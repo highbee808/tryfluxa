@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.fluxa-daily-drop]
 verify_jwt = true
+
+[functions.generate-stories]
+verify_jwt = false
+
+[functions.fluxa-daily-recap]
+verify_jwt = false

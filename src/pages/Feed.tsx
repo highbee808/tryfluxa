@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { GossipCard } from "@/components/GossipCard";
 import { ChatBox } from "@/components/ChatBox";
+import { StoryBubble } from "@/components/StoryBubble";
+import { StoryViewer } from "@/components/StoryViewer";
 import { stopGistAudio } from "@/lib/audio";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -9,6 +11,7 @@ import { Loader2, Brain } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useFluxaMemory } from "@/hooks/useFluxaMemory";
 import { Card } from "@/components/ui/card";
+import { requestNotificationPermission, sendFluxaAlert, fluxaNotifications } from "@/lib/notifications";
 
 interface Gist {
   id: string;
@@ -30,7 +33,37 @@ const Feed = () => {
   const [chatContext, setChatContext] = useState<{ topic: string; summary: string } | undefined>(undefined);
   const [greeting, setGreeting] = useState<string>("Hey bestie! 👋");
   const [dailyDrop, setDailyDrop] = useState<any>(null);
+  const [stories, setStories] = useState<any[]>([]);
+  const [showStoryViewer, setShowStoryViewer] = useState(false);
+  const [storyStartIndex, setStoryStartIndex] = useState(0);
   const { updateGistHistory, getGreeting } = useFluxaMemory();
+
+  // Request notification permission on load
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
+
+  // Fetch stories
+  const fetchStories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("stories")
+        .select("*")
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setStories(data || []);
+
+      // Send notification if new stories available
+      if (data && data.length > 0) {
+        const notification = fluxaNotifications.newStories();
+        sendFluxaAlert(notification.title, notification.body);
+      }
+    } catch (error) {
+      console.error("Error fetching stories:", error);
+    }
+  };
 
   // Fetch gists from backend
   useEffect(() => {
@@ -86,6 +119,7 @@ const Feed = () => {
     fetchGists();
     loadGreeting();
     loadDailyDrop();
+    fetchStories();
   }, []);
 
   // ✅ Handle carousel selection
@@ -163,6 +197,33 @@ const Feed = () => {
 
   return (
     <div className="min-h-screen bg-gradient-warm flex flex-col items-center justify-center p-4">
+      {/* Story Viewer */}
+      {showStoryViewer && stories.length > 0 && (
+        <StoryViewer
+          stories={stories}
+          initialIndex={storyStartIndex}
+          onClose={() => setShowStoryViewer(false)}
+        />
+      )}
+
+      {/* Stories Row */}
+      {stories.length > 0 && (
+        <div className="w-full max-w-md mb-4 overflow-x-auto">
+          <div className="flex gap-3 px-4 py-2">
+            {stories.map((story, idx) => (
+              <StoryBubble
+                key={story.id}
+                story={story}
+                onClick={() => {
+                  setStoryStartIndex(idx);
+                  setShowStoryViewer(true);
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Greeting Card */}
       {greeting && (
         <Card className="max-w-md w-full p-4 mb-4 bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20 animate-fade-in">

@@ -155,6 +155,79 @@ export type Database = {
         }
         Relationships: []
       }
+      stories: {
+        Row: {
+          audio_url: string
+          created_at: string
+          duration: number | null
+          expires_at: string | null
+          gist_id: string | null
+          id: string
+          image_url: string | null
+          title: string
+        }
+        Insert: {
+          audio_url: string
+          created_at?: string
+          duration?: number | null
+          expires_at?: string | null
+          gist_id?: string | null
+          id?: string
+          image_url?: string | null
+          title: string
+        }
+        Update: {
+          audio_url?: string
+          created_at?: string
+          duration?: number | null
+          expires_at?: string | null
+          gist_id?: string | null
+          id?: string
+          image_url?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stories_gist_id_fkey"
+            columns: ["gist_id"]
+            isOneToOne: false
+            referencedRelation: "gists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_reactions: {
+        Row: {
+          created_at: string
+          id: string
+          reaction: string
+          story_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reaction: string
+          story_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reaction?: string
+          story_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_reactions_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_conversations: {
         Row: {
           conversation_id: string
