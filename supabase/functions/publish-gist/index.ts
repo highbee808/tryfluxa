@@ -170,9 +170,46 @@ serve(async (req) => {
       let finalImageUrl
       
       if (ai_generated_image) {
-        // Use AI-generated image for celebrities
-        finalImageUrl = ai_generated_image
-        console.log('🧠 AI image generated for celebrity:', image_keyword)
+        // Upload AI-generated base64 image to storage
+        console.log('📤 Uploading AI-generated image to storage...')
+        try {
+          // Extract base64 data and convert to blob
+          const base64Data = ai_generated_image.replace(/^data:image\/\w+;base64,/, '')
+          const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0))
+          
+          // Generate unique filename
+          const filename = `gist-${Date.now()}-${Math.random().toString(36).substring(7)}.png`
+          
+          // Upload to storage bucket
+          const { data: uploadData, error: uploadError } = await supabaseClient.storage
+            .from('gist-audio')
+            .upload(filename, binaryData, {
+              contentType: 'image/png',
+              upsert: false
+            })
+          
+          if (uploadError) {
+            console.log('⚠️ Failed to upload AI image to storage:', uploadError.message)
+            // Fallback to Unsplash
+            const keyword = image_keyword || 'trending news'
+            finalImageUrl = `https://source.unsplash.com/800x600/?${encodeURIComponent(keyword)}`
+            console.log('🖼️ Falling back to stock image:', keyword)
+          } else {
+            // Get public URL
+            const { data: urlData } = supabaseClient.storage
+              .from('gist-audio')
+              .getPublicUrl(filename)
+            
+            finalImageUrl = urlData.publicUrl
+            console.log('🧠 AI image uploaded and URL generated:', finalImageUrl)
+          }
+        } catch (uploadError) {
+          console.log('⚠️ Error processing AI image:', uploadError instanceof Error ? uploadError.message : 'Unknown error')
+          // Fallback to Unsplash
+          const keyword = image_keyword || 'trending news'
+          finalImageUrl = `https://source.unsplash.com/800x600/?${encodeURIComponent(keyword)}`
+          console.log('🖼️ Falling back to stock image:', keyword)
+        }
       } else if (imageUrl) {
         // Use provided image URL
         finalImageUrl = imageUrl

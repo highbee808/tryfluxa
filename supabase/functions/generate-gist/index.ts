@@ -140,36 +140,48 @@ Rules:
       throw new Error('AI returned invalid JSON')
     }
 
-    // Generate AI image for celebrities using OpenAI
+    // Generate AI image for celebrities using Lovable AI
     let generatedImageUrl = null
     if (isCelebrity) {
       console.log('🧠 Generating AI image for celebrity topic...')
       try {
-        const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
-        if (!openaiApiKey) {
-          console.log('⚠️ OPENAI_API_KEY not found, falling back to stock images')
+        const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
+        if (!lovableApiKey) {
+          console.log('⚠️ LOVABLE_API_KEY not found, falling back to stock images')
         } else {
-          const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
+          const imagePrompt = `High-quality realistic portrait style image of ${content.image_keyword || topic}, cinematic lighting, magazine cover aesthetic, professional photography, vibrant colors`
+          console.log('🎨 Image prompt:', imagePrompt)
+          
+          const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${openaiApiKey}`,
+              'Authorization': `Bearer ${lovableApiKey}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              model: 'gpt-image-1',
-              prompt: `High-quality realistic portrait style image of ${content.image_keyword || topic}, cinematic lighting, magazine cover aesthetic, professional photography`,
-              n: 1,
-              size: '1024x1024',
+              model: 'google/gemini-2.5-flash-image-preview',
+              messages: [
+                {
+                  role: 'user',
+                  content: imagePrompt
+                }
+              ],
+              modalities: ['image', 'text']
             }),
           })
 
           if (imageResponse.ok) {
             const imageData = await imageResponse.json()
-            generatedImageUrl = imageData.data[0]?.url
-            console.log('🧠 AI image generated successfully for celebrity topic')
+            const base64Image = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url
+            if (base64Image) {
+              generatedImageUrl = base64Image
+              console.log('🧠 AI image generated successfully for celebrity topic (base64 length:', base64Image.length, ')')
+            } else {
+              console.log('⚠️ No image data in response')
+            }
           } else {
             const error = await imageResponse.text()
-            console.log('⚠️ OpenAI image generation failed:', imageResponse.status, error)
+            console.log('⚠️ Lovable AI image generation failed:', imageResponse.status, error)
           }
         }
       } catch (error) {
