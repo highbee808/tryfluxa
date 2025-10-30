@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import useEmblaCarousel from "embla-carousel-react";
 import { Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface Gist {
   id: string;
@@ -17,6 +18,7 @@ interface Gist {
 }
 
 const Feed = () => {
+  const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
@@ -127,6 +129,14 @@ const Feed = () => {
     <div className="min-h-screen bg-gradient-warm flex flex-col items-center justify-center p-4">
       {/* Header */}
       <div className="mb-8 text-center animate-fade-in">
+        <div className="flex items-center justify-center gap-4 mb-4">
+          <button
+            onClick={() => navigate("/fluxa-mode")}
+            className="px-4 py-2 bg-accent text-accent-foreground rounded-full font-medium hover:bg-accent/90 transition-all hover:scale-105 shadow-soft"
+          >
+            💬 Chat with Fluxa
+          </button>
+        </div>
         <h1 className={`text-5xl font-bold text-foreground mb-2 ${currentIndex === 0 ? "animate-bounce" : ""}`}>
           Fluxa
         </h1>
