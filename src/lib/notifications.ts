@@ -52,3 +52,26 @@ export const fluxaNotifications = {
     body: "5 gists you missed overnight — tap to catch up!",
   }),
 };
+
+export const sendFluxaPushNotification = async (title: string, body: string, icon?: string) => {
+  if (!("Notification" in window)) {
+    console.log("This browser does not support notifications");
+    return;
+  }
+
+  if (Notification.permission === "granted") {
+    new Notification(title, {
+      body,
+      icon: icon || "/fluxa_icon.png",
+      badge: "/fluxa_icon.png",
+    });
+  }
+};
+
+// Send notification when Fluxa goes live
+export const notifyFluxaLive = async (topic: string) => {
+  await sendFluxaPushNotification(
+    "Fluxa's Live 🎙️",
+    `I'm live right now spilling tea on ${topic}! Join me 👀`
+  );
+};

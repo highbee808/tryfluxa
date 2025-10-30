@@ -7,10 +7,11 @@ import { stopGistAudio } from "@/lib/audio";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import useEmblaCarousel from "embla-carousel-react";
-import { Loader2, Brain } from "lucide-react";
+import { Brain, Radio } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useFluxaMemory } from "@/hooks/useFluxaMemory";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { requestNotificationPermission, sendFluxaAlert, fluxaNotifications } from "@/lib/notifications";
 
 interface Gist {
@@ -253,12 +254,22 @@ const Feed = () => {
           >
             💬 Chat with Fluxa
           </button>
-          <button
+          <Button
             onClick={() => navigate("/memory")}
-            className="p-2 bg-card rounded-full hover:bg-card/90 transition-all hover:scale-105 shadow-soft"
+            variant="outline"
+            size="sm"
           >
-            <Brain className="w-5 h-5" />
-          </button>
+            <Brain className="w-4 h-4 mr-2" />
+            Memory
+          </Button>
+          <Button
+            onClick={() => navigate("/live")}
+            variant="outline"
+            size="sm"
+          >
+            <Radio className="w-4 h-4 mr-2" />
+            Live
+          </Button>
         </div>
         <h1 className={`text-5xl font-bold text-foreground mb-2 ${currentIndex === 0 ? "animate-bounce" : ""}`}>
           Fluxa

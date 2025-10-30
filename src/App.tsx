@@ -10,6 +10,8 @@ import FluxaMode from "./pages/FluxaMode";
 import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import Memory from "./pages/Memory";
+import Live from "./pages/Live";
+import LiveRoom from "./pages/LiveRoom";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +30,8 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/memory" element={<Memory />} />
+          <Route path="/live" element={<Live />} />
+          <Route path="/live/:sessionId" element={<LiveRoom />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

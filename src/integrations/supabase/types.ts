@@ -155,6 +155,121 @@ export type Database = {
         }
         Relationships: []
       }
+      live_participants: {
+        Row: {
+          hand_raised: boolean | null
+          id: string
+          is_speaking: boolean | null
+          joined_at: string | null
+          role: string | null
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          hand_raised?: boolean | null
+          id?: string
+          is_speaking?: boolean | null
+          joined_at?: string | null
+          role?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          hand_raised?: boolean | null
+          id?: string
+          is_speaking?: boolean | null
+          joined_at?: string | null
+          role?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_participants_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "live_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      live_reactions: {
+        Row: {
+          created_at: string | null
+          id: string
+          reaction: string
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          reaction: string
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          reaction?: string
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_reactions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "live_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      live_sessions: {
+        Row: {
+          chat_history: Json | null
+          created_at: string | null
+          description: string | null
+          ended_at: string | null
+          host_id: string | null
+          id: string
+          participant_count: number | null
+          replay_audio_url: string | null
+          started_at: string | null
+          status: string | null
+          title: string
+          topic: string
+        }
+        Insert: {
+          chat_history?: Json | null
+          created_at?: string | null
+          description?: string | null
+          ended_at?: string | null
+          host_id?: string | null
+          id?: string
+          participant_count?: number | null
+          replay_audio_url?: string | null
+          started_at?: string | null
+          status?: string | null
+          title: string
+          topic: string
+        }
+        Update: {
+          chat_history?: Json | null
+          created_at?: string | null
+          description?: string | null
+          ended_at?: string | null
+          host_id?: string | null
+          id?: string
+          participant_count?: number | null
+          replay_audio_url?: string | null
+          started_at?: string | null
+          status?: string | null
+          title?: string
+          topic?: string
+        }
+        Relationships: []
+      }
       stories: {
         Row: {
           audio_url: string
