@@ -27,6 +27,11 @@ const Feed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
+  const [desktopEmblaRef, desktopEmblaApi] = useEmblaCarousel({ 
+    loop: true, 
+    align: "center",
+    containScroll: "trimSnaps"
+  });
   const [gists, setGists] = useState<Gist[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
@@ -178,7 +183,7 @@ const Feed = () => {
     };
   }, []);
 
-  // ✅ Handle carousel selection
+  // ✅ Handle mobile carousel selection
   useEffect(() => {
     if (!emblaApi) return;
 
@@ -193,6 +198,22 @@ const Feed = () => {
       emblaApi.off("select", onSelect);
     };
   }, [emblaApi]);
+
+  // ✅ Handle desktop carousel selection
+  useEffect(() => {
+    if (!desktopEmblaApi) return;
+
+    const onSelect = () => {
+      setCurrentIndex(desktopEmblaApi.selectedScrollSnap());
+    };
+
+    desktopEmblaApi.on("select", onSelect);
+    onSelect();
+
+    return () => {
+      desktopEmblaApi.off("select", onSelect);
+    };
+  }, [desktopEmblaApi]);
 
   // Stop audio when changing cards
   useEffect(() => {
@@ -236,7 +257,11 @@ const Feed = () => {
 
   // Go to next gist
   const handleNext = () => {
-    emblaApi?.scrollNext();
+    if (window.innerWidth >= 768) {
+      desktopEmblaApi?.scrollNext();
+    } else {
+      emblaApi?.scrollNext();
+    }
   };
 
   // "Ask Fluxa" button
@@ -360,28 +385,41 @@ const Feed = () => {
               </div>
             </div>
 
-            {/* Desktop: Grid Layout */}
-            <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl w-full">
-              {gists.map((gist, index) => (
-                <div key={gist.id} className="animate-fade-in-up">
-                  <GossipCard
-                    gistId={gist.id}
-                    imageUrl={gist.image_url}
-                    headline={gist.headline}
-                    context={gist.context}
-                    isPlaying={isPlaying && index === currentIndex}
-                    onPlay={() => {
-                      setCurrentIndex(index);
-                      handlePlay();
-                    }}
-                    onNext={handleNext}
-                    onTellMore={() => {
-                      setCurrentIndex(index);
-                      handleTellMore();
-                    }}
-                  />
+            {/* Desktop: 3-Card Carousel */}
+            <div className="hidden md:block w-full max-w-7xl px-16" ref={desktopEmblaRef}>
+              <div className="overflow-hidden">
+                <div className="flex -ml-4">
+                  {gists.map((gist, index) => (
+                    <div key={gist.id} className="pl-4 flex-[0_0_33.333%] min-w-0">
+                      <div 
+                        className={`transition-all duration-500 ease-out ${
+                          index === currentIndex 
+                            ? "scale-105 opacity-100" 
+                            : "scale-90 opacity-50"
+                        }`}
+                      >
+                        <GossipCard
+                          gistId={gist.id}
+                          imageUrl={gist.image_url}
+                          headline={gist.headline}
+                          context={gist.context}
+                          isPlaying={isPlaying && index === currentIndex}
+                          onPlay={() => {
+                            setCurrentIndex(index);
+                            desktopEmblaApi?.scrollTo(index);
+                            handlePlay();
+                          }}
+                          onNext={handleNext}
+                          onTellMore={() => {
+                            setCurrentIndex(index);
+                            handleTellMore();
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
           </>
         ) : (

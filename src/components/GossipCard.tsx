@@ -58,8 +58,8 @@ export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onN
         </div>
       </div>
 
-      {/* Floating Icon Controls */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-6 py-3 rounded-full"
+      {/* Floating Icon Controls - Smaller */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full"
         style={{
           background: "var(--glass-bg)",
           backdropFilter: "blur(20px)",
@@ -76,18 +76,18 @@ export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onN
             isPlaying && "animate-pulse"
           )}
           style={isPlaying ? { 
-            filter: "drop-shadow(0 0 8px hsl(var(--coral-glow)))" 
+            filter: "drop-shadow(0 0 6px hsl(var(--coral-glow)))" 
           } : {}}
           aria-label={isPlaying ? "Pause" : "Play"}
         >
           {isPlaying ? (
             <PauseCircle 
-              className="w-10 h-10" 
+              className="w-7 h-7" 
               style={{ color: "hsl(var(--coral-active))" }}
             />
           ) : (
             <PlayCircle 
-              className="w-10 h-10 text-muted-foreground hover:text-foreground transition-colors" 
+              className="w-7 h-7 text-muted-foreground hover:text-foreground transition-colors" 
             />
           )}
         </button>
@@ -101,7 +101,7 @@ export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onN
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.color = "hsl(var(--coral-active))";
-            e.currentTarget.style.filter = "drop-shadow(0 0 8px hsl(var(--coral-glow)))";
+            e.currentTarget.style.filter = "drop-shadow(0 0 6px hsl(var(--coral-glow)))";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.color = "hsl(var(--muted-foreground))";
@@ -109,7 +109,7 @@ export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onN
           }}
           aria-label="Ask Fluxa"
         >
-          <MessageCircle className="w-8 h-8" />
+          <MessageCircle className="w-6 h-6" />
         </button>
 
         {/* Next Button */}
@@ -121,7 +121,7 @@ export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onN
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.color = "hsl(var(--coral-active))";
-            e.currentTarget.style.filter = "drop-shadow(0 0 8px hsl(var(--coral-glow)))";
+            e.currentTarget.style.filter = "drop-shadow(0 0 6px hsl(var(--coral-glow)))";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.color = "hsl(var(--muted-foreground))";
@@ -129,7 +129,7 @@ export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onN
           }}
           aria-label="Next gist"
         >
-          <ArrowRightCircle className="w-8 h-8" />
+          <ArrowRightCircle className="w-6 h-6" />
         </button>
       </div>
 
