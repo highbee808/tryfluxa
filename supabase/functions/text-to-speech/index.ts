@@ -15,19 +15,36 @@ const ttsSchema = z.object({
 })
 
 serve(async (req) => {
+  console.log('🚀 text-to-speech started')
+  
   if (req.method === 'OPTIONS') {
+    console.log('✅ OPTIONS request handled')
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
     // Validate input
+    console.log('📥 Parsing request body...')
     const body = await req.json()
+    console.log('📦 Request body received, text length:', body.text?.length || 0)
+    
+    console.log('📝 Validating input...')
     const validated = ttsSchema.parse(body)
     const { text, voice, speed } = validated
+    console.log('✅ Input validated - voice:', voice, 'speed:', speed)
 
-    console.log('Generating speech for text:', text.substring(0, 100))
+    console.log('🎙️ Generating speech for text (first 100 chars):', text.substring(0, 100))
+    
+    // Check API key
+    const apiKey = Deno.env.get('OPENAI_API_KEY')
+    if (!apiKey) {
+      console.log('❌ OPENAI_API_KEY not found')
+      throw new Error('OPENAI_API_KEY not configured')
+    }
+    console.log('✅ OPENAI_API_KEY found')
 
     // Generate speech from text using OpenAI
+    console.log('🤖 Calling OpenAI TTS API...')
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
@@ -43,23 +60,32 @@ serve(async (req) => {
       }),
     })
 
+    console.log('📨 OpenAI response status:', response.status)
+    
     if (!response.ok) {
       const error = await response.text()
-      console.error('OpenAI TTS error:', response.status, error)
+      console.log('❌ OpenAI TTS error:', response.status, error)
       throw new Error(`Failed to generate speech: ${error}`)
     }
 
+    console.log('✅ Speech generated successfully')
+    
     // Get audio buffer
+    console.log('📦 Converting to audio buffer...')
     const arrayBuffer = await response.arrayBuffer()
     const audioBuffer = new Uint8Array(arrayBuffer)
+    console.log('✅ Audio buffer created, size:', audioBuffer.length, 'bytes')
 
     // Upload to Supabase Storage
+    console.log('☁️ Uploading to Supabase Storage...')
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
     const fileName = `gist-${Date.now()}.mp3`
+    console.log('📁 File name:', fileName)
+    
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('gist-audio')
       .upload(fileName, audioBuffer, {
@@ -68,16 +94,18 @@ serve(async (req) => {
       })
 
     if (uploadError) {
-      console.error('Upload error:', uploadError)
+      console.log('❌ Upload error:', uploadError.message)
       throw new Error(`Failed to upload audio: ${uploadError.message}`)
     }
+
+    console.log('✅ File uploaded:', uploadData.path)
 
     // Get public URL
     const { data: { publicUrl } } = supabase.storage
       .from('gist-audio')
       .getPublicUrl(fileName)
 
-    console.log('Audio uploaded successfully:', publicUrl)
+    console.log('✅ Audio uploaded successfully:', publicUrl)
 
     return new Response(
       JSON.stringify({ audioUrl: publicUrl }),
@@ -86,7 +114,9 @@ serve(async (req) => {
       },
     )
   } catch (error) {
-    console.error('Error in text-to-speech function:', error)
+    console.log('❌ Error in text-to-speech function:', error instanceof Error ? error.message : 'Unknown error')
+    console.log('📚 Error stack:', error instanceof Error ? error.stack : 'No stack')
+    
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       {

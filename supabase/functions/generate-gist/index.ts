@@ -6,20 +6,37 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  console.log('🚀 generate-gist started')
+  
   if (req.method === 'OPTIONS') {
+    console.log('✅ OPTIONS request handled')
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const { topic } = await req.json()
+    console.log('📥 Parsing request body...')
+    const body = await req.json()
+    console.log('📦 Request body:', JSON.stringify(body))
+    
+    const { topic } = body
 
     if (!topic) {
+      console.log('❌ No topic provided')
       throw new Error('Topic is required')
     }
 
-    console.log('Generating gist for topic:', topic)
+    console.log('📝 Generating gist for topic:', topic)
+    
+    // Check API key
+    const apiKey = Deno.env.get('LOVABLE_API_KEY')
+    if (!apiKey) {
+      console.log('❌ LOVABLE_API_KEY not found')
+      throw new Error('LOVABLE_API_KEY not configured')
+    }
+    console.log('✅ LOVABLE_API_KEY found')
 
     // Use Lovable AI to generate gist content
+    console.log('🤖 Calling Lovable AI...')
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -57,9 +74,11 @@ Rules:
       }),
     })
 
+    console.log('📨 AI response status:', response.status)
+    
     if (!response.ok) {
       const error = await response.text()
-      console.error('Lovable AI error:', response.status, error)
+      console.log('❌ Lovable AI error:', response.status, error)
       
       if (response.status === 429) {
         throw new Error('Rate limit exceeded. Please try again later.')
@@ -71,10 +90,12 @@ Rules:
       throw new Error(`Failed to generate gist: ${error}`)
     }
 
+    console.log('✅ AI responded successfully')
     const data = await response.json()
+    console.log('📄 AI raw response:', JSON.stringify(data))
+    
     const content = JSON.parse(data.choices[0].message.content)
-
-    console.log('Gist generated successfully:', content)
+    console.log('✅ Gist content parsed:', JSON.stringify(content))
 
     return new Response(
       JSON.stringify({
@@ -88,7 +109,9 @@ Rules:
       },
     )
   } catch (error) {
-    console.error('Error in generate-gist function:', error)
+    console.log('❌ Error in generate-gist function:', error instanceof Error ? error.message : 'Unknown error')
+    console.log('📚 Error stack:', error instanceof Error ? error.stack : 'No stack')
+    
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       {
