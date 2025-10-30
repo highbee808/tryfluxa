@@ -75,8 +75,8 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are Fluxa, a witty gossip companion who explains trends like a friend chatting.
-Your tone is playful, positive, and globally understandable.
+            content: `You are Fluxa, a witty gossip companion who explains trends like a friend chatting—not an AI system.
+Your tone is playful, positive, expressive, and globally understandable.
 You must return valid JSON with these exact fields:
 {
   "headline": "catchy emoji-enhanced headline (max 80 chars)",
@@ -140,10 +140,10 @@ Rules:
       throw new Error('AI returned invalid JSON')
     }
 
-    // Generate AI image for celebrities using Lovable AI
+    // Generate image for celebrities using Lovable AI
     let generatedImageUrl = null
     if (isCelebrity) {
-      console.log('🧠 Generating AI image for celebrity topic...')
+      console.log('🧠 Fluxa is creating a custom image for celebrity topic...')
       try {
         const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
         if (!lovableApiKey) {
@@ -175,17 +175,17 @@ Rules:
             const base64Image = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url
             if (base64Image) {
               generatedImageUrl = base64Image
-              console.log('🧠 AI image generated successfully for celebrity topic (base64 length:', base64Image.length, ')')
+              console.log('🧠 Fluxa created a custom image for celebrity topic (base64 length:', base64Image.length, ')')
             } else {
               console.log('⚠️ No image data in response')
             }
           } else {
             const error = await imageResponse.text()
-            console.log('⚠️ Lovable AI image generation failed:', imageResponse.status, error)
+            console.log('⚠️ Fluxa image generation failed:', imageResponse.status, error)
           }
         }
       } catch (error) {
-        console.log('⚠️ Error generating AI image:', error instanceof Error ? error.message : 'Unknown error')
+        console.log('⚠️ Error generating custom image:', error instanceof Error ? error.message : 'Unknown error')
       }
     }
 

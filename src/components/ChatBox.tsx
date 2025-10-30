@@ -86,11 +86,11 @@ export const ChatBox = () => {
 
       if (!resp.ok) {
         if (resp.status === 429) {
-          toast.error("Rate limit exceeded. Please try again in a moment! 😅");
+          toast.error("Whoa, slow down bestie! Try again in a sec 😅");
           return;
         }
         if (resp.status === 402) {
-          toast.error("AI service temporarily unavailable. Please try again later! 🙏");
+          toast.error("Fluxa's taking a quick break. Try again soon! 🙏");
           return;
         }
         throw new Error("Failed to start stream");
@@ -242,7 +242,7 @@ export const ChatBox = () => {
           <div className="flex items-center justify-between p-4 border-b border-border bg-primary/5 rounded-t-2xl">
             <div className="flex items-center gap-2">
               <MessageCircle className="w-5 h-5 text-primary" />
-              <h3 className="font-bold text-foreground">Chat with Fluxa AI</h3>
+              <h3 className="font-bold text-foreground">Chat with Fluxa 💬</h3>
             </div>
             <Button
               variant="ghost"

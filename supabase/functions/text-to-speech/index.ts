@@ -60,7 +60,7 @@ serve(async (req) => {
     console.log('✅ OPENAI_API_KEY found')
 
     // Generate speech from text using OpenAI
-    console.log('🤖 Calling OpenAI TTS API...')
+    console.log('🎙️ Fluxa is recording her voice...')
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
@@ -80,11 +80,11 @@ serve(async (req) => {
     
     if (!response.ok) {
       const error = await response.text()
-      console.log('❌ OpenAI TTS error:', response.status, error)
+      console.log('❌ Voice recording error:', response.status, error)
       throw new Error('Speech generation failed')
     }
 
-    console.log('✅ OpenAI TTS completed successfully')
+    console.log('✅ Fluxa finished recording!')
     
     // Get audio buffer
     console.log('📦 Converting response to audio buffer...')

@@ -101,7 +101,7 @@ const Admin = () => {
 
       if (error) throw error;
 
-      toast.success("Gist generated successfully!");
+      toast.success("Fluxa created your gist! 💅✨");
       setLastGist(data.gist);
       setTopic("");
       setImageUrl("");
@@ -240,7 +240,7 @@ const Admin = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold text-foreground mb-2">Fluxa Admin</h1>
-            <p className="text-muted-foreground">Generate AI-powered gists</p>
+            <p className="text-muted-foreground">Let Fluxa create the latest gists 💬</p>
           </div>
           <div className="flex gap-2">
             <Button onClick={() => navigate("/feed")} variant="outline">
@@ -259,7 +259,7 @@ const Admin = () => {
           </div>
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              Test the full AI gist generation pipeline with a sample topic
+              Test Fluxa's full gist generation pipeline with a sample topic
             </p>
             <Button
               onClick={runPipelineTest}

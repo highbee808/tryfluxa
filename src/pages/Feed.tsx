@@ -115,8 +115,10 @@ const Feed = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-warm flex flex-col items-center justify-center p-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Loading gists...</p>
+        <div className="loader mb-4" />
+        <p className="text-muted-foreground text-sm animate-pulse">
+          Fluxa's gathering the latest gists for you... 💅💬
+        </p>
       </div>
     );
   }
@@ -138,7 +140,7 @@ const Feed = () => {
         <div className="overflow-hidden max-w-md w-full" ref={emblaRef}>
           <div className="flex">
             {gists.map((gist, index) => (
-              <div key={gist.id} className="flex-[0_0_100%] min-w-0">
+              <div key={gist.id} className="flex-[0_0_100%] min-w-0 animate-fade-in-up">
                 <GossipCard
                   imageUrl={gist.image_url}
                   headline={gist.headline}

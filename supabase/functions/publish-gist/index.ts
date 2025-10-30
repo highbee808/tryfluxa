@@ -135,7 +135,7 @@ serve(async (req) => {
       console.log('📋 Narration length:', narration?.length, 'chars')
       console.log('📋 Image keyword:', image_keyword)
       console.log('👤 Is celebrity:', is_celebrity)
-      console.log('🖼️ AI generated image:', ai_generated_image ? 'Yes' : 'No')
+      console.log('🖼️ Fluxa created custom image:', ai_generated_image ? 'Yes' : 'No')
 
       // Step 2: Convert narration to speech
       console.log('🎙️ Step 2/4: Converting narration to speech...')
@@ -170,8 +170,8 @@ serve(async (req) => {
       let finalImageUrl
       
       if (ai_generated_image) {
-        // Upload AI-generated base64 image to storage
-        console.log('📤 Uploading AI-generated image to storage...')
+        // Upload Fluxa-generated base64 image to storage
+        console.log('📤 Uploading Fluxa custom image to storage...')
         try {
           // Extract base64 data and convert to blob
           const base64Data = ai_generated_image.replace(/^data:image\/\w+;base64,/, '')
@@ -201,10 +201,10 @@ serve(async (req) => {
               .getPublicUrl(filename)
             
             finalImageUrl = urlData.publicUrl
-            console.log('🧠 AI image uploaded and URL generated:', finalImageUrl)
+            console.log('🧠 Fluxa custom image uploaded and URL generated:', finalImageUrl)
           }
         } catch (uploadError) {
-          console.log('⚠️ Error processing AI image:', uploadError instanceof Error ? uploadError.message : 'Unknown error')
+          console.log('⚠️ Error processing custom image:', uploadError instanceof Error ? uploadError.message : 'Unknown error')
           // Fallback to Unsplash
           const keyword = image_keyword || 'trending news'
           finalImageUrl = `https://source.unsplash.com/800x600/?${encodeURIComponent(keyword)}`
