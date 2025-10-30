@@ -93,7 +93,17 @@ export const useFluxaMemory = () => {
       // Keep only last 50 gists
       const updatedHistory = [newEntry, ...gistHistory].slice(0, 50);
 
-      // Update favorite topics
+      // Calculate favorite category from play frequency
+      const categoryCount: Record<string, number> = {};
+      updatedHistory.forEach((item: any) => {
+        const cat = item.topic;
+        categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+      });
+      
+      const favoriteCategory = Object.entries(categoryCount)
+        .sort(([, a], [, b]) => b - a)[0]?.[0] || gist.topic_category || gist.topic;
+
+      // Update favorite topics (keep unique)
       const topics = Array.isArray(memory?.favorite_topics) ? [...memory.favorite_topics] : [];
       const topicCategory = gist.topic_category || gist.topic;
       if (!topics.includes(topicCategory)) {
@@ -112,6 +122,39 @@ export const useFluxaMemory = () => {
     } catch (error) {
       console.error("Error updating gist history:", error);
     }
+  };
+
+  const getFavoriteCategory = () => {
+    return new Promise<string | null>(async (resolve) => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return resolve(null);
+
+        const { data: memory } = await supabase
+          .from("fluxa_memory")
+          .select("gist_history")
+          .eq("user_id", user.id)
+          .single();
+
+        if (!memory?.gist_history || !Array.isArray(memory.gist_history)) {
+          return resolve(null);
+        }
+
+        const categoryCount: Record<string, number> = {};
+        memory.gist_history.forEach((item: any) => {
+          const cat = item.topic;
+          categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+        });
+
+        const favorite = Object.entries(categoryCount)
+          .sort(([, a], [, b]) => b - a)[0]?.[0];
+
+        resolve(favorite || null);
+      } catch (error) {
+        console.error("Error getting favorite category:", error);
+        resolve(null);
+      }
+    });
   };
 
   const toggleFavorite = async (gistId: string) => {
@@ -269,5 +312,6 @@ export const useFluxaMemory = () => {
     toggleFavorite,
     getGreeting,
     getFluxaLine,
+    getFavoriteCategory,
   };
 };

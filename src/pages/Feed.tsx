@@ -11,6 +11,7 @@ import useEmblaCarousel from "embla-carousel-react";
 import { useFluxaMemory } from "@/hooks/useFluxaMemory";
 import { Card } from "@/components/ui/card";
 import { requestNotificationPermission, sendFluxaAlert, fluxaNotifications } from "@/lib/notifications";
+import { Sparkles } from "lucide-react";
 
 interface Gist {
   id: string;
@@ -19,6 +20,7 @@ interface Gist {
   audio_url: string;
   image_url: string;
   topic_category: string;
+  published_at?: string;
 }
 
 const Feed = () => {
@@ -36,7 +38,9 @@ const Feed = () => {
   const [showStoryViewer, setShowStoryViewer] = useState(false);
   const [storyStartIndex, setStoryStartIndex] = useState(0);
   const [fluxaQuip, setFluxaQuip] = useState<string>("");
-  const { updateGistHistory, getGreeting, getFluxaLine } = useFluxaMemory();
+  const [newGistCount, setNewGistCount] = useState(0);
+  const [showNewGistBanner, setShowNewGistBanner] = useState(false);
+  const { updateGistHistory, getGreeting, getFluxaLine, getFavoriteCategory } = useFluxaMemory();
 
   // Request notification permission on load
   useEffect(() => {
@@ -65,10 +69,43 @@ const Feed = () => {
     }
   };
 
+  // Real-time subscription to new gists
+  const subscribeToNewGists = () => {
+    const channel = supabase
+      .channel('gists-feed')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'gists',
+          filter: 'status=eq.published'
+        },
+        (payload) => {
+          console.log('New gist received:', payload);
+          setGists((prev) => [payload.new as Gist, ...prev]);
+          setNewGistCount((prev) => prev + 1);
+          setShowNewGistBanner(true);
+          setTimeout(() => setShowNewGistBanner(false), 5000);
+          
+          // Send notification
+          const notification = fluxaNotifications.newStories();
+          sendFluxaAlert("New Gist Alert! 🆕", "Fluxa just dropped fresh gist — tap to listen!");
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  };
+
   // Fetch gists from backend
   useEffect(() => {
     const fetchGists = async () => {
       try {
+        const favoriteCategory = await getFavoriteCategory();
+        
         const { data, error } = await supabase.functions.invoke("fetch-feed", {
           body: { limit: 20 },
         });
@@ -86,7 +123,17 @@ const Feed = () => {
           );
         }
 
-        setGists(filteredGists);
+        // Personalized ranking based on favorite category
+        const rankedGists = filteredGists.sort((a: Gist, b: Gist) => {
+          const scoreA = (favoriteCategory && a.topic_category === favoriteCategory ? 5 : 0) +
+                        (new Date(a.published_at || '').getTime() / 1000000);
+          const scoreB = (favoriteCategory && b.topic_category === favoriteCategory ? 5 : 0) +
+                        (new Date(b.published_at || '').getTime() / 1000000);
+          return scoreB - scoreA;
+        });
+
+        setGists(rankedGists);
+        setNewGistCount(0);
       } catch (error) {
         console.error("Error fetching gists:", error);
         toast.error("Failed to load gists");
@@ -122,6 +169,13 @@ const Feed = () => {
     loadGreeting();
     loadDailyDrop();
     fetchStories();
+    
+    // Subscribe to real-time updates
+    const unsubscribe = subscribeToNewGists();
+    
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // ✅ Handle carousel selection
@@ -221,6 +275,24 @@ const Feed = () => {
 
       {/* Main Content Container */}
       <div className="flex flex-col items-center justify-center px-4 py-8">
+        {/* New Gist Banner */}
+        {showNewGistBanner && (
+          <div className="max-w-6xl w-full mb-4">
+            <div className="bg-gradient-to-r from-primary to-accent text-white px-6 py-3 rounded-full shadow-lg animate-fade-in flex items-center justify-center gap-2">
+              <Sparkles className="w-5 h-5 animate-pulse" />
+              <span className="font-medium">🆕 Fluxa just dropped fresh gist — tap to listen!</span>
+            </div>
+          </div>
+        )}
+
+        {/* New Gist Count */}
+        {newGistCount > 0 && (
+          <div className="max-w-6xl w-full mb-4 text-center">
+            <span className="text-sm text-white/80">
+              {newGistCount} new {newGistCount === 1 ? 'gist' : 'gists'} since your last visit 💕
+            </span>
+          </div>
+        )}
         {/* Stories Row */}
         {stories.length > 0 && (
           <div className="w-full max-w-6xl mb-6 overflow-x-auto">

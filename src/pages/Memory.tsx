@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { ArrowLeft, Trash2, Heart } from "lucide-react";
+import { ArrowLeft, Trash2, Heart, TrendingUp } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +21,7 @@ export default function Memory() {
   const navigate = useNavigate();
   const [memory, setMemory] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [favoriteCategory, setFavoriteCategory] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMemory();
@@ -42,6 +43,18 @@ export default function Memory() {
 
       if (error && error.code !== "PGRST116") throw error;
       setMemory(data);
+
+      // Calculate favorite category
+      if (data?.gist_history && Array.isArray(data.gist_history)) {
+        const categoryCount: Record<string, number> = {};
+        data.gist_history.forEach((item: any) => {
+          const cat = item.topic;
+          categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+        });
+        const favorite = Object.entries(categoryCount)
+          .sort(([, a], [, b]) => b - a)[0]?.[0];
+        setFavoriteCategory(favorite || null);
+      }
     } catch (error) {
       console.error("Error fetching memory:", error);
       toast.error("Couldn't load your memory 😅");
@@ -63,6 +76,7 @@ export default function Memory() {
       if (error) throw error;
 
       setMemory(null);
+      setFavoriteCategory(null);
       toast.success("Fluxa's memory cleared! Starting fresh 🧠💨");
     } catch (error) {
       console.error("Error resetting memory:", error);
@@ -107,6 +121,9 @@ export default function Memory() {
                   ? new Date(memory.last_active).toLocaleDateString()
                   : "Never"}
               </p>
+              <p className="text-muted-foreground text-sm mt-1">
+                Visits: {memory?.visit_count || 0} • Streak: {memory?.streak_count || 0} days 🔥
+              </p>
             </div>
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -132,6 +149,19 @@ export default function Memory() {
             </AlertDialog>
           </div>
         </Card>
+
+        {favoriteCategory && (
+          <Card className="p-6 mb-6 bg-gradient-to-r from-primary/10 to-accent/10">
+            <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              Your Top Category
+            </h3>
+            <p className="text-2xl font-bold text-primary">{favoriteCategory}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Fluxa prioritizes this in your feed 💕
+            </p>
+          </Card>
+        )}
 
         {favoriteTopics.length > 0 && (
           <Card className="p-6 mb-6">
