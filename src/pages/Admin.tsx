@@ -3,9 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Play, LogOut } from "lucide-react";
+import { Loader2, Play, LogOut, Sparkles, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { topics } from "@/data/topics";
 
@@ -21,6 +22,8 @@ const Admin = () => {
   const [lastGist, setLastGist] = useState<any>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [testLogs, setTestLogs] = useState<string[]>([]);
+  const [fluxaLines, setFluxaLines] = useState<any[]>([]);
+  const [isLoadingLines, setIsLoadingLines] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -76,6 +79,43 @@ const Admin = () => {
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const fetchFluxaLines = async () => {
+    setIsLoadingLines(true);
+    try {
+      const { data, error } = await supabase
+        .from("fluxa_lines")
+        .select("*")
+        .order("category", { ascending: true });
+
+      if (error) throw error;
+      setFluxaLines(data || []);
+    } catch (error) {
+      console.error("Error fetching Fluxa lines:", error);
+      toast.error("Failed to load Fluxa personality lines");
+    } finally {
+      setIsLoadingLines(false);
+    }
+  };
+
+  const resetAllMemories = async () => {
+    if (!confirm("Are you sure you want to reset ALL user memories? This cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("fluxa_memory")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000"); // Delete all
+
+      if (error) throw error;
+      toast.success("All user memories have been reset");
+    } catch (error) {
+      console.error("Error resetting memories:", error);
+      toast.error("Failed to reset memories");
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -240,7 +280,7 @@ const Admin = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold text-foreground mb-2">Fluxa Admin</h1>
-            <p className="text-muted-foreground">Let Fluxa create the latest gists 💬</p>
+            <p className="text-muted-foreground">Manage Fluxa's content & personality 💬</p>
           </div>
           <div className="flex gap-2">
             <Button onClick={() => navigate("/feed")} variant="outline">
@@ -252,6 +292,17 @@ const Admin = () => {
             </Button>
           </div>
         </div>
+
+        <Tabs defaultValue="gists" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="gists">Gist Generation</TabsTrigger>
+            <TabsTrigger value="personality">
+              <Sparkles className="mr-2 h-4 w-4" />
+              Personality
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="gists" className="space-y-8">
 
         <Card className="p-6 space-y-4 bg-card/95 backdrop-blur border-primary/20">
           <div className="flex items-center justify-between">
@@ -385,6 +436,100 @@ const Admin = () => {
             </div>
           </Card>
         )}
+          </TabsContent>
+
+          <TabsContent value="personality" className="space-y-8">
+            <Card className="p-6 space-y-4 bg-card/95 backdrop-blur border-primary/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-semibold flex items-center gap-2">
+                    <Sparkles className="h-6 w-6 text-primary" />
+                    Fluxa Personality System
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Manage Fluxa's awareness, greetings, and emotional responses
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 pt-4">
+                <div className="p-4 bg-background/50 rounded-lg space-y-2">
+                  <h3 className="font-semibold text-sm">System Status</h3>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Context Awareness:</span>
+                      <span className="text-primary font-medium">✓ Active</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Memory Tracking:</span>
+                      <span className="text-primary font-medium">✓ Active</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Emotional Lines:</span>
+                      <span className="text-primary font-medium">✓ {fluxaLines.length} loaded</span>
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={fetchFluxaLines}
+                  disabled={isLoadingLines}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {isLoadingLines ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    "View Fluxa Personality Lines"
+                  )}
+                </Button>
+
+                {fluxaLines.length > 0 && (
+                  <div className="mt-4 p-4 bg-background/50 rounded-lg max-h-96 overflow-y-auto">
+                    <h3 className="text-sm font-semibold mb-3">Fluxa's Voice Lines</h3>
+                    <div className="space-y-3">
+                      {fluxaLines.map((line) => (
+                        <div key={line.id} className="p-3 bg-card rounded border border-primary/10">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-medium px-2 py-0.5 bg-primary/20 rounded">
+                                  {line.category}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {line.mood}
+                                </span>
+                              </div>
+                              <p className="text-sm">{line.line}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-4 border-t border-primary/10">
+                  <h3 className="font-semibold text-sm mb-3 text-destructive">Danger Zone</h3>
+                  <Button
+                    onClick={resetAllMemories}
+                    variant="destructive"
+                    className="w-full"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Reset All User Memories
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    This will delete all user visit counts, streaks, and preferences. Use only for testing.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

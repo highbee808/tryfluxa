@@ -3,11 +3,11 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { icon: Home, label: "Home", path: "/feed" },
-  { icon: Newspaper, label: "New", path: "/feed" },
-  { icon: Radio, label: "Live", path: "/live" },
-  { icon: Library, label: "Universe", path: "/universe" },
-  { icon: Search, label: "Search", path: "/feed" },
+  { icon: Home, label: "Home", path: "/feed", id: "home" },
+  { icon: Newspaper, label: "New", path: "/feed", id: "new" },
+  { icon: Radio, label: "Live", path: "/live", id: "live" },
+  { icon: Library, label: "Universe", path: "/universe", id: "universe" },
+  { icon: Search, label: "Search", path: "/feed", id: "search" },
 ];
 
 export const NavigationBar = () => {
@@ -32,7 +32,7 @@ export const NavigationBar = () => {
           
           return (
             <button
-              key={item.path}
+              key={item.id}
               onClick={() => navigate(item.path)}
               className={cn(
                 "p-3 rounded-full transition-all duration-300 hover:scale-110",

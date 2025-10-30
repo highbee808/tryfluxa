@@ -106,6 +106,30 @@ export type Database = {
           },
         ]
       }
+      fluxa_lines: {
+        Row: {
+          category: string
+          created_at: string | null
+          id: string
+          line: string
+          mood: string
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          id?: string
+          line: string
+          mood: string
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          id?: string
+          line?: string
+          mood?: string
+        }
+        Relationships: []
+      }
       fluxa_memory: {
         Row: {
           created_at: string | null
@@ -113,9 +137,13 @@ export type Database = {
           gist_history: Json | null
           id: string
           last_active: string | null
+          last_gist_played: string | null
           name: string | null
+          preferred_time: string | null
+          streak_count: number | null
           updated_at: string | null
           user_id: string | null
+          visit_count: number | null
         }
         Insert: {
           created_at?: string | null
@@ -123,9 +151,13 @@ export type Database = {
           gist_history?: Json | null
           id?: string
           last_active?: string | null
+          last_gist_played?: string | null
           name?: string | null
+          preferred_time?: string | null
+          streak_count?: number | null
           updated_at?: string | null
           user_id?: string | null
+          visit_count?: number | null
         }
         Update: {
           created_at?: string | null
@@ -133,9 +165,13 @@ export type Database = {
           gist_history?: Json | null
           id?: string
           last_active?: string | null
+          last_gist_played?: string | null
           name?: string | null
+          preferred_time?: string | null
+          streak_count?: number | null
           updated_at?: string | null
           user_id?: string | null
+          visit_count?: number | null
         }
         Relationships: []
       }

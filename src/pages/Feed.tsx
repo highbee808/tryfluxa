@@ -4,6 +4,7 @@ import { ChatBox } from "@/components/ChatBox";
 import { StoryBubble } from "@/components/StoryBubble";
 import { StoryViewer } from "@/components/StoryViewer";
 import { NavigationBar } from "@/components/NavigationBar";
+import { FluxaGreeting } from "@/components/FluxaGreeting";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import useEmblaCarousel from "embla-carousel-react";
@@ -28,12 +29,14 @@ const Feed = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [chatContext, setChatContext] = useState<{ topic: string; summary: string } | undefined>(undefined);
-  const [greeting, setGreeting] = useState<string>("Hey bestie! 👋");
+  const [greeting, setGreeting] = useState<string>("");
+  const [isLoadingGreeting, setIsLoadingGreeting] = useState(true);
   const [dailyDrop, setDailyDrop] = useState<any>(null);
   const [stories, setStories] = useState<any[]>([]);
   const [showStoryViewer, setShowStoryViewer] = useState(false);
   const [storyStartIndex, setStoryStartIndex] = useState(0);
-  const { updateGistHistory, getGreeting } = useFluxaMemory();
+  const [fluxaQuip, setFluxaQuip] = useState<string>("");
+  const { updateGistHistory, getGreeting, getFluxaLine } = useFluxaMemory();
 
   // Request notification permission on load
   useEffect(() => {
@@ -93,8 +96,10 @@ const Feed = () => {
     };
 
     const loadGreeting = async () => {
+      setIsLoadingGreeting(true);
       const greetingText = await getGreeting();
       setGreeting(greetingText);
+      setIsLoadingGreeting(false);
     };
 
     const loadDailyDrop = async () => {
@@ -154,15 +159,23 @@ const Feed = () => {
       currentAudio.pause();
       setIsPlaying(false);
       setCurrentAudio(null);
+      
+      // Show idle Fluxa quip
+      const idleLine = await getFluxaLine("idle", "tease");
+      if (idleLine) setFluxaQuip(idleLine);
     } else {
       const audio = new Audio(gists[currentIndex].audio_url);
       audio.play();
       setIsPlaying(true);
       setCurrentAudio(audio);
 
-      audio.onended = () => {
+      audio.onended = async () => {
         setIsPlaying(false);
         setCurrentAudio(null);
+        
+        // Show after-gist Fluxa quip
+        const afterLine = await getFluxaLine("after_gist", "funny");
+        if (afterLine) setFluxaQuip(afterLine);
       };
     }
   };
@@ -226,12 +239,8 @@ const Feed = () => {
           </div>
         )}
 
-        {/* Greeting Card */}
-        {greeting && (
-          <Card className="max-w-6xl w-full p-4 mb-6 bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20 animate-fade-in">
-            <p className="text-sm font-medium text-center">{greeting}</p>
-          </Card>
-        )}
+        {/* Fluxa Greeting with Personality */}
+        <FluxaGreeting greeting={greeting} isLoading={isLoadingGreeting} />
 
         {/* Daily Drop */}
         {dailyDrop && (
@@ -324,6 +333,13 @@ const Feed = () => {
               Go to Admin Panel
             </button>
           </div>
+        )}
+
+        {/* Fluxa Quip (appears after interactions) */}
+        {fluxaQuip && (
+          <Card className="max-w-6xl w-full p-3 mt-4 bg-accent/20 border-accent/30 animate-fade-in">
+            <p className="text-xs text-center italic">💬 Fluxa: "{fluxaQuip}"</p>
+          </Card>
         )}
 
         {/* Mobile Navigation Hint */}
