@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 type Message = {
   role: "user" | "assistant";
@@ -16,8 +17,55 @@ export const ChatBox = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+
+  // Load conversation history on mount
+  useEffect(() => {
+    const loadConversation = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get or create conversation
+      const { data: conversations } = await supabase
+        .from('user_conversations')
+        .select('conversation_id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      let convId: string;
+      if (conversations && conversations.length > 0) {
+        convId = conversations[0].conversation_id;
+      } else {
+        // Create new conversation
+        convId = crypto.randomUUID();
+        await supabase
+          .from('user_conversations')
+          .insert({ user_id: user.id, conversation_id: convId });
+      }
+
+      setConversationId(convId);
+
+      // Load messages from this conversation
+      const { data: chatMessages } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('conversation_id', convId)
+        .order('created_at', { ascending: true });
+
+      if (chatMessages) {
+        const loadedMessages: Message[] = chatMessages.map(msg => ({
+          role: msg.role as "user" | "assistant",
+          content: msg.content
+        }));
+        setMessages(loadedMessages);
+      }
+    };
+
+    loadConversation();
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -124,8 +172,22 @@ export const ChatBox = () => {
           } catch {}
         }
       }
+
+      // Save assistant message to database after streaming completes
+      if (assistantContent && conversationId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('chat_messages').insert({
+            conversation_id: conversationId,
+            role: 'assistant',
+            content: assistantContent
+          });
+        }
+      }
     } catch (error) {
-      console.error("Stream error:", error);
+      if (import.meta.env.DEV) {
+        console.error("Stream error:", error);
+      }
       toast.error("Failed to send message. Please try again!");
     } finally {
       setIsLoading(false);
@@ -133,12 +195,22 @@ export const ChatBox = () => {
   };
 
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || !conversationId) return;
 
     const userMessage: Message = { role: "user", content: input.trim() };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
+
+    // Save user message to database
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('chat_messages').insert({
+        conversation_id: conversationId,
+        role: 'user',
+        content: userMessage.content
+      });
+    }
 
     await streamChat(userMessage);
   };

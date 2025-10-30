@@ -46,7 +46,9 @@ const Admin = () => {
 
         setIsAdmin(true);
       } catch (error) {
-        console.error("Auth check error:", error);
+        if (import.meta.env.DEV) {
+          console.error("Auth check error:", error);
+        }
         navigate("/auth");
       } finally {
         setIsCheckingAuth(false);
@@ -94,7 +96,9 @@ const Admin = () => {
       setImageUrl("");
       setSelectedCategory("");
     } catch (error) {
-      console.error("Error generating gist:", error);
+      if (import.meta.env.DEV) {
+        console.error("Error generating gist:", error);
+      }
       toast.error(error instanceof Error ? error.message : "Failed to generate gist");
     } finally {
       setIsGenerating(false);

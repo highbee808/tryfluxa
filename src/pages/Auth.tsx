@@ -57,7 +57,9 @@ const Auth = () => {
         toast.success("Account created! Please check your email to confirm.");
       }
     } catch (error) {
-      console.error("Auth error:", error);
+      if (import.meta.env.DEV) {
+        console.error("Auth error:", error);
+      }
       toast.error(error instanceof Error ? error.message : "Authentication failed");
     } finally {
       setIsLoading(false);

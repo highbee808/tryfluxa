@@ -143,12 +143,12 @@ serve(async (req) => {
       
       if (generateResponse.error) {
         console.log('❌ Generate-gist error:', JSON.stringify(generateResponse.error))
-        throw new Error(`generate-gist failed: ${generateResponse.error.message}`)
+        throw new Error('Content generation failed')
       }
 
       if (!generateResponse.data) {
         console.log('❌ Generate-gist returned no data')
-        throw new Error('generate-gist returned empty response')
+        throw new Error('Content generation returned no data')
       }
 
       console.log('✅ Gist content generated successfully')
@@ -175,12 +175,12 @@ serve(async (req) => {
       
       if (ttsResponse.error) {
         console.log('❌ Text-to-speech error:', JSON.stringify(ttsResponse.error))
-        throw new Error(`text-to-speech failed: ${ttsResponse.error.message}`)
+        throw new Error('Audio generation failed')
       }
 
       if (!ttsResponse.data?.audioUrl) {
         console.log('❌ Text-to-speech returned no audio URL')
-        throw new Error('text-to-speech returned empty audio URL')
+        throw new Error('Audio generation returned no URL')
       }
 
       console.log('✅ Audio generated and uploaded')
@@ -219,12 +219,12 @@ serve(async (req) => {
       if (dbError) {
         console.log('❌ Database error:', dbError.message)
         console.log('❌ Database error details:', JSON.stringify(dbError))
-        throw new Error(`Database insert failed: ${dbError.message}`)
+        throw new Error('Failed to save content')
       }
 
       if (!gist) {
         console.log('❌ Database returned no gist')
-        throw new Error('Database insert returned empty result')
+        throw new Error('Failed to retrieve saved content')
       }
 
       gistId = gist.id

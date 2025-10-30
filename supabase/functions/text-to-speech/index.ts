@@ -55,7 +55,7 @@ serve(async (req) => {
     const apiKey = Deno.env.get('OPENAI_API_KEY')
     if (!apiKey) {
       console.log('❌ OPENAI_API_KEY not found')
-      throw new Error('OPENAI_API_KEY not configured')
+      throw new Error('Service configuration error')
     }
     console.log('✅ OPENAI_API_KEY found')
 
@@ -81,7 +81,7 @@ serve(async (req) => {
     if (!response.ok) {
       const error = await response.text()
       console.log('❌ OpenAI TTS error:', response.status, error)
-      throw new Error(`Failed to generate speech: ${error}`)
+      throw new Error('Speech generation failed')
     }
 
     console.log('✅ OpenAI TTS completed successfully')
@@ -114,7 +114,7 @@ serve(async (req) => {
     if (uploadError) {
       console.log('❌ Storage upload error:', uploadError.message)
       console.log('❌ Upload error details:', JSON.stringify(uploadError))
-      throw new Error(`Failed to upload audio: ${uploadError.message}`)
+      throw new Error('Failed to save audio file')
     }
 
     console.log('✅ File uploaded successfully to storage')
@@ -140,7 +140,7 @@ serve(async (req) => {
     console.log('📚 Error stack:', error instanceof Error ? error.stack : 'No stack')
     
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'Failed to process request' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

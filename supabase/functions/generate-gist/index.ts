@@ -1,9 +1,19 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+// Input validation schema
+const topicSchema = z.object({
+  topic: z.string()
+    .trim()
+    .min(1, 'Topic is required')
+    .max(500, 'Topic too long (max 500 characters)')
+    .regex(/^[a-zA-Z0-9\s.,!?'"@#$%&*()\-+=_\[\]{}:;/\\<>|~`]+$/, 'Topic contains invalid characters')
+})
 
 serve(async (req) => {
   console.log('🚀 generate-gist started')
@@ -19,18 +29,23 @@ serve(async (req) => {
     const body = await req.json()
     console.log('📦 Request body keys:', Object.keys(body))
     
-    const { topic } = body
-
-    if (!topic) {
-      console.log('❌ No topic provided in request')
+    // Validate input
+    console.log('📝 Validating input...')
+    let validated
+    try {
+      validated = topicSchema.parse(body)
+    } catch (validationError: any) {
+      console.log('❌ Validation failed:', validationError.message)
       return new Response(
-        JSON.stringify({ success: false, error: 'Topic is required' }),
+        JSON.stringify({ error: 'Invalid input provided' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       )
     }
+    
+    const { topic } = validated
 
     console.log('📝 Topic received:', topic)
     console.log('📏 Topic length:', topic.length, 'chars')
@@ -39,7 +54,7 @@ serve(async (req) => {
     const apiKey = Deno.env.get('LOVABLE_API_KEY')
     if (!apiKey) {
       console.log('❌ LOVABLE_API_KEY not found')
-      throw new Error('LOVABLE_API_KEY not configured')
+      throw new Error('Service configuration error')
     }
     console.log('✅ LOVABLE_API_KEY found')
 
@@ -136,7 +151,7 @@ Rules:
     console.log('📚 Error stack:', error instanceof Error ? error.stack : 'No stack')
     
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'Failed to process request' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
