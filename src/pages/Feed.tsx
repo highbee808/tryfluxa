@@ -1,19 +1,61 @@
 import { useState, useEffect } from "react";
 import { GossipCard } from "@/components/GossipCard";
 import { ChatBox } from "@/components/ChatBox";
-import { playGistAudio, stopGistAudio } from "@/lib/audio";
-import { mockGists } from "@/data/mockGists";
+import { stopGistAudio } from "@/lib/audio";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import useEmblaCarousel from "embla-carousel-react";
+import { Loader2 } from "lucide-react";
+
+interface Gist {
+  id: string;
+  headline: string;
+  context: string;
+  audio_url: string;
+  image_url: string;
+  topic_category: string;
+}
 
 const Feed = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
+  const [gists, setGists] = useState<Gist[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
 
-  // ✅ Filter gists based on selected interests
-  const selectedInterests = JSON.parse(localStorage.getItem("fluxaInterests") || "[]");
-  const filteredGists = mockGists.filter((gist) => selectedInterests.includes(gist.topic));
+  // Fetch gists from backend
+  useEffect(() => {
+    const fetchGists = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("fetch-feed", {
+          body: { limit: 20 },
+        });
+
+        if (error) throw error;
+
+        const selectedInterests = JSON.parse(localStorage.getItem("fluxaInterests") || "[]");
+        
+        let filteredGists = data.gists || [];
+        
+        // Filter by interests if any selected
+        if (selectedInterests.length > 0) {
+          filteredGists = filteredGists.filter((gist: Gist) =>
+            selectedInterests.includes(gist.topic_category)
+          );
+        }
+
+        setGists(filteredGists);
+      } catch (error) {
+        console.error("Error fetching gists:", error);
+        toast.error("Failed to load gists");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchGists();
+  }, []);
 
   // ✅ Handle carousel selection
   useEffect(() => {
@@ -31,29 +73,53 @@ const Feed = () => {
     };
   }, [emblaApi]);
 
-  // ✅ Stop audio when changing cards
+  // Stop audio when changing cards
   useEffect(() => {
-    stopGistAudio(() => setIsPlaying(false));
+    if (currentAudio) {
+      currentAudio.pause();
+      setIsPlaying(false);
+    }
   }, [currentIndex]);
 
-  // ✅ Play or stop gist audio
+  // Play or stop gist audio
   const handlePlay = () => {
-    if (isPlaying) {
-      stopGistAudio(() => setIsPlaying(false));
+    if (!gists[currentIndex]) return;
+
+    if (isPlaying && currentAudio) {
+      currentAudio.pause();
+      setIsPlaying(false);
+      setCurrentAudio(null);
     } else {
-      playGistAudio(currentIndex, () => setIsPlaying(true));
+      const audio = new Audio(gists[currentIndex].audio_url);
+      audio.play();
+      setIsPlaying(true);
+      setCurrentAudio(audio);
+
+      audio.onended = () => {
+        setIsPlaying(false);
+        setCurrentAudio(null);
+      };
     }
   };
 
-  // ✅ Go to next gist
+  // Go to next gist
   const handleNext = () => {
     emblaApi?.scrollNext();
   };
 
-  // ✅ "Tell me more" button
+  // "Tell me more" button
   const handleTellMore = () => {
-    toast.info("Bestie relax 😂 Chat mode is coming soon...");
+    toast.info("Chat with Fluxa using the chat box below!");
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-warm flex flex-col items-center justify-center p-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Loading gists...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-warm flex flex-col items-center justify-center p-4">
@@ -63,18 +129,18 @@ const Feed = () => {
           Fluxa
         </h1>
         <p className="text-muted-foreground font-medium">
-          {filteredGists.length > 0 ? `${currentIndex + 1} of ${filteredGists.length}` : "Loading gists..."}
+          {gists.length > 0 ? `${currentIndex + 1} of ${gists.length}` : "No gists available"}
         </p>
       </div>
 
       {/* Swipeable Carousel */}
-      {filteredGists.length > 0 ? (
+      {gists.length > 0 ? (
         <div className="overflow-hidden max-w-md w-full" ref={emblaRef}>
           <div className="flex">
-            {filteredGists.map((gist, index) => (
+            {gists.map((gist, index) => (
               <div key={gist.id} className="flex-[0_0_100%] min-w-0">
                 <GossipCard
-                  imageUrl={gist.imageUrl}
+                  imageUrl={gist.image_url}
                   headline={gist.headline}
                   context={gist.context}
                   isPlaying={isPlaying && index === currentIndex}
@@ -88,15 +154,14 @@ const Feed = () => {
         </div>
       ) : (
         <div className="text-center text-muted-foreground mt-10">
-          <p>No matching gists found for your interests 😢</p>
+          <p>No gists available yet 😢</p>
           <button
             onClick={() => {
-              localStorage.removeItem("fluxaInterests");
-              window.location.href = "/";
+              window.location.href = "/admin";
             }}
             className="mt-4 underline text-primary font-medium"
           >
-            Reset Interests
+            Generate Some Gists
           </button>
         </div>
       )}

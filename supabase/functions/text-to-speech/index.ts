@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voice = 'alloy' } = await req.json()
+    const { text, voice = 'shimmer', speed = 0.94 } = await req.json()
 
     if (!text) {
       throw new Error('Text is required')
@@ -31,6 +31,7 @@ serve(async (req) => {
         model: 'tts-1-hd',
         input: text,
         voice: voice,
+        speed: speed,
         response_format: 'mp3',
       }),
     })

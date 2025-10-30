@@ -73,9 +73,15 @@ export type Database = {
           headline: string
           id: string
           image_url: string | null
+          meta: Json | null
+          narration: string | null
+          play_count: number | null
           published_at: string | null
           script: string
+          source_url: string | null
+          status: string | null
           topic: string
+          topic_category: string | null
         }
         Insert: {
           audio_url: string
@@ -84,9 +90,15 @@ export type Database = {
           headline: string
           id?: string
           image_url?: string | null
+          meta?: Json | null
+          narration?: string | null
+          play_count?: number | null
           published_at?: string | null
           script: string
+          source_url?: string | null
+          status?: string | null
           topic: string
+          topic_category?: string | null
         }
         Update: {
           audio_url?: string
@@ -95,9 +107,15 @@ export type Database = {
           headline?: string
           id?: string
           image_url?: string | null
+          meta?: Json | null
+          narration?: string | null
+          play_count?: number | null
           published_at?: string | null
           script?: string
+          source_url?: string | null
+          status?: string | null
           topic?: string
+          topic_category?: string | null
         }
         Relationships: []
       }

@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Play } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { topics } from "@/data/topics";
 
 const Admin = () => {
+  const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [topic, setTopic] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -22,25 +24,25 @@ const Admin = () => {
     }
 
     setIsGenerating(true);
-    toast.info("Starting gist generation...");
-
     try {
       const { data, error } = await supabase.functions.invoke("publish-gist", {
-        body: { 
+        body: {
           topic: topic.trim(),
-          imageUrl: imageUrl.trim() || undefined 
+          imageUrl: imageUrl.trim() || undefined,
+          topicCategory: selectedCategory || undefined,
         },
       });
 
       if (error) throw error;
 
+      toast.success("Gist generated successfully!");
       setLastGist(data.gist);
-      toast.success("Gist published successfully! 🎉");
       setTopic("");
       setImageUrl("");
-    } catch (error: any) {
-      console.error("Generation error:", error);
-      toast.error(error.message || "Failed to generate gist");
+      setSelectedCategory("");
+    } catch (error) {
+      console.error("Error generating gist:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to generate gist");
     } finally {
       setIsGenerating(false);
     }
@@ -48,55 +50,51 @@ const Admin = () => {
 
   return (
     <div className="min-h-screen bg-gradient-warm p-8">
-      <div className="max-w-2xl mx-auto space-y-6">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">Fluxa Admin</h1>
-          <p className="text-muted-foreground">Generate and publish gists</p>
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold text-foreground mb-2">Fluxa Admin</h1>
+            <p className="text-muted-foreground">Generate AI-powered gists</p>
+          </div>
+          <Button onClick={() => navigate("/feed")} variant="outline">
+            View Feed
+          </Button>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Create New Gist</CardTitle>
-            <CardDescription>
-              Enter a trending topic and the AI will generate a complete gist with audio
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Category (optional)</label>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory} disabled={isGenerating}>
+        <Card className="p-6 space-y-4 bg-card/95 backdrop-blur">
+          <h2 className="text-2xl font-semibold">Create New Gist</h2>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Category (Optional)</label>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {topics.map((topic) => (
-                    <SelectItem key={topic.id} value={topic.label}>
-                      {topic.emoji} {topic.label}
+                  {topics.map((t) => (
+                    <SelectItem key={t.id} value={t.label}>
+                      {t.emoji} {t.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {selectedCategory && (
-                <p className="text-xs text-muted-foreground">
-                  {topics.find(t => t.label === selectedCategory)?.description}
-                </p>
-              )}
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Topic *</label>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Topic *</label>
               <Input
-                placeholder="e.g., Taylor Swift's new album announcement"
+                placeholder="E.g., Drake surprise drop, Messi transfer rumors..."
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 disabled={isGenerating}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Image URL (optional)</label>
+            <div>
+              <label className="text-sm font-medium mb-2 block">Image URL (Optional)</label>
               <Input
-                placeholder="https://images.unsplash.com/..."
+                placeholder="Leave empty for auto-generated image"
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
                 disabled={isGenerating}
@@ -105,59 +103,57 @@ const Admin = () => {
 
             <Button
               onClick={handleGenerate}
-              disabled={isGenerating}
+              disabled={isGenerating || !topic.trim()}
               className="w-full"
               size="lg"
             >
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating (this may take 30-60 seconds)...
+                  Generating...
                 </>
               ) : (
                 "Generate Gist"
               )}
             </Button>
-          </CardContent>
+          </div>
         </Card>
 
         {lastGist && (
-          <Card className="bg-primary/5">
-            <CardHeader>
-              <CardTitle className="text-sm text-muted-foreground">Latest Generated Gist</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+          <Card className="p-6 space-y-4 bg-card/95 backdrop-blur">
+            <h2 className="text-2xl font-semibold">Last Generated Gist</h2>
+            <div className="space-y-2">
               <div>
-                <p className="text-sm font-medium mb-1">Headline</p>
-                <p className="text-foreground">{lastGist.headline}</p>
+                <span className="font-medium">Headline:</span>
+                <p className="text-muted-foreground">{lastGist.headline}</p>
               </div>
               <div>
-                <p className="text-sm font-medium mb-1">Context</p>
-                <p className="text-muted-foreground text-sm">{lastGist.context}</p>
+                <span className="font-medium">Context:</span>
+                <p className="text-muted-foreground">{lastGist.context}</p>
               </div>
               <div>
-                <p className="text-sm font-medium mb-1">Audio URL</p>
-                <a 
-                  href={lastGist.audio_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary text-sm hover:underline"
-                >
-                  {lastGist.audio_url}
-                </a>
+                <span className="font-medium">Category:</span>
+                <p className="text-muted-foreground">{lastGist.topic_category || 'Trending'}</p>
               </div>
-            </CardContent>
+              <div>
+                <span className="font-medium">Audio:</span>
+                <div className="flex items-center gap-2 mt-1">
+                  <audio controls src={lastGist.audio_url} className="w-full" />
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => {
+                      const audio = new Audio(lastGist.audio_url);
+                      audio.play();
+                    }}
+                  >
+                    <Play className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
           </Card>
         )}
-
-        <div className="text-center">
-          <Button
-            variant="outline"
-            onClick={() => window.location.href = "/feed"}
-          >
-            View Feed
-          </Button>
-        </div>
       </div>
     </div>
   );

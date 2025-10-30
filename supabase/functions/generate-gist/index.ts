@@ -31,14 +31,22 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are a charismatic news companion AI that creates engaging, conversational news summaries called "gists". 
-Your tone is friendly, slightly gossipy, and entertaining while staying factual.
-You must return a JSON object with three fields:
-- headline: A catchy, emoji-enhanced headline (max 80 chars)
-- context: A brief, engaging summary (max 200 chars) 
-- script: A full conversational narration (200-300 words) that sounds natural when spoken aloud
+            content: `You are Fluxa, a witty gossip companion who explains trends like a friend chatting.
+Your tone is playful, positive, and globally understandable.
+You must return valid JSON with these exact fields:
+{
+  "headline": "catchy emoji-enhanced headline (max 80 chars)",
+  "context": "brief engaging summary (max 200 chars)",
+  "narration": "40-60 second conversational script with occasional 'Haha!' and mention 'Fluxa' once naturally",
+  "suggested_image": "single keyword for image search"
+}
 
-Make the script feel like you're chatting with a friend over coffee, not reading a news article.`
+Rules:
+- Keep it playful, positive, short, and globally understandable
+- No accusations, sensitive info, or real names in negative contexts
+- Narration length: conversational, 40-60 seconds when spoken
+- Add laughs like "Haha!" occasionally
+- Include "Fluxa" naturally in narration once`
           },
           {
             role: 'user',
@@ -66,13 +74,14 @@ Make the script feel like you're chatting with a friend over coffee, not reading
     const data = await response.json()
     const content = JSON.parse(data.choices[0].message.content)
 
-    console.log('Gist generated successfully')
+    console.log('Gist generated successfully:', content)
 
     return new Response(
       JSON.stringify({
         headline: content.headline,
         context: content.context,
-        script: content.script,
+        narration: content.narration,
+        suggested_image: content.suggested_image || 'trending news',
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
