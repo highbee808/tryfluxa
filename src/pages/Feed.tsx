@@ -5,8 +5,10 @@ import { stopGistAudio } from "@/lib/audio";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import useEmblaCarousel from "embla-carousel-react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Brain } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useFluxaMemory } from "@/hooks/useFluxaMemory";
+import { Card } from "@/components/ui/card";
 
 interface Gist {
   id: string;
@@ -26,6 +28,9 @@ const Feed = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
   const [chatContext, setChatContext] = useState<{ topic: string; summary: string } | undefined>(undefined);
+  const [greeting, setGreeting] = useState<string>("Hey bestie! 👋");
+  const [dailyDrop, setDailyDrop] = useState<any>(null);
+  const { updateGistHistory, getGreeting } = useFluxaMemory();
 
   // Fetch gists from backend
   useEffect(() => {
@@ -57,7 +62,30 @@ const Feed = () => {
       }
     };
 
+    const loadGreeting = async () => {
+      const greetingText = await getGreeting();
+      setGreeting(greetingText);
+    };
+
+    const loadDailyDrop = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const { data, error } = await supabase.functions.invoke("fluxa-daily-drop", {
+          headers: { Authorization: `Bearer ${session.access_token}` }
+        });
+
+        if (error) throw error;
+        setDailyDrop(data);
+      } catch (error) {
+        console.error("Error loading daily drop:", error);
+      }
+    };
+
     fetchGists();
+    loadGreeting();
+    loadDailyDrop();
   }, []);
 
   // ✅ Handle carousel selection
@@ -85,8 +113,11 @@ const Feed = () => {
   }, [currentIndex]);
 
   // Play or stop gist audio
-  const handlePlay = () => {
+  const handlePlay = async () => {
     if (!gists[currentIndex]) return;
+
+    // Update memory when playing
+    await updateGistHistory(gists[currentIndex]);
 
     if (isPlaying && currentAudio) {
       currentAudio.pause();
@@ -132,6 +163,26 @@ const Feed = () => {
 
   return (
     <div className="min-h-screen bg-gradient-warm flex flex-col items-center justify-center p-4">
+      {/* Greeting Card */}
+      {greeting && (
+        <Card className="max-w-md w-full p-4 mb-4 bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20 animate-fade-in">
+          <p className="text-sm font-medium text-center">{greeting}</p>
+        </Card>
+      )}
+
+      {/* Daily Drop */}
+      {dailyDrop && (
+        <Card className="max-w-md w-full p-4 mb-4 border-primary/30 bg-card animate-fade-in-up">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xl">💅</span>
+            <h3 className="text-sm font-bold">Fluxa's Daily Drop</h3>
+          </div>
+          <p className="text-xs text-muted-foreground whitespace-pre-line">
+            {dailyDrop.message}
+          </p>
+        </Card>
+      )}
+
       {/* Header */}
       <div className="mb-8 text-center animate-fade-in">
         <div className="flex items-center justify-center gap-4 mb-4">
@@ -140,6 +191,12 @@ const Feed = () => {
             className="px-4 py-2 bg-accent text-accent-foreground rounded-full font-medium hover:bg-accent/90 transition-all hover:scale-105 shadow-soft"
           >
             💬 Chat with Fluxa
+          </button>
+          <button
+            onClick={() => navigate("/memory")}
+            className="p-2 bg-card rounded-full hover:bg-card/90 transition-all hover:scale-105 shadow-soft"
+          >
+            <Brain className="w-5 h-5" />
           </button>
         </div>
         <h1 className={`text-5xl font-bold text-foreground mb-2 ${currentIndex === 0 ? "animate-bounce" : ""}`}>
@@ -157,6 +214,7 @@ const Feed = () => {
             {gists.map((gist, index) => (
               <div key={gist.id} className="flex-[0_0_100%] min-w-0 animate-fade-in-up">
                 <GossipCard
+                  gistId={gist.id}
                   imageUrl={gist.image_url}
                   headline={gist.headline}
                   context={gist.context}

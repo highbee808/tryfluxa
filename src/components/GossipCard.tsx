@@ -1,7 +1,10 @@
 import { playGistAudio, stopGistAudio } from "@/lib/audio";
 import { cn } from "@/lib/utils";
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useFluxaMemory } from "@/hooks/useFluxaMemory";
 
 interface GossipCardProps {
   imageUrl: string;
@@ -11,9 +14,35 @@ interface GossipCardProps {
   onPlay: () => void;
   onNext: () => void;
   onTellMore: () => void;
+  gistId: string;
 }
 
-export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onNext, onTellMore }: GossipCardProps) => {
+export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onNext, onTellMore, gistId }: GossipCardProps) => {
+  const [isFavorited, setIsFavorited] = useState(false);
+  const { toggleFavorite } = useFluxaMemory();
+
+  useEffect(() => {
+    checkFavorite();
+  }, [gistId]);
+
+  const checkFavorite = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data } = await supabase
+      .from("user_favorites")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("gist_id", gistId)
+      .single();
+
+    setIsFavorited(!!data);
+  };
+
+  const handleFavoriteToggle = async () => {
+    const result = await toggleFavorite(gistId);
+    setIsFavorited(result);
+  };
   return (
     <div
       className="bg-card rounded-3xl overflow-hidden max-w-md w-full animate-scale-in"
@@ -51,7 +80,7 @@ export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onN
         </button>
 
         {/* Quick Replies */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
           <Button
             onClick={onTellMore}
             variant="outline"
@@ -65,6 +94,14 @@ export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onN
             className="flex-1 rounded-xl border-2 hover:border-accent/50 hover:bg-accent/10 transition-all duration-200"
           >
             Next gist →
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleFavoriteToggle}
+            className={isFavorited ? "text-primary" : ""}
+          >
+            <Heart className={`w-5 h-5 ${isFavorited ? "fill-current" : ""}`} />
           </Button>
         </div>
       </div>

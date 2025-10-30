@@ -65,11 +65,45 @@ export type Database = {
         }
         Relationships: []
       }
+      fluxa_memory: {
+        Row: {
+          created_at: string | null
+          favorite_topics: string[] | null
+          gist_history: Json | null
+          id: string
+          last_active: string | null
+          name: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          favorite_topics?: string[] | null
+          gist_history?: Json | null
+          id?: string
+          last_active?: string | null
+          name?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          favorite_topics?: string[] | null
+          gist_history?: Json | null
+          id?: string
+          last_active?: string | null
+          name?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       gists: {
         Row: {
           audio_url: string
           context: string
           created_at: string | null
+          favorite_count: number | null
           headline: string
           id: string
           image_url: string | null
@@ -87,6 +121,7 @@ export type Database = {
           audio_url: string
           context: string
           created_at?: string | null
+          favorite_count?: number | null
           headline: string
           id?: string
           image_url?: string | null
@@ -104,6 +139,7 @@ export type Database = {
           audio_url?: string
           context?: string
           created_at?: string | null
+          favorite_count?: number | null
           headline?: string
           id?: string
           image_url?: string | null
@@ -139,6 +175,35 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_favorites: {
+        Row: {
+          created_at: string | null
+          gist_id: string | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          gist_id?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          gist_id?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_favorites_gist_id_fkey"
+            columns: ["gist_id"]
+            isOneToOne: false
+            referencedRelation: "gists"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_interests: {
         Row: {

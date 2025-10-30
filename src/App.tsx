@@ -9,6 +9,7 @@ import Feed from "./pages/Feed";
 import FluxaMode from "./pages/FluxaMode";
 import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
+import Memory from "./pages/Memory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/fluxa-mode" element={<FluxaMode />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/memory" element={<Memory />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

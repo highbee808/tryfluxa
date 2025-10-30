@@ -2,3 +2,6 @@ project_id = "zikzuwomznlpgvrftcpf"
 
 [functions.fluxa-chat]
 verify_jwt = false
+
+[functions.fluxa-daily-drop]
+verify_jwt = true
