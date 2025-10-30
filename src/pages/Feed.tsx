@@ -154,14 +154,23 @@ const Feed = () => {
         </div>
       ) : (
         <div className="text-center text-muted-foreground mt-10">
-          <p>No gists available yet 😢</p>
+          <p className="text-lg mb-2">
+            {JSON.parse(localStorage.getItem("fluxaInterests") || "[]").length > 0
+              ? "No matching gists for your interests yet 😅"
+              : "No gists available yet 😢"}
+          </p>
+          <p className="text-sm mb-4">
+            {JSON.parse(localStorage.getItem("fluxaInterests") || "[]").length > 0
+              ? "Try selecting different topics or generate some gists below"
+              : "Generate some gists to get started"}
+          </p>
           <button
             onClick={() => {
               window.location.href = "/admin";
             }}
-            className="mt-4 underline text-primary font-medium"
+            className="mt-4 px-6 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90 transition-all font-medium"
           >
-            Generate Some Gists
+            Go to Admin Panel
           </button>
         </div>
       )}

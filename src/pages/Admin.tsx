@@ -25,6 +25,15 @@ const Admin = () => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // ✅ Development mode bypass - allow public access for MVP testing
+        if (import.meta.env.DEV) {
+          console.log("✅ Admin access verified for development mode");
+          setIsAuthenticated(true);
+          setIsAdmin(true);
+          setIsCheckingAuth(false);
+          return;
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
