@@ -30,17 +30,19 @@ const Onboarding = () => {
   const canContinue = selectedInterests.length >= 3;
 
   return (
-    <div className="min-h-screen bg-gradient-warm flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full space-y-8 animate-fade-in">
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--gradient-hero)" }}>
+      <div className="max-w-3xl w-full space-y-10 animate-fade-in">
         {/* Header */}
-        <div className="text-center space-y-3">
-          <h1 className="text-5xl font-bold text-foreground">Welcome to Fluxa 🎙️</h1>
-          <p className="text-xl text-muted-foreground">What do you want gist about?</p>
-          <p className="text-sm text-muted-foreground">Select at least 3 interests to continue</p>
+        <div className="text-center space-y-4">
+          <h1 className="text-6xl md:text-7xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+            Welcome to Fluxa 🎙️
+          </h1>
+          <p className="text-2xl text-foreground font-medium">What do you want gist about?</p>
+          <p className="text-base text-muted-foreground">Select at least 3 interests to personalize your feed</p>
         </div>
 
         {/* Interest Chips */}
-        <div className="flex flex-wrap gap-3 justify-center">
+        <div className="flex flex-wrap gap-4 justify-center">
           {topics.map((topic) => (
             <InterestChip
               key={topic.id}
@@ -53,8 +55,9 @@ const Onboarding = () => {
 
         {/* Selection Counter */}
         <div className="text-center">
-          <p className="text-muted-foreground">
+          <p className="text-foreground font-medium text-lg">
             {selectedInterests.length} / {topics.length} selected
+            {canContinue && " ✨"}
           </p>
         </div>
 
@@ -63,11 +66,8 @@ const Onboarding = () => {
           <Button
             onClick={handleContinue}
             disabled={!canContinue}
-            className={`px-12 py-6 text-lg font-semibold rounded-2xl transition-all duration-300 shadow-soft ${
-              canContinue
-                ? "bg-accent text-accent-foreground hover:bg-accent/90 hover:shadow-hover hover:scale-105"
-                : "bg-muted text-muted-foreground cursor-not-allowed opacity-70"
-            }`}
+            size="lg"
+            className="text-lg font-bold shadow-xl"
           >
             Continue to Feed →
           </Button>
