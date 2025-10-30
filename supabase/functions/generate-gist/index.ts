@@ -78,7 +78,7 @@ You must return valid JSON with these exact fields:
   "headline": "catchy emoji-enhanced headline (max 80 chars)",
   "context": "brief engaging summary (max 200 chars)",
   "narration": "40-60 second conversational script with occasional 'Haha!' and mention 'Fluxa' once naturally",
-  "suggested_image": "single keyword for image search"
+  "image_keyword": "descriptive 2-4 word phrase for image search"
 }
 
 Rules:
@@ -86,7 +86,8 @@ Rules:
 - No accusations, sensitive info, or real names in negative contexts
 - Narration length: conversational, 40-60 seconds when spoken
 - Add laughs like "Haha!" occasionally
-- Include "Fluxa" naturally in narration once`
+- Include "Fluxa" naturally in narration once
+- image_keyword should be visually descriptive (e.g., "Drake concert performance", "Messi football celebration", "tech product launch")`
           },
           {
             role: 'user',
@@ -140,7 +141,7 @@ Rules:
         headline: content.headline,
         context: content.context,
         narration: content.narration,
-        suggested_image: content.suggested_image || 'trending news',
+        image_keyword: content.image_keyword || 'trending news',
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

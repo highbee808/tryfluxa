@@ -129,11 +129,11 @@ serve(async (req) => {
 
       console.log('✅ Gist content generated successfully')
       console.log('📄 Data keys:', Object.keys(generateResponse.data))
-      const { headline, context, narration, suggested_image } = generateResponse.data
+      const { headline, context, narration, image_keyword } = generateResponse.data
       console.log('📋 Headline:', headline?.slice(0, 50))
       console.log('📋 Context:', context?.slice(0, 50))
       console.log('📋 Narration length:', narration?.length, 'chars')
-      console.log('📋 Suggested image:', suggested_image)
+      console.log('📋 Image keyword:', image_keyword)
 
       // Step 2: Convert narration to speech
       console.log('🎙️ Step 2/4: Converting narration to speech...')
@@ -165,8 +165,10 @@ serve(async (req) => {
 
       // Step 3: Get image URL from Unsplash
       console.log('🖼️ Step 3/4: Preparing image URL...')
-      const finalImageUrl = imageUrl || `https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8${encodeURIComponent(suggested_image || 'trending')}%7Cen%7C0%7C%7C0%7Cfm%3Dpng`
-      console.log('✅ Image URL prepared:', finalImageUrl)
+      const keyword = image_keyword || 'trending news'
+      const finalImageUrl = imageUrl || `https://source.unsplash.com/800x600/?${encodeURIComponent(keyword)}`
+      console.log('🖼️ Image fetched for topic:', keyword, '→', finalImageUrl)
+      console.log('✅ Image URL prepared')
 
       // Step 4: Save to database
       console.log('💾 Step 4/4: Saving to database...')
