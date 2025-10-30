@@ -58,6 +58,10 @@ serve(async (req) => {
     }
     console.log('✅ LOVABLE_API_KEY found')
 
+    // Detect if topic is about a celebrity or public figure
+    const isCelebrity = /drake|taylor swift|messi|rihanna|beyonce|kanye|cristiano|ronaldo|lebron|kim kardashian|ariana grande|justin bieber|selena gomez|bad bunny|dua lipa/i.test(topic)
+    console.log('👤 Celebrity detected:', isCelebrity)
+
     // Use Lovable AI to generate gist content
     console.log('🤖 Calling Lovable AI...')
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -136,12 +140,51 @@ Rules:
       throw new Error('AI returned invalid JSON')
     }
 
+    // Generate AI image for celebrities using OpenAI
+    let generatedImageUrl = null
+    if (isCelebrity) {
+      console.log('🧠 Generating AI image for celebrity topic...')
+      try {
+        const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+        if (!openaiApiKey) {
+          console.log('⚠️ OPENAI_API_KEY not found, falling back to stock images')
+        } else {
+          const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${openaiApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'gpt-image-1',
+              prompt: `High-quality realistic portrait style image of ${content.image_keyword || topic}, cinematic lighting, magazine cover aesthetic, professional photography`,
+              n: 1,
+              size: '1024x1024',
+            }),
+          })
+
+          if (imageResponse.ok) {
+            const imageData = await imageResponse.json()
+            generatedImageUrl = imageData.data[0]?.url
+            console.log('🧠 AI image generated successfully for celebrity topic')
+          } else {
+            const error = await imageResponse.text()
+            console.log('⚠️ OpenAI image generation failed:', imageResponse.status, error)
+          }
+        }
+      } catch (error) {
+        console.log('⚠️ Error generating AI image:', error instanceof Error ? error.message : 'Unknown error')
+      }
+    }
+
     return new Response(
       JSON.stringify({
         headline: content.headline,
         context: content.context,
         narration: content.narration,
         image_keyword: content.image_keyword || 'trending news',
+        ai_generated_image: generatedImageUrl,
+        is_celebrity: isCelebrity,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

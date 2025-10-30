@@ -129,11 +129,13 @@ serve(async (req) => {
 
       console.log('✅ Gist content generated successfully')
       console.log('📄 Data keys:', Object.keys(generateResponse.data))
-      const { headline, context, narration, image_keyword } = generateResponse.data
+      const { headline, context, narration, image_keyword, ai_generated_image, is_celebrity } = generateResponse.data
       console.log('📋 Headline:', headline?.slice(0, 50))
       console.log('📋 Context:', context?.slice(0, 50))
       console.log('📋 Narration length:', narration?.length, 'chars')
       console.log('📋 Image keyword:', image_keyword)
+      console.log('👤 Is celebrity:', is_celebrity)
+      console.log('🖼️ AI generated image:', ai_generated_image ? 'Yes' : 'No')
 
       // Step 2: Convert narration to speech
       console.log('🎙️ Step 2/4: Converting narration to speech...')
@@ -163,12 +165,26 @@ serve(async (req) => {
       console.log('🔗 Audio URL:', ttsResponse.data.audioUrl)
       const { audioUrl } = ttsResponse.data
 
-      // Step 3: Get image URL from Unsplash
+      // Step 3: Get image URL (AI-generated for celebrities, Unsplash for others)
       console.log('🖼️ Step 3/4: Preparing image URL...')
-      const keyword = image_keyword || 'trending news'
-      const finalImageUrl = imageUrl || `https://source.unsplash.com/800x600/?${encodeURIComponent(keyword)}`
-      console.log('🖼️ Image fetched for topic:', keyword, '→', finalImageUrl)
-      console.log('✅ Image URL prepared')
+      let finalImageUrl
+      
+      if (ai_generated_image) {
+        // Use AI-generated image for celebrities
+        finalImageUrl = ai_generated_image
+        console.log('🧠 AI image generated for celebrity:', image_keyword)
+      } else if (imageUrl) {
+        // Use provided image URL
+        finalImageUrl = imageUrl
+        console.log('📌 Using provided image URL')
+      } else {
+        // Fallback to Unsplash for non-celebrities
+        const keyword = image_keyword || 'trending news'
+        finalImageUrl = `https://source.unsplash.com/800x600/?${encodeURIComponent(keyword)}`
+        console.log('🖼️ Stock image fetched for topic:', keyword)
+      }
+      
+      console.log('✅ Final image URL:', finalImageUrl)
 
       // Step 4: Save to database
       console.log('💾 Step 4/4: Saving to database...')

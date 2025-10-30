@@ -19,7 +19,7 @@ export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onN
       className="bg-card rounded-3xl overflow-hidden max-w-md w-full animate-scale-in"
       style={{ boxShadow: "var(--shadow-soft)" }}
     >
-      {/* Image */}
+      {/* Image with gradient overlay */}
       <div className="relative aspect-[4/5] overflow-hidden">
         <img src={imageUrl} alt={headline} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
