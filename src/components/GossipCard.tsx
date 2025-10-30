@@ -1,7 +1,5 @@
-import { playGistAudio, stopGistAudio } from "@/lib/audio";
 import { cn } from "@/lib/utils";
-import { Play, Pause, Heart } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { PlayCircle, PauseCircle, MessageCircle, ArrowRightCircle, Heart } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useFluxaMemory } from "@/hooks/useFluxaMemory";
@@ -45,66 +43,116 @@ export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onN
   };
   return (
     <div
-      className="bg-card rounded-3xl overflow-hidden max-w-md w-full animate-scale-in"
+      className="bg-card rounded-3xl overflow-hidden max-w-md w-full animate-scale-in relative"
       style={{ boxShadow: "var(--shadow-soft)" }}
     >
       {/* Image with gradient overlay */}
       <div className="relative aspect-[4/5] overflow-hidden">
         <img src={imageUrl} alt={headline} className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+        
+        {/* Floating content on image */}
+        <div className="absolute bottom-0 left-0 right-0 p-6 space-y-3">
+          <h3 className="text-xl font-bold text-white leading-tight drop-shadow-lg">{headline}</h3>
+          <p className="text-white/90 text-sm leading-relaxed drop-shadow-md line-clamp-3">{context}</p>
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="p-6 space-y-4">
-        <div className="space-y-2">
-          <h3 className="text-xl font-bold text-foreground leading-tight">{headline}</h3>
-          <p className="text-muted-foreground leading-relaxed">{context}</p>
-        </div>
-
-        {/* Play Button */}
+      {/* Floating Icon Controls */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-6 py-3 rounded-full"
+        style={{
+          background: "var(--glass-bg)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          border: "1px solid var(--glass-border)",
+          boxShadow: "var(--shadow-soft)"
+        }}
+      >
+        {/* Play/Pause Button */}
         <button
           onClick={onPlay}
-          disabled={isPlaying}
-          className="w-full py-3 rounded-full font-fredoka font-bold transition-all hover:scale-105 shadow-md
-    disabled:opacity-60 disabled:scale-100 bg-primary text-primary-foreground"
+          className={cn(
+            "transition-all duration-300 hover:scale-110",
+            isPlaying && "animate-pulse"
+          )}
+          style={isPlaying ? { 
+            filter: "drop-shadow(0 0 8px hsl(var(--coral-glow)))" 
+          } : {}}
+          aria-label={isPlaying ? "Pause" : "Play"}
         >
           {isPlaying ? (
-            <div className="flex items-center gap-2 justify-center">
-              <span className="w-2 h-2 bg-primary-foreground rounded-full animate-pulse"></span>
-              <span className="w-2 h-2 bg-primary-foreground rounded-full animate-ping"></span>
-              Playing...
-            </div>
+            <PauseCircle 
+              className="w-10 h-10" 
+              style={{ color: "hsl(var(--coral-active))" }}
+            />
           ) : (
-            "Play Gist"
+            <PlayCircle 
+              className="w-10 h-10 text-muted-foreground hover:text-foreground transition-colors" 
+            />
           )}
         </button>
 
-        {/* Quick Replies */}
-        <div className="flex gap-3 items-center">
-          <Button
-            onClick={onTellMore}
-            variant="outline"
-            className="flex-1 rounded-xl border-2 hover:border-accent/50 hover:bg-accent/10 transition-all duration-200"
-          >
-            Ask Fluxa 💬
-          </Button>
-          <Button
-            onClick={onNext}
-            variant="outline"
-            className="flex-1 rounded-xl border-2 hover:border-accent/50 hover:bg-accent/10 transition-all duration-200"
-          >
-            Next gist →
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleFavoriteToggle}
-            className={isFavorited ? "text-primary" : ""}
-          >
-            <Heart className={`w-5 h-5 ${isFavorited ? "fill-current" : ""}`} />
-          </Button>
-        </div>
+        {/* Ask Fluxa Button */}
+        <button
+          onClick={onTellMore}
+          className="transition-all duration-300 hover:scale-110"
+          style={{
+            color: "hsl(var(--muted-foreground))"
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = "hsl(var(--coral-active))";
+            e.currentTarget.style.filter = "drop-shadow(0 0 8px hsl(var(--coral-glow)))";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = "hsl(var(--muted-foreground))";
+            e.currentTarget.style.filter = "none";
+          }}
+          aria-label="Ask Fluxa"
+        >
+          <MessageCircle className="w-8 h-8" />
+        </button>
+
+        {/* Next Button */}
+        <button
+          onClick={onNext}
+          className="transition-all duration-300 hover:scale-110"
+          style={{
+            color: "hsl(var(--muted-foreground))"
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = "hsl(var(--coral-active))";
+            e.currentTarget.style.filter = "drop-shadow(0 0 8px hsl(var(--coral-glow)))";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = "hsl(var(--muted-foreground))";
+            e.currentTarget.style.filter = "none";
+          }}
+          aria-label="Next gist"
+        >
+          <ArrowRightCircle className="w-8 h-8" />
+        </button>
       </div>
+
+      {/* Floating Heart (Favorite) */}
+      <button
+        onClick={handleFavoriteToggle}
+        className={cn(
+          "absolute top-4 right-4 p-2 rounded-full transition-all duration-300 hover:scale-110",
+          isFavorited && "bg-white/20"
+        )}
+        style={isFavorited ? {
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+        } : {}}
+        aria-label="Favorite"
+      >
+        <Heart 
+          className={cn(
+            "w-6 h-6 transition-colors",
+            isFavorited ? "fill-white text-white" : "text-white/80"
+          )} 
+        />
+      </button>
     </div>
   );
 };

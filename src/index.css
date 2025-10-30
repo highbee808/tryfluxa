@@ -48,13 +48,24 @@ All colors MUST be HSL.
     /* Gradients */
     --gradient-warm: linear-gradient(135deg, hsl(20 100% 92%), hsl(30 100% 95%));
     --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(25 35% 98%));
+    --gradient-coral: linear-gradient(135deg, hsl(15 100% 70%), hsl(20 100% 75%));
     
     /* Shadows */
     --shadow-soft: 0 4px 20px -4px hsl(20 30% 80% / 0.4);
     --shadow-hover: 0 8px 30px -6px hsl(20 40% 70% / 0.5);
+    --shadow-glow: 0 0 20px hsl(15 100% 70% / 0.4);
+    
+    /* Frosted Glass */
+    --glass-bg: hsl(0 0% 100% / 0.8);
+    --glass-border: hsl(0 0% 100% / 0.3);
+    
+    /* Active State */
+    --coral-active: 15 100% 70%;
+    --coral-glow: 15 100% 75%;
     
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-spring: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 }
 
