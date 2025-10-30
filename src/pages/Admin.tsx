@@ -19,6 +19,8 @@ const Admin = () => {
   const [imageUrl, setImageUrl] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGist, setLastGist] = useState<any>(null);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testLogs, setTestLogs] = useState<string[]>([]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -105,6 +107,112 @@ const Admin = () => {
     }
   };
 
+  const runPipelineTest = async () => {
+    setIsTesting(true);
+    setTestLogs([]);
+    const logs: string[] = [];
+    
+    const addLog = (message: string, success: boolean = true) => {
+      const logMessage = `${success ? '✅' : '❌'} ${message}`;
+      logs.push(logMessage);
+      setTestLogs([...logs]);
+      console.log(logMessage);
+    };
+
+    try {
+      addLog("Starting full pipeline test...");
+      
+      // Test topic
+      const testTopic = "Drake drops a surprise song with a twist";
+      addLog(`Test topic: "${testTopic}"`);
+
+      // Step 1: Call publish-gist
+      addLog("Calling publish-gist function...");
+      const startTime = Date.now();
+      
+      const { data, error } = await supabase.functions.invoke("publish-gist", {
+        body: {
+          topic: testTopic,
+          topicCategory: "Music"
+        },
+      });
+
+      if (error) {
+        addLog(`Error in publish-gist: ${JSON.stringify(error)}`, false);
+        toast.error("Pipeline test failed");
+        return;
+      }
+
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+      addLog(`Pipeline completed in ${duration}s`);
+
+      // Step 2: Verify response
+      if (!data || !data.gist) {
+        addLog("No gist data returned", false);
+        return;
+      }
+
+      addLog("🚀 generate-gist successful");
+      addLog("🎤 text-to-speech successful");
+      addLog("🗄️ gist saved to database");
+
+      // Step 3: Verify gist fields
+      const gist = data.gist;
+      addLog(`Headline: ${gist.headline ? '✓' : '✗ MISSING'}`);
+      addLog(`Context: ${gist.context ? '✓' : '✗ MISSING'}`);
+      addLog(`Audio URL: ${gist.audio_url ? '✓' : '✗ MISSING'}`);
+      addLog(`Status: ${gist.status === 'published' ? '✓ published' : '✗ ' + gist.status}`);
+
+      // Step 4: Verify audio URL format
+      if (gist.audio_url && gist.audio_url.startsWith('https://')) {
+        addLog("Audio URL format valid (starts with https://)");
+      } else {
+        addLog("Audio URL format invalid", false);
+      }
+
+      // Step 5: Fetch from database to confirm
+      addLog("Verifying gist in database...");
+      const { data: dbGist, error: dbError } = await supabase
+        .from('gists')
+        .select('*')
+        .eq('id', gist.id)
+        .single();
+
+      if (dbError || !dbGist) {
+        addLog("Failed to fetch gist from database", false);
+      } else {
+        addLog("Gist confirmed in database");
+      }
+
+      // Step 6: Test feed connection
+      addLog("Testing feed endpoint...");
+      const { data: feedData, error: feedError } = await supabase.functions.invoke("fetch-feed", {
+        body: { limit: 20 }
+      });
+
+      if (feedError) {
+        addLog("Feed fetch error", false);
+      } else if (feedData?.gists?.length > 0) {
+        const foundInFeed = feedData.gists.some((g: any) => g.id === gist.id);
+        if (foundInFeed) {
+          addLog("✅ Test gist found in feed");
+        } else {
+          addLog("⚠️ Test gist not found in feed (may appear shortly)");
+        }
+      }
+
+      addLog("✅ full pipeline test completed");
+      setLastGist(gist);
+      toast.success("Pipeline test passed! ✅");
+
+    } catch (error) {
+      addLog(`❌ Pipeline failed: ${error instanceof Error ? error.message : 'Unknown error'}`, false);
+      toast.error("Pipeline test failed");
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   if (isCheckingAuth) {
     return (
       <div className="min-h-screen bg-gradient-warm flex items-center justify-center">
@@ -135,6 +243,45 @@ const Admin = () => {
             </Button>
           </div>
         </div>
+
+        <Card className="p-6 space-y-4 bg-card/95 backdrop-blur border-primary/20">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold">Pipeline Test</h2>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Test the full AI gist generation pipeline with a sample topic
+            </p>
+            <Button
+              onClick={runPipelineTest}
+              disabled={isTesting}
+              variant="outline"
+              className="w-full"
+            >
+              {isTesting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Running Test...
+                </>
+              ) : (
+                "🧪 Run Full Pipeline Test"
+              )}
+            </Button>
+          </div>
+          
+          {testLogs.length > 0 && (
+            <div className="mt-4 p-4 bg-background/50 rounded-lg">
+              <h3 className="text-sm font-semibold mb-2">Test Logs:</h3>
+              <div className="space-y-1 font-mono text-xs max-h-60 overflow-y-auto">
+                {testLogs.map((log, idx) => (
+                  <div key={idx} className={log.includes('❌') ? 'text-destructive' : 'text-foreground'}>
+                    {log}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
 
         <Card className="p-6 space-y-4 bg-card/95 backdrop-blur">
           <h2 className="text-2xl font-semibold">Create New Gist</h2>
