@@ -1,10 +1,16 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1'
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+// Input validation schema
+const fetchSchema = z.object({
+  limit: z.number().int().min(1).max(100).default(10)
+})
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,7 +18,10 @@ serve(async (req) => {
   }
 
   try {
-    const { limit = 10 } = await req.json().catch(() => ({}))
+    // Validate input
+    const body = await req.json().catch(() => ({}))
+    const validated = fetchSchema.parse(body)
+    const { limit } = validated
 
     console.log('Fetching feed with limit:', limit)
 

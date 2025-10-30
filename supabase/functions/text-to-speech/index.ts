@@ -1,10 +1,18 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1'
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+// Input validation schema
+const ttsSchema = z.object({
+  text: z.string().min(1, 'Text is required').max(5000, 'Text too long (max 5000 characters)'),
+  voice: z.enum(['shimmer', 'alloy', 'echo', 'fable', 'onyx', 'nova']).default('shimmer'),
+  speed: z.number().min(0.25).max(4.0).default(0.94)
+})
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,11 +20,10 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voice = 'shimmer', speed = 0.94 } = await req.json()
-
-    if (!text) {
-      throw new Error('Text is required')
-    }
+    // Validate input
+    const body = await req.json()
+    const validated = ttsSchema.parse(body)
+    const { text, voice, speed } = validated
 
     console.log('Generating speech for text:', text.substring(0, 100))
 

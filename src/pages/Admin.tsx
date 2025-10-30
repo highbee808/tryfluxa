@@ -1,21 +1,74 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Play } from "lucide-react";
+import { Loader2, Play, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { topics } from "@/data/topics";
 
 const Admin = () => {
   const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [topic, setTopic] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastGist, setLastGist] = useState<any>(null);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          navigate("/auth");
+          return;
+        }
+
+        setIsAuthenticated(true);
+
+        // Check if user is admin
+        const { data: hasAdminRole, error } = await supabase.rpc('has_role', {
+          _user_id: session.user.id,
+          _role: 'admin'
+        });
+
+        if (error || !hasAdminRole) {
+          toast.error("Admin access required");
+          navigate("/feed");
+          return;
+        }
+
+        setIsAdmin(true);
+      } catch (error) {
+        console.error("Auth check error:", error);
+        navigate("/auth");
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    };
+
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        navigate("/auth");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success("Logged out successfully");
+    navigate("/auth");
+  };
 
   const handleGenerate = async () => {
     if (!topic.trim()) {
@@ -48,6 +101,18 @@ const Admin = () => {
     }
   };
 
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-warm flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !isAdmin) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-warm p-8">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -56,9 +121,15 @@ const Admin = () => {
             <h1 className="text-4xl font-bold text-foreground mb-2">Fluxa Admin</h1>
             <p className="text-muted-foreground">Generate AI-powered gists</p>
           </div>
-          <Button onClick={() => navigate("/feed")} variant="outline">
-            View Feed
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => navigate("/feed")} variant="outline">
+              View Feed
+            </Button>
+            <Button onClick={handleLogout} variant="outline">
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </Button>
+          </div>
         </div>
 
         <Card className="p-6 space-y-4 bg-card/95 backdrop-blur">
