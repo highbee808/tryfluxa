@@ -23,17 +23,33 @@ serve(async (req) => {
   }
 
   try {
+    console.log('🎤 text-to-speech started')
+    
     // Validate input
     console.log('📥 Parsing request body...')
     const body = await req.json()
-    console.log('📦 Request body received, text length:', body.text?.length || 0)
+    console.log('📦 Request body keys:', Object.keys(body))
+    console.log('📦 Text length:', body.text?.length || 0, 'characters')
     
-    console.log('📝 Validating input...')
-    const validated = ttsSchema.parse(body)
+    console.log('📝 Validating input with Zod...')
+    let validated
+    try {
+      validated = ttsSchema.parse(body)
+    } catch (validationError: any) {
+      console.log('❌ Validation failed:', validationError.message)
+      return new Response(
+        JSON.stringify({ success: false, error: `Validation failed: ${validationError.message}` }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+    
     const { text, voice, speed } = validated
-    console.log('✅ Input validated - voice:', voice, 'speed:', speed)
-
-    console.log('🎙️ Generating speech for text (first 100 chars):', text.substring(0, 100))
+    console.log('✅ Input validated successfully')
+    console.log('🎙️ Voice:', voice, '| Speed:', speed)
+    console.log('🗣️ Text preview (first 100 chars):', text.substring(0, 100))
     
     // Check API key
     const apiKey = Deno.env.get('OPENAI_API_KEY')
@@ -68,13 +84,14 @@ serve(async (req) => {
       throw new Error(`Failed to generate speech: ${error}`)
     }
 
-    console.log('✅ Speech generated successfully')
+    console.log('✅ OpenAI TTS completed successfully')
     
     // Get audio buffer
-    console.log('📦 Converting to audio buffer...')
+    console.log('📦 Converting response to audio buffer...')
     const arrayBuffer = await response.arrayBuffer()
     const audioBuffer = new Uint8Array(arrayBuffer)
-    console.log('✅ Audio buffer created, size:', audioBuffer.length, 'bytes')
+    console.log('✅ Audio buffer created')
+    console.log('📊 Buffer size:', audioBuffer.length, 'bytes', '(', (audioBuffer.length / 1024).toFixed(2), 'KB)')
 
     // Upload to Supabase Storage
     console.log('☁️ Uploading to Supabase Storage...')
@@ -84,8 +101,9 @@ serve(async (req) => {
     )
 
     const fileName = `gist-${Date.now()}.mp3`
-    console.log('📁 File name:', fileName)
+    console.log('📁 Generated filename:', fileName)
     
+    console.log('☁️ Uploading to Supabase Storage bucket: gist-audio...')
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('gist-audio')
       .upload(fileName, audioBuffer, {
@@ -94,18 +112,22 @@ serve(async (req) => {
       })
 
     if (uploadError) {
-      console.log('❌ Upload error:', uploadError.message)
+      console.log('❌ Storage upload error:', uploadError.message)
+      console.log('❌ Upload error details:', JSON.stringify(uploadError))
       throw new Error(`Failed to upload audio: ${uploadError.message}`)
     }
 
-    console.log('✅ File uploaded:', uploadData.path)
+    console.log('✅ File uploaded successfully to storage')
+    console.log('📂 Storage path:', uploadData.path)
 
     // Get public URL
+    console.log('🔗 Generating public URL...')
     const { data: { publicUrl } } = supabase.storage
       .from('gist-audio')
       .getPublicUrl(fileName)
 
-    console.log('✅ Audio uploaded successfully:', publicUrl)
+    console.log('✅ Public URL generated:', publicUrl)
+    console.log('🎉 text-to-speech complete!')
 
     return new Response(
       JSON.stringify({ audioUrl: publicUrl }),

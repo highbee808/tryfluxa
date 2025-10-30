@@ -14,18 +14,26 @@ serve(async (req) => {
   }
 
   try {
+    console.log('🚀 generate-gist started')
     console.log('📥 Parsing request body...')
     const body = await req.json()
-    console.log('📦 Request body:', JSON.stringify(body))
+    console.log('📦 Request body keys:', Object.keys(body))
     
     const { topic } = body
 
     if (!topic) {
-      console.log('❌ No topic provided')
-      throw new Error('Topic is required')
+      console.log('❌ No topic provided in request')
+      return new Response(
+        JSON.stringify({ success: false, error: 'Topic is required' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
     }
 
-    console.log('📝 Generating gist for topic:', topic)
+    console.log('📝 Topic received:', topic)
+    console.log('📏 Topic length:', topic.length, 'chars')
     
     // Check API key
     const apiKey = Deno.env.get('LOVABLE_API_KEY')
@@ -92,10 +100,25 @@ Rules:
 
     console.log('✅ AI responded successfully')
     const data = await response.json()
-    console.log('📄 AI raw response:', JSON.stringify(data))
+    console.log('📄 AI response structure:', Object.keys(data))
     
-    const content = JSON.parse(data.choices[0].message.content)
-    console.log('✅ Gist content parsed:', JSON.stringify(content))
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.log('❌ Invalid AI response structure')
+      throw new Error('Invalid response from AI')
+    }
+    
+    const messageContent = data.choices[0].message.content
+    console.log('📝 AI message content (first 200 chars):', messageContent.slice(0, 200))
+    
+    let content
+    try {
+      content = JSON.parse(messageContent)
+      console.log('✅ Gist content parsed successfully')
+      console.log('📋 Content keys:', Object.keys(content))
+    } catch (parseError) {
+      console.log('❌ Failed to parse AI response as JSON:', parseError)
+      throw new Error('AI returned invalid JSON')
+    }
 
     return new Response(
       JSON.stringify({

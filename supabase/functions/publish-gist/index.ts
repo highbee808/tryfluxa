@@ -30,9 +30,11 @@ serve(async (req) => {
     // Verify authentication
     console.log('🔐 Checking authentication...')
     const authHeader = req.headers.get('Authorization')
+    console.log('📋 Auth header present:', !!authHeader)
+    
     if (!authHeader) {
       console.log('❌ No authorization header')
-      return new Response(JSON.stringify({ success: false, error: 'Unauthorized - No authorization header' }), {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized - No authorization header', stage: 'auth' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
@@ -47,15 +49,23 @@ serve(async (req) => {
 
     console.log('🔍 Verifying user...')
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
-    if (authError || !user) {
-      console.log('❌ Auth error:', authError?.message)
-      return new Response(JSON.stringify({ success: false, error: 'Unauthorized - Invalid token' }), {
+    if (authError) {
+      console.log('❌ Auth error details:', JSON.stringify(authError))
+      return new Response(JSON.stringify({ success: false, error: `Auth failed: ${authError.message}`, stage: 'auth' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+    
+    if (!user) {
+      console.log('❌ No user found in token')
+      return new Response(JSON.stringify({ success: false, error: 'No user found', stage: 'auth' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    console.log('✅ User authenticated:', user.id)
+    console.log('✅ User authenticated:', user.id, 'Email:', user.email)
 
     // Check admin role
     console.log('👑 Checking admin role...')
@@ -122,48 +132,68 @@ serve(async (req) => {
 
     try {
       // Step 1: Generate gist content
-      console.log('📝 Step 1: Generating gist content...')
-      console.log('🤖 Calling generate-gist function with topic:', topic)
+      console.log('📝 Step 1/4: Generating gist content...')
+      console.log('🤖 Calling generate-gist with topic:', topic)
       
       const generateResponse = await supabase.functions.invoke('generate-gist', {
         body: { topic }
       })
 
-      console.log('📨 Generate response status:', generateResponse.error ? 'ERROR' : 'SUCCESS')
+      console.log('📨 Generate-gist response:', generateResponse.error ? 'ERROR' : 'SUCCESS')
       
       if (generateResponse.error) {
-        console.log('❌ Generate-gist error:', generateResponse.error.message)
-        throw new Error(`Failed to generate gist: ${generateResponse.error.message}`)
+        console.log('❌ Generate-gist error:', JSON.stringify(generateResponse.error))
+        throw new Error(`generate-gist failed: ${generateResponse.error.message}`)
       }
 
-      console.log('✅ Gist content generated:', JSON.stringify(generateResponse.data))
+      if (!generateResponse.data) {
+        console.log('❌ Generate-gist returned no data')
+        throw new Error('generate-gist returned empty response')
+      }
+
+      console.log('✅ Gist content generated successfully')
+      console.log('📄 Data keys:', Object.keys(generateResponse.data))
       const { headline, context, narration, suggested_image } = generateResponse.data
+      console.log('📋 Headline:', headline?.slice(0, 50))
+      console.log('📋 Context:', context?.slice(0, 50))
+      console.log('📋 Narration length:', narration?.length, 'chars')
+      console.log('📋 Suggested image:', suggested_image)
 
       // Step 2: Convert narration to speech
-      console.log('🎙️ Step 2: Converting to speech...')
-      console.log('🔊 Narration length:', narration.length, 'characters')
+      console.log('🎙️ Step 2/4: Converting narration to speech...')
+      console.log('🔊 Narration length:', narration?.length || 0, 'characters')
+      
+      if (!narration) {
+        throw new Error('No narration text to convert to speech')
+      }
       
       const ttsResponse = await supabase.functions.invoke('text-to-speech', {
         body: { text: narration, voice: 'shimmer', speed: 0.94 }
       })
 
-      console.log('📨 TTS response status:', ttsResponse.error ? 'ERROR' : 'SUCCESS')
+      console.log('📨 Text-to-speech response:', ttsResponse.error ? 'ERROR' : 'SUCCESS')
       
       if (ttsResponse.error) {
-        console.log('❌ Text-to-speech error:', ttsResponse.error.message)
-        throw new Error(`Failed to generate audio: ${ttsResponse.error.message}`)
+        console.log('❌ Text-to-speech error:', JSON.stringify(ttsResponse.error))
+        throw new Error(`text-to-speech failed: ${ttsResponse.error.message}`)
       }
 
-      console.log('✅ Audio generated:', ttsResponse.data.audioUrl)
+      if (!ttsResponse.data?.audioUrl) {
+        console.log('❌ Text-to-speech returned no audio URL')
+        throw new Error('text-to-speech returned empty audio URL')
+      }
+
+      console.log('✅ Audio generated and uploaded')
+      console.log('🔗 Audio URL:', ttsResponse.data.audioUrl)
       const { audioUrl } = ttsResponse.data
 
       // Step 3: Get image URL from Unsplash
-      console.log('🖼️ Step 3: Preparing image URL...')
-      const finalImageUrl = imageUrl || `https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8${encodeURIComponent(suggested_image)}%7Cen%7C0%7C%7C0%7Cfm%3Dpng`
-      console.log('✅ Image URL:', finalImageUrl)
+      console.log('🖼️ Step 3/4: Preparing image URL...')
+      const finalImageUrl = imageUrl || `https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8${encodeURIComponent(suggested_image || 'trending')}%7Cen%7C0%7C%7C0%7Cfm%3Dpng`
+      console.log('✅ Image URL prepared:', finalImageUrl)
 
       // Step 4: Save to database
-      console.log('💾 Step 4: Saving to database...')
+      console.log('💾 Step 4/4: Saving to database...')
       const gistData = {
         headline,
         context,
@@ -176,7 +206,9 @@ serve(async (req) => {
         status: 'published',
         published_at: new Date().toISOString(),
       }
-      console.log('📄 Gist data:', JSON.stringify(gistData))
+      console.log('📄 Gist data keys:', Object.keys(gistData))
+      console.log('📄 Topic:', gistData.topic)
+      console.log('📄 Status:', gistData.status)
       
       const { data: gist, error: dbError } = await supabase
         .from('gists')
@@ -185,13 +217,19 @@ serve(async (req) => {
         .single()
 
       if (dbError) {
-        console.log('❌ Database error:', dbError.message, dbError.details)
-        throw new Error(`Failed to save gist: ${dbError.message}`)
+        console.log('❌ Database error:', dbError.message)
+        console.log('❌ Database error details:', JSON.stringify(dbError))
+        throw new Error(`Database insert failed: ${dbError.message}`)
+      }
+
+      if (!gist) {
+        console.log('❌ Database returned no gist')
+        throw new Error('Database insert returned empty result')
       }
 
       gistId = gist.id
-      console.log('✅ Gist saved to DB:', gist.id)
-      console.log('🎉 ✅ Done - Gist published successfully!')
+      console.log('✅ Gist saved to DB with ID:', gist.id)
+      console.log('🎉 Pipeline complete - Gist published successfully!')
 
       return new Response(
         JSON.stringify({ 
@@ -205,8 +243,19 @@ serve(async (req) => {
         },
       )
     } catch (stepError) {
-      console.log('❌ Step failed:', stepError instanceof Error ? stepError.message : 'Unknown error')
-      console.log('📚 Error stack:', stepError instanceof Error ? stepError.stack : 'No stack')
+      const errorMessage = stepError instanceof Error ? stepError.message : 'Unknown error'
+      const errorStack = stepError instanceof Error ? stepError.stack : 'No stack'
+      
+      console.log('❌ Pipeline step failed:', errorMessage)
+      console.log('📚 Error stack:', errorStack)
+      
+      // Determine which stage failed
+      let failedStage = 'unknown'
+      if (errorMessage.includes('generate-gist')) failedStage = 'generate-gist'
+      else if (errorMessage.includes('text-to-speech')) failedStage = 'text-to-speech'
+      else if (errorMessage.includes('Database')) failedStage = 'database'
+      
+      console.log('🔍 Failed stage:', failedStage)
       
       // If any step fails, mark gist as failed if we created one
       if (gistId) {
@@ -215,11 +264,22 @@ serve(async (req) => {
           .from('gists')
           .update({
             status: 'failed',
-            meta: { error: stepError instanceof Error ? stepError.message : 'Unknown error' }
+            meta: { error: errorMessage, stage: failedStage }
           })
           .eq('id', gistId)
       }
-      throw stepError
+      
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: errorMessage,
+          stage: failedStage
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      )
     }
   } catch (error) {
     console.log('❌ Fatal error in publish-gist:', error instanceof Error ? error.message : 'Unknown error')
