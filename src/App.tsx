@@ -15,6 +15,7 @@ import LiveRoom from "./pages/LiveRoom";
 import Universe from "./pages/Universe";
 import Room from "./pages/Room";
 import AdminSponsors from "./pages/AdminSponsors";
+import AdminHealth from "./pages/AdminHealth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
           <Route path="/universe" element={<Universe />} />
           <Route path="/room/:roomId" element={<Room />} />
           <Route path="/admin/sponsors" element={<AdminSponsors />} />
+          <Route path="/admin/health" element={<AdminHealth />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

@@ -106,6 +106,33 @@ export type Database = {
           },
         ]
       }
+      fluxa_health_log: {
+        Row: {
+          component: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          status: string
+          timestamp: string
+        }
+        Insert: {
+          component: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          status: string
+          timestamp?: string
+        }
+        Update: {
+          component?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          status?: string
+          timestamp?: string
+        }
+        Relationships: []
+      }
       fluxa_lines: {
         Row: {
           category: string
