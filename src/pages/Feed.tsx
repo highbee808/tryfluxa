@@ -263,12 +263,19 @@ const Feed = () => {
             Memory
           </Button>
           <Button
-            onClick={() => navigate("/live")}
             variant="outline"
-            size="sm"
+            onClick={() => navigate("/live")}
+            className="flex-1"
           >
             <Radio className="w-4 h-4 mr-2" />
             Live
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => navigate("/universe")}
+            className="flex-1"
+          >
+            🌟 Universe
           </Button>
         </div>
         <h1 className={`text-5xl font-bold text-foreground mb-2 ${currentIndex === 0 ? "animate-bounce" : ""}`}>

@@ -12,6 +12,9 @@ import Auth from "./pages/Auth";
 import Memory from "./pages/Memory";
 import Live from "./pages/Live";
 import LiveRoom from "./pages/LiveRoom";
+import Universe from "./pages/Universe";
+import Room from "./pages/Room";
+import AdminSponsors from "./pages/AdminSponsors";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +35,9 @@ const App = () => (
           <Route path="/memory" element={<Memory />} />
           <Route path="/live" element={<Live />} />
           <Route path="/live/:sessionId" element={<LiveRoom />} />
+          <Route path="/universe" element={<Universe />} />
+          <Route path="/room/:roomId" element={<Room />} />
+          <Route path="/admin/sponsors" element={<AdminSponsors />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

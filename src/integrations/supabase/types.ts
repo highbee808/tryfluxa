@@ -65,6 +65,47 @@ export type Database = {
         }
         Relationships: []
       }
+      fluxa_awards: {
+        Row: {
+          announced: boolean | null
+          created_at: string | null
+          fluxa_fan_id: string | null
+          hot_topic_room_id: string | null
+          id: string
+          top_gister_id: string | null
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          announced?: boolean | null
+          created_at?: string | null
+          fluxa_fan_id?: string | null
+          hot_topic_room_id?: string | null
+          id?: string
+          top_gister_id?: string | null
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          announced?: boolean | null
+          created_at?: string | null
+          fluxa_fan_id?: string | null
+          hot_topic_room_id?: string | null
+          id?: string
+          top_gister_id?: string | null
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fluxa_awards_hot_topic_room_id_fkey"
+            columns: ["hot_topic_room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fluxa_memory: {
         Row: {
           created_at: string | null
@@ -270,6 +311,153 @@ export type Database = {
         }
         Relationships: []
       }
+      room_hosts: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: string
+          room_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: string
+          room_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: string
+          room_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_hosts_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_stats: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          revenue: number | null
+          room_id: string | null
+          session_length: number | null
+          total_listeners: number | null
+          total_reactions: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          revenue?: number | null
+          room_id?: string | null
+          session_length?: number | null
+          total_listeners?: number | null
+          total_reactions?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          revenue?: number | null
+          room_id?: string | null
+          session_length?: number | null
+          total_listeners?: number | null
+          total_reactions?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_stats_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rooms: {
+        Row: {
+          active_listeners: number | null
+          created_at: string | null
+          description: string | null
+          icon: string
+          id: string
+          is_active: boolean | null
+          name: string
+          topic_category: string
+        }
+        Insert: {
+          active_listeners?: number | null
+          created_at?: string | null
+          description?: string | null
+          icon: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          topic_category: string
+        }
+        Update: {
+          active_listeners?: number | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          topic_category?: string
+        }
+        Relationships: []
+      }
+      sponsorships: {
+        Row: {
+          ad_copy: string
+          brand_name: string
+          created_at: string | null
+          end_date: string
+          id: string
+          impressions: number | null
+          room_id: string | null
+          start_date: string
+        }
+        Insert: {
+          ad_copy: string
+          brand_name: string
+          created_at?: string | null
+          end_date: string
+          id?: string
+          impressions?: number | null
+          room_id?: string | null
+          start_date: string
+        }
+        Update: {
+          ad_copy?: string
+          brand_name?: string
+          created_at?: string | null
+          end_date?: string
+          id?: string
+          impressions?: number | null
+          room_id?: string | null
+          start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sponsorships_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stories: {
         Row: {
           audio_url: string
@@ -432,6 +620,30 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_vip: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          user_id: string
+          vip_status: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          user_id: string
+          vip_status?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          user_id?: string
+          vip_status?: boolean | null
         }
         Relationships: []
       }
