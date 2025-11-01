@@ -34,49 +34,37 @@ export const FluxaGreeting = ({ greeting, isLoading }: FluxaGreetingProps) => {
 
   if (isLoading) {
     return (
-      <Card className="max-w-6xl w-full p-6 mb-8 border-primary/30 animate-pulse rounded-[24px]"
-        style={{ 
-          background: "var(--gradient-card)",
-          boxShadow: "var(--shadow-card)"
-        }}
-      >
-        <div className="h-8 bg-muted/50 rounded-full w-3/4" />
+      <Card className="max-w-6xl w-full p-4 mb-6 bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20 animate-pulse">
+        <div className="h-6 bg-muted rounded w-3/4" />
       </Card>
     );
   }
 
   return (
-    <Card className="max-w-6xl w-full p-6 mb-8 border-primary/30 animate-fade-in relative overflow-hidden rounded-[24px]"
-      style={{ 
-        background: "var(--gradient-card)",
-        boxShadow: "var(--shadow-card)"
-      }}
-    >
+    <Card className="max-w-6xl w-full p-4 mb-6 bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20 animate-fade-in relative overflow-hidden">
       {/* Fluxa avatar glow effect */}
-      <div className="absolute -left-4 -top-4 w-24 h-24 bg-primary/20 rounded-full blur-2xl animate-pulse" />
+      <div className="absolute -left-2 -top-2 w-12 h-12 bg-primary/20 rounded-full blur-xl animate-pulse" />
       
-      <div className="relative flex items-center gap-4">
+      <div className="relative flex items-center gap-3">
         {/* Animated Fluxa avatar */}
-        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary via-accent to-secondary flex items-center justify-center text-white font-bold text-xl animate-float"
-          style={{ boxShadow: "var(--shadow-glow)" }}
-        >
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold animate-float shadow-lg">
           F
         </div>
 
         {/* Greeting text with typing animation */}
-        <p className="text-base font-medium flex-1 text-foreground">
+        <p className="text-sm font-medium flex-1">
           {displayText}
-          {isTyping && <span className="animate-pulse ml-1 text-primary">|</span>}
+          {isTyping && <span className="animate-pulse">|</span>}
         </p>
 
         {/* Voice wave indicator (when Fluxa is "speaking") */}
         {isTyping && (
-          <div className="flex gap-1.5 items-center">
-            <div className="w-1.5 h-4 bg-primary/70 rounded-full animate-[wave_0.5s_ease-in-out_infinite]" />
-            <div className="w-1.5 h-6 bg-primary/80 rounded-full animate-[wave_0.5s_ease-in-out_0.1s_infinite]" />
-            <div className="w-1.5 h-8 bg-primary rounded-full animate-[wave_0.5s_ease-in-out_0.2s_infinite]" />
-            <div className="w-1.5 h-6 bg-primary/80 rounded-full animate-[wave_0.5s_ease-in-out_0.3s_infinite]" />
-            <div className="w-1.5 h-4 bg-primary/70 rounded-full animate-[wave_0.5s_ease-in-out_0.4s_infinite]" />
+          <div className="flex gap-1 items-center">
+            <div className="w-1 h-3 bg-primary/60 rounded-full animate-[wave_0.5s_ease-in-out_infinite]" />
+            <div className="w-1 h-4 bg-primary/70 rounded-full animate-[wave_0.5s_ease-in-out_0.1s_infinite]" />
+            <div className="w-1 h-5 bg-primary/80 rounded-full animate-[wave_0.5s_ease-in-out_0.2s_infinite]" />
+            <div className="w-1 h-4 bg-primary/70 rounded-full animate-[wave_0.5s_ease-in-out_0.3s_infinite]" />
+            <div className="w-1 h-3 bg-primary/60 rounded-full animate-[wave_0.5s_ease-in-out_0.4s_infinite]" />
           </div>
         )}
       </div>

@@ -15,15 +15,15 @@ export const NavigationBar = () => {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 md:top-8 md:bottom-auto animate-fade-in">
+    <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 md:top-6 md:bottom-auto">
       <div 
-        className="flex items-center gap-1 px-5 py-4 rounded-full transition-all duration-500"
+        className="flex items-center gap-2 px-4 py-3 rounded-full"
         style={{
           background: "var(--glass-bg)",
-          backdropFilter: "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
-          border: "1.5px solid var(--glass-border)",
-          boxShadow: "var(--glass-shadow)"
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          border: "1px solid var(--glass-border)",
+          boxShadow: "var(--shadow-soft)"
         }}
       >
         {navItems.map((item) => {
@@ -35,19 +35,16 @@ export const NavigationBar = () => {
               key={item.id}
               onClick={() => navigate(item.path)}
               className={cn(
-                "p-3.5 rounded-full transition-all duration-400 hover:scale-115 active:scale-95",
-                isActive && "bg-gradient-to-br from-[hsl(var(--coral-active))] to-[hsl(var(--coral-glow))] scale-105"
+                "p-3 rounded-full transition-all duration-300 hover:scale-110",
+                isActive && "bg-gradient-to-br from-[hsl(var(--coral-active))] to-[hsl(var(--coral-glow))]"
               )}
-              style={isActive ? { 
-                boxShadow: "var(--shadow-glow)",
-                transform: "scale(1.05)"
-              } : {}}
+              style={isActive ? { boxShadow: "var(--shadow-glow)" } : {}}
               aria-label={item.label}
             >
               <Icon 
                 className={cn(
-                  "w-5 h-5 transition-all duration-300",
-                  isActive ? "text-white" : "text-muted-foreground hover:text-foreground"
+                  "w-5 h-5 transition-colors",
+                  isActive ? "text-white" : "text-muted-foreground"
                 )} 
               />
             </button>

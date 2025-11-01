@@ -16,21 +16,20 @@ export const InterestChip = ({ label, selected, onClick }: InterestChipProps) =>
     <button
       onClick={onClick}
       className={cn(
-        "px-7 py-4 rounded-full font-semibold transition-all duration-400 group",
+        "px-6 py-3 rounded-full font-medium transition-all duration-300 group",
         "border-2 hover:scale-105 active:scale-95 relative overflow-visible",
         selected
-          ? "bg-gradient-to-r from-primary to-accent text-white border-transparent shadow-xl"
-          : "bg-card text-foreground border-border hover:border-accent/60 shadow-md hover:shadow-lg"
+          ? "bg-accent text-accent-foreground border-accent shadow-soft"
+          : "bg-card text-foreground border-border hover:border-accent/50"
       )}
-      style={selected ? { boxShadow: "var(--shadow-glow)" } : {}}
     >
-      <span className="flex items-center gap-3">
+      <span className="flex items-center gap-2">
         <span 
           className={cn(
-            "inline-block transition-all duration-400 text-xl",
+            "inline-block transition-all duration-300",
             "animate-float",
             "group-hover:scale-125 group-hover:rotate-12",
-            selected && "animate-pulse scale-110"
+            selected && "animate-pulse"
           )}
           style={{
             animationDuration: `${2 + Math.random() * 2}s`,
@@ -39,7 +38,7 @@ export const InterestChip = ({ label, selected, onClick }: InterestChipProps) =>
         >
           {emoji}
         </span>
-        <span className="text-base">{text}</span>
+        <span>{text}</span>
       </span>
     </button>
   );

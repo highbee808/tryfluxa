@@ -56,14 +56,10 @@ export default {
       boxShadow: {
         soft: "var(--shadow-soft)",
         hover: "var(--shadow-hover)",
-        card: "var(--shadow-card)",
-        glow: "var(--shadow-glow)",
       },
       backgroundImage: {
         "gradient-warm": "var(--gradient-warm)",
         "gradient-card": "var(--gradient-card)",
-        "gradient-coral": "var(--gradient-coral)",
-        "gradient-hero": "var(--gradient-hero)",
       },
       keyframes: {
         "accordion-down": {

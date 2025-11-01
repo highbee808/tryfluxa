@@ -43,56 +43,51 @@ export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onN
   };
   return (
     <div
-      className="bg-card rounded-[28px] overflow-hidden w-full animate-scale-in relative transition-all duration-500 hover:scale-[1.02]"
-      style={{ boxShadow: "var(--shadow-card)" }}
+      className="bg-card rounded-3xl overflow-hidden max-w-md w-full animate-scale-in relative"
+      style={{ boxShadow: "var(--shadow-soft)" }}
     >
       {/* Image with gradient overlay */}
-      <div className="relative aspect-[3/4] overflow-hidden">
-        <img 
-          src={imageUrl} 
-          alt={headline} 
-          className="w-full h-full object-cover transition-transform duration-700 hover:scale-105" 
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+      <div className="relative aspect-[4/5] overflow-hidden">
+        <img src={imageUrl} alt={headline} className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
         
         {/* Floating content on image */}
-        <div className="absolute bottom-0 left-0 right-0 p-6 space-y-3 pb-20">
-          <h3 className="text-2xl font-bold text-white leading-tight drop-shadow-2xl">{headline}</h3>
-          <p className="text-white/95 text-sm leading-relaxed drop-shadow-lg line-clamp-3">{context}</p>
+        <div className="absolute bottom-0 left-0 right-0 p-6 space-y-3">
+          <h3 className="text-xl font-bold text-white leading-tight drop-shadow-lg">{headline}</h3>
+          <p className="text-white/90 text-sm leading-relaxed drop-shadow-md line-clamp-3">{context}</p>
         </div>
       </div>
 
-      {/* Floating Icon Controls */}
-      <div 
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 py-3 rounded-full transition-all duration-300"
+      {/* Floating Icon Controls - Smaller */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full"
         style={{
           background: "var(--glass-bg)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
           border: "1px solid var(--glass-border)",
-          boxShadow: "var(--glass-shadow)"
+          boxShadow: "var(--shadow-soft)"
         }}
       >
         {/* Play/Pause Button */}
         <button
           onClick={onPlay}
           className={cn(
-            "transition-all duration-300 hover:scale-125 active:scale-95",
+            "transition-all duration-300 hover:scale-110",
             isPlaying && "animate-pulse"
           )}
           style={isPlaying ? { 
-            filter: "drop-shadow(0 0 8px hsl(var(--coral-glow)))" 
+            filter: "drop-shadow(0 0 6px hsl(var(--coral-glow)))" 
           } : {}}
           aria-label={isPlaying ? "Pause" : "Play"}
         >
           {isPlaying ? (
             <PauseCircle 
-              className="w-8 h-8" 
+              className="w-7 h-7" 
               style={{ color: "hsl(var(--coral-active))" }}
             />
           ) : (
             <PlayCircle 
-              className="w-8 h-8 text-muted-foreground hover:text-coral-active transition-colors" 
+              className="w-7 h-7 text-muted-foreground hover:text-foreground transition-colors" 
             />
           )}
         </button>
@@ -100,13 +95,13 @@ export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onN
         {/* Ask Fluxa Button */}
         <button
           onClick={onTellMore}
-          className="transition-all duration-300 hover:scale-125 active:scale-95"
+          className="transition-all duration-300 hover:scale-110"
           style={{
             color: "hsl(var(--muted-foreground))"
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.color = "hsl(var(--coral-active))";
-            e.currentTarget.style.filter = "drop-shadow(0 0 8px hsl(var(--coral-glow)))";
+            e.currentTarget.style.filter = "drop-shadow(0 0 6px hsl(var(--coral-glow)))";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.color = "hsl(var(--muted-foreground))";
@@ -114,19 +109,19 @@ export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onN
           }}
           aria-label="Ask Fluxa"
         >
-          <MessageCircle className="w-7 h-7" />
+          <MessageCircle className="w-6 h-6" />
         </button>
 
         {/* Next Button */}
         <button
           onClick={onNext}
-          className="transition-all duration-300 hover:scale-125 active:scale-95"
+          className="transition-all duration-300 hover:scale-110"
           style={{
             color: "hsl(var(--muted-foreground))"
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.color = "hsl(var(--coral-active))";
-            e.currentTarget.style.filter = "drop-shadow(0 0 8px hsl(var(--coral-glow)))";
+            e.currentTarget.style.filter = "drop-shadow(0 0 6px hsl(var(--coral-glow)))";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.color = "hsl(var(--muted-foreground))";
@@ -134,7 +129,7 @@ export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onN
           }}
           aria-label="Next gist"
         >
-          <ArrowRightCircle className="w-7 h-7" />
+          <ArrowRightCircle className="w-6 h-6" />
         </button>
       </div>
 
@@ -142,23 +137,19 @@ export const GossipCard = ({ imageUrl, headline, context, isPlaying, onPlay, onN
       <button
         onClick={handleFavoriteToggle}
         className={cn(
-          "absolute top-6 right-6 p-3 rounded-full transition-all duration-300 hover:scale-125 active:scale-95",
-          isFavorited && "bg-white/30"
+          "absolute top-4 right-4 p-2 rounded-full transition-all duration-300 hover:scale-110",
+          isFavorited && "bg-white/20"
         )}
         style={isFavorited ? {
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          boxShadow: "0 4px 12px hsl(0 0% 0% / 0.1)"
-        } : {
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-        }}
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+        } : {}}
         aria-label="Favorite"
       >
         <Heart 
           className={cn(
-            "w-7 h-7 transition-all duration-300",
-            isFavorited ? "fill-white text-white scale-110" : "text-white/90"
+            "w-6 h-6 transition-colors",
+            isFavorited ? "fill-white text-white" : "text-white/80"
           )} 
         />
       </button>

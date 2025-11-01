@@ -275,9 +275,9 @@ const Feed = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ background: "var(--gradient-hero)" }}>
-        <div className="loader mb-6 animate-glow" />
-        <p className="text-foreground text-base font-medium animate-pulse">
+      <div className="min-h-screen bg-gradient-warm flex flex-col items-center justify-center p-4">
+        <div className="loader mb-4" />
+        <p className="text-muted-foreground text-sm animate-pulse">
           Fluxa's gathering the latest gists for you... 💅💬
         </p>
       </div>
@@ -285,7 +285,7 @@ const Feed = () => {
   }
 
   return (
-    <div className="min-h-screen pb-24 md:pt-28" style={{ background: "var(--gradient-hero)" }}>
+    <div className="min-h-screen bg-gradient-warm pb-24 md:pt-24">
       {/* Navigation Bar */}
       <NavigationBar />
 
@@ -353,12 +353,12 @@ const Feed = () => {
         )}
 
         {/* Header */}
-        <div className="mb-10 text-center animate-fade-in">
-          <h1 className="text-6xl md:text-7xl font-bold mb-3 bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+        <div className="mb-8 text-center animate-fade-in">
+          <h1 className={`text-5xl font-bold text-foreground mb-2 ${currentIndex === 0 ? "animate-bounce" : ""}`}>
             Fluxa
           </h1>
-          <p className="text-muted-foreground font-medium text-base">
-            {gists.length > 0 ? `${currentIndex + 1} of ${gists.length} gists` : "No gists available"}
+          <p className="text-muted-foreground font-medium">
+            {gists.length > 0 ? `${currentIndex + 1} of ${gists.length}` : "No gists available"}
           </p>
         </div>
 
@@ -385,32 +385,41 @@ const Feed = () => {
               </div>
             </div>
 
-            {/* Desktop: Grid Layout with Enhanced Cards */}
-            <div className="hidden md:grid w-full max-w-7xl grid-cols-3 gap-6 px-8">
-              {gists.slice(0, 6).map((gist, index) => (
-                <div 
-                  key={gist.id}
-                  className="animate-fade-in"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  <GossipCard
-                    gistId={gist.id}
-                    imageUrl={gist.image_url}
-                    headline={gist.headline}
-                    context={gist.context}
-                    isPlaying={isPlaying && index === currentIndex}
-                    onPlay={() => {
-                      setCurrentIndex(index);
-                      handlePlay();
-                    }}
-                    onNext={handleNext}
-                    onTellMore={() => {
-                      setCurrentIndex(index);
-                      handleTellMore();
-                    }}
-                  />
+            {/* Desktop: 3-Card Carousel */}
+            <div className="hidden md:block w-full max-w-7xl px-16" ref={desktopEmblaRef}>
+              <div className="overflow-hidden">
+                <div className="flex -ml-4">
+                  {gists.map((gist, index) => (
+                    <div key={gist.id} className="pl-4 flex-[0_0_33.333%] min-w-0">
+                      <div 
+                        className={`transition-all duration-500 ease-out ${
+                          index === currentIndex 
+                            ? "scale-105 opacity-100" 
+                            : "scale-90 opacity-50"
+                        }`}
+                      >
+                        <GossipCard
+                          gistId={gist.id}
+                          imageUrl={gist.image_url}
+                          headline={gist.headline}
+                          context={gist.context}
+                          isPlaying={isPlaying && index === currentIndex}
+                          onPlay={() => {
+                            setCurrentIndex(index);
+                            desktopEmblaApi?.scrollTo(index);
+                            handlePlay();
+                          }}
+                          onNext={handleNext}
+                          onTellMore={() => {
+                            setCurrentIndex(index);
+                            handleTellMore();
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
           </>
         ) : (

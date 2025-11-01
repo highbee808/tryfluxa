@@ -10,66 +10,62 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Fluxa Design System - Vibrant & Playful */
-    --background: 20 95% 96%;
-    --foreground: 20 10% 15%;
+    /* Fluxa Design System - Warm & Playful */
+    --background: 25 35% 98%;
+    --foreground: 20 8% 20%;
 
     --card: 0 0% 100%;
-    --card-foreground: 20 10% 15%;
+    --card-foreground: 20 8% 20%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 20 10% 15%;
+    --popover-foreground: 20 8% 20%;
 
-    /* Primary: Vibrant Peach */
-    --primary: 15 100% 78%;
-    --primary-foreground: 0 0% 100%;
+    /* Primary: Soft peach (#FFDCC9 equivalent) */
+    --primary: 20 100% 89%;
+    --primary-foreground: 20 8% 20%;
     
-    /* Secondary: Soft Rose */
-    --secondary: 340 80% 85%;
-    --secondary-foreground: 20 10% 15%;
+    /* Secondary: Warm beige */
+    --secondary: 30 25% 95%;
+    --secondary-foreground: 20 8% 20%;
 
-    /* Muted: Warm Neutral */
-    --muted: 20 30% 88%;
-    --muted-foreground: 20 10% 40%;
+    /* Muted: Soft gray with warmth */
+    --muted: 25 15% 92%;
+    --muted-foreground: 20 8% 45%;
 
-    /* Accent: Bold Coral */
-    --accent: 10 95% 68%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent: Playful coral/peach */
+    --accent: 20 100% 89%;
+    --accent-foreground: 20 8% 20%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 20 40% 90%;
-    --input: 20 40% 92%;
-    --ring: 15 100% 75%;
+    --border: 25 20% 90%;
+    --input: 25 20% 90%;
+    --ring: 20 100% 75%;
 
-    --radius: 1.5rem;
+    --radius: 1rem;
 
-    /* Gradients - Enhanced */
-    --gradient-warm: linear-gradient(135deg, hsl(15 100% 85%) 0%, hsl(340 85% 88%) 50%, hsl(30 100% 90%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(20 90% 97%) 100%);
-    --gradient-coral: linear-gradient(135deg, hsl(10 95% 68%) 0%, hsl(340 80% 75%) 100%);
-    --gradient-hero: linear-gradient(180deg, hsl(15 100% 90%) 0%, hsl(340 90% 92%) 40%, hsl(30 95% 94%) 100%);
+    /* Gradients */
+    --gradient-warm: linear-gradient(135deg, hsl(20 100% 92%), hsl(30 100% 95%));
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(25 35% 98%));
+    --gradient-coral: linear-gradient(135deg, hsl(15 100% 70%), hsl(20 100% 75%));
     
-    /* Shadows - More Dramatic */
-    --shadow-soft: 0 8px 32px -8px hsl(15 70% 70% / 0.25);
-    --shadow-hover: 0 16px 48px -12px hsl(15 80% 65% / 0.35);
-    --shadow-glow: 0 0 40px hsl(10 95% 68% / 0.5);
-    --shadow-card: 0 4px 24px -4px hsl(15 50% 75% / 0.2);
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -4px hsl(20 30% 80% / 0.4);
+    --shadow-hover: 0 8px 30px -6px hsl(20 40% 70% / 0.5);
+    --shadow-glow: 0 0 20px hsl(15 100% 70% / 0.4);
     
-    /* Frosted Glass - More Pronounced */
-    --glass-bg: hsl(0 0% 100% / 0.85);
-    --glass-border: hsl(0 0% 100% / 0.4);
-    --glass-shadow: 0 8px 32px 0 hsl(15 70% 70% / 0.2);
+    /* Frosted Glass */
+    --glass-bg: hsl(0 0% 100% / 0.8);
+    --glass-border: hsl(0 0% 100% / 0.3);
     
     /* Active State */
-    --coral-active: 10 95% 68%;
-    --coral-glow: 10 100% 75%;
+    --coral-active: 15 100% 70%;
+    --coral-glow: 15 100% 75%;
     
     /* Animations */
-    --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-spring: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-    --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-spring: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 }
 
