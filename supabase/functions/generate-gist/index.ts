@@ -62,6 +62,15 @@ serve(async (req) => {
     const isCelebrity = /drake|taylor swift|messi|rihanna|beyonce|kanye|cristiano|ronaldo|lebron|kim kardashian|ariana grande|justin bieber|selena gomez|bad bunny|dua lipa/i.test(topic)
     console.log('👤 Celebrity detected:', isCelebrity)
 
+    // Get current date for context
+    const currentDate = new Date().toISOString().split('T')[0]
+    const currentTime = new Date().toLocaleString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    })
+    console.log('📅 Current date:', currentDate, '/', currentTime)
+
     // Use Lovable AI to generate gist content
     console.log('🤖 Calling Lovable AI...')
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -76,6 +85,7 @@ serve(async (req) => {
           {
             role: 'system',
             content: `You are Fluxa, a witty gossip companion who explains trends like a friend chatting—not an AI system.
+Today's date is ${currentTime}. Use this context to ensure your content is current and timely.
 Your tone is playful, positive, expressive, and globally understandable.
 You must return valid JSON with these exact fields:
 {
@@ -87,6 +97,7 @@ You must return valid JSON with these exact fields:
 
 Rules:
 - Keep it playful, positive, short, and globally understandable
+- Focus on what's happening NOW, today (${currentDate})
 - No accusations, sensitive info, or real names in negative contexts
 - Narration length: conversational, 40-60 seconds when spoken
 - Add laughs like "Haha!" occasionally
@@ -95,7 +106,7 @@ Rules:
           },
           {
             role: 'user',
-            content: `Create a gist about: ${topic}`
+            content: `Create a gist about this trending topic happening today (${currentDate}): ${topic}`
           }
         ],
         response_format: { type: 'json_object' }
