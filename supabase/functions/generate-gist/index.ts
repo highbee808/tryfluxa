@@ -71,8 +71,8 @@ serve(async (req) => {
     })
     console.log('📅 Current date:', currentDate, '/', currentTime)
 
-    // Use Lovable AI to generate gist content
-    console.log('🤖 Calling Lovable AI...')
+    // Use Lovable AI with GPT-5 for more current and accurate news
+    console.log('🤖 Calling Lovable AI (GPT-5)...')
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -80,12 +80,19 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'openai/gpt-5-mini',
         messages: [
           {
             role: 'system',
             content: `You are Fluxa, a witty gossip companion who explains trends like a friend chatting—not an AI system.
-Today's date is ${currentTime}. Use this context to ensure your content is current and timely.
+Today's date is ${currentTime}. Use this context to ensure your content is CURRENT and about events happening RIGHT NOW.
+
+CRITICAL CONTEXT RULES:
+- When topic mentions sports teams (e.g., "Barcelona", "Real Madrid", "Man United"), interpret as THE SPORTS TEAM, not the city
+- When topic mentions artists/musicians (e.g., "Burna Boy", "Drake"), focus on their music/career, not just their personal life
+- Search for and reference ACTUAL RECENT NEWS from today or the last 24-48 hours
+- If no breaking news exists, discuss the most recent relevant update or upcoming event
+
 Your tone is playful, positive, expressive, and globally understandable.
 You must return valid JSON with these exact fields:
 {
@@ -97,16 +104,16 @@ You must return valid JSON with these exact fields:
 
 Rules:
 - Keep it playful, positive, short, and globally understandable
-- Focus on what's happening NOW, today (${currentDate})
+- Focus on what's happening NOW, today (${currentDate}) or in the last 24-48 hours
 - No accusations, sensitive info, or real names in negative contexts
 - Narration length: conversational, 40-60 seconds when spoken
 - Add laughs like "Haha!" occasionally
 - Include "Fluxa" naturally in narration once
-- image_keyword should be visually descriptive (e.g., "Drake concert performance", "Messi football celebration", "tech product launch")`
+- image_keyword should be visually descriptive and specific (e.g., "Barcelona FC football match", "Drake concert performance", "Messi celebration", "tech product launch")`
           },
           {
             role: 'user',
-            content: `Create a gist about this trending topic happening today (${currentDate}): ${topic}`
+            content: `Create a gist about this trending topic happening today (${currentDate}): ${topic}. Focus on REAL recent news or events from the last 24-48 hours.`
           }
         ],
         response_format: { type: 'json_object' }

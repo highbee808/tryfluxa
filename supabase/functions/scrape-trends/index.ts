@@ -21,7 +21,7 @@ serve(async (req) => {
     const currentDate = new Date().toISOString().split('T')[0]
     console.log('Current date:', currentDate)
 
-    // Use Lovable AI to search for current trending topics
+    // Use Lovable AI with GPT-5 Mini for real-time trending topics
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -29,13 +29,19 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'openai/gpt-5-mini',
         messages: [
           {
             role: 'system',
-            content: `You are a trending topics analyzer. Today's date is ${currentDate}. 
+            content: `You are a real-time trending topics analyzer with access to current news. Today's date is ${currentDate}. 
 Return ONLY a valid JSON object with a "trends" array containing exactly 7 trending topics happening RIGHT NOW today.
-Each topic must be current, recent, and trending in the last 24 hours.
+Each topic must be ACTUAL current news from the last 24 hours - not generic trends.
+
+CRITICAL SPECIFICITY RULES:
+- For sports teams, use FULL team names: "Barcelona FC latest match" not just "Barcelona"
+- For artists, include context: "Drake new album drop" not just "Drake"
+- For teams/clubs, specify: "Real Madrid Champions League" not just "Real Madrid"
+- Make topics specific and newsworthy
 
 Use these valid categories (choose the most relevant one):
 - Celebrity Gossip (celebrity news, red carpets, relationships)
@@ -50,13 +56,13 @@ Use these valid categories (choose the most relevant one):
 - Politics (political news, elections, policy)
 - Food (food trends, recipes, restaurants)
 
-Format: {"trends": [{"topic": "brief 3-5 word description", "category": "one of the categories above"}]}
+Format: {"trends": [{"topic": "specific newsworthy description", "category": "one of the categories above"}]}
 
-Focus on: breaking news, viral moments, celebrity updates, sports events, tech announcements, entertainment news.`
+Focus on: ACTUAL breaking news, viral moments happening now, celebrity updates from today, live sports events, tech announcements, entertainment news.`
           },
           {
             role: 'user',
-            content: `What are the 7 most trending topics happening TODAY (${currentDate})? Return ONLY valid JSON.`
+            content: `What are the 7 most trending topics with ACTUAL NEWS happening TODAY (${currentDate})? Be specific and newsworthy. Return ONLY valid JSON.`
           }
         ],
         response_format: { type: 'json_object' }
