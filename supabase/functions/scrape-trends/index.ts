@@ -34,14 +34,25 @@ serve(async (req) => {
           {
             role: 'system',
             content: `You are a trending topics analyzer. Today's date is ${currentDate}. 
-Return ONLY a valid JSON array of exactly 7 trending topics that are happening RIGHT NOW today.
+Return ONLY a valid JSON object with a "trends" array containing exactly 7 trending topics happening RIGHT NOW today.
 Each topic must be current, recent, and trending in the last 24 hours.
-Format: [{"topic": "brief description", "category": "Music|Sports|Tech|Fashion|Gaming|Celebrity|Entertainment"}]
+
+CRITICAL: You MUST use ONLY these exact category values:
+- "Celebrity Gossip" (for celebrity news, red carpets, relationships)
+- "Sports" (for ALL sports including football, basketball, soccer, etc)
+- "Memes" (for viral memes and internet culture)
+- "Fashion" (for fashion shows, trends, style)
+- "Gaming" (for video games, esports, gaming news)
+- "Tech" (for technology, AI, startups, gadgets)
+- "Music" (for music releases, concerts, artists)
+
+Format: {"trends": [{"topic": "brief 3-5 word description", "category": "one of the exact categories above"}]}
+
 Focus on: breaking news, viral moments, celebrity updates, sports events, tech announcements, entertainment news.`
           },
           {
             role: 'user',
-            content: `What are the 7 most trending topics happening TODAY (${currentDate})? Return only the JSON array.`
+            content: `What are the 7 most trending topics happening TODAY (${currentDate})? Return ONLY valid JSON with exact category names.`
           }
         ],
         response_format: { type: 'json_object' }
@@ -50,12 +61,12 @@ Focus on: breaking news, viral moments, celebrity updates, sports events, tech a
 
     if (!response.ok) {
       console.error('AI API error:', response.status)
-      // Fallback to curated current topics
+      // Fallback to curated current topics with valid categories
       const fallbackTopics = [
         { topic: 'AI breakthrough announcement', category: 'Tech' },
         { topic: 'Championship finals', category: 'Sports' },
-        { topic: 'Celebrity red carpet', category: 'Celebrity' },
-        { topic: 'Viral dance challenge', category: 'Entertainment' },
+        { topic: 'Celebrity red carpet', category: 'Celebrity Gossip' },
+        { topic: 'Viral dance challenge', category: 'Memes' },
         { topic: 'Gaming tournament', category: 'Gaming' },
         { topic: 'Fashion show highlights', category: 'Fashion' },
         { topic: 'Music awards night', category: 'Music' },
