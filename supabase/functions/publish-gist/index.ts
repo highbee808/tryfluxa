@@ -7,11 +7,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Input validation schema
+// Input validation schema - now flexible to accept any category string
 const publishSchema = z.object({
   topic: z.string().trim().min(1, 'Topic is required').max(500, 'Topic too long (max 500 characters)'),
   imageUrl: z.string().url('Invalid URL format').optional(),
-  topicCategory: z.enum(['Celebrity Gossip', 'Sports', 'Memes', 'Fashion', 'Gaming', 'Tech', 'Music']).optional()
+  topicCategory: z.string().trim().optional() // Accept any string category
 })
 
 serve(async (req) => {

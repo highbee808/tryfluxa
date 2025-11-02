@@ -37,22 +37,26 @@ serve(async (req) => {
 Return ONLY a valid JSON object with a "trends" array containing exactly 7 trending topics happening RIGHT NOW today.
 Each topic must be current, recent, and trending in the last 24 hours.
 
-CRITICAL: You MUST use ONLY these exact category values:
-- "Celebrity Gossip" (for celebrity news, red carpets, relationships)
-- "Sports" (for ALL sports including football, basketball, soccer, etc)
-- "Memes" (for viral memes and internet culture)
-- "Fashion" (for fashion shows, trends, style)
-- "Gaming" (for video games, esports, gaming news)
-- "Tech" (for technology, AI, startups, gadgets)
-- "Music" (for music releases, concerts, artists)
+Use these valid categories (choose the most relevant one):
+- Celebrity Gossip (celebrity news, red carpets, relationships)
+- Sports (all sports including football, basketball, soccer, etc)
+- Memes (viral memes and internet culture)
+- Fashion (fashion shows, trends, style)
+- Gaming (video games, esports, gaming news)
+- Tech (technology, AI, startups, gadgets)
+- Music (music releases, concerts, artists)
+- Anime (anime releases, manga, otaku culture)
+- Movies (movie releases, reviews, box office)
+- Politics (political news, elections, policy)
+- Food (food trends, recipes, restaurants)
 
-Format: {"trends": [{"topic": "brief 3-5 word description", "category": "one of the exact categories above"}]}
+Format: {"trends": [{"topic": "brief 3-5 word description", "category": "one of the categories above"}]}
 
 Focus on: breaking news, viral moments, celebrity updates, sports events, tech announcements, entertainment news.`
           },
           {
             role: 'user',
-            content: `What are the 7 most trending topics happening TODAY (${currentDate})? Return ONLY valid JSON with exact category names.`
+            content: `What are the 7 most trending topics happening TODAY (${currentDate})? Return ONLY valid JSON.`
           }
         ],
         response_format: { type: 'json_object' }
@@ -61,7 +65,7 @@ Focus on: breaking news, viral moments, celebrity updates, sports events, tech a
 
     if (!response.ok) {
       console.error('AI API error:', response.status)
-      // Fallback to curated current topics with valid categories
+      // Fallback to curated current topics with all valid categories
       const fallbackTopics = [
         { topic: 'AI breakthrough announcement', category: 'Tech' },
         { topic: 'Championship finals', category: 'Sports' },

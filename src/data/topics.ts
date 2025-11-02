@@ -99,4 +99,49 @@ export const topics: TopicData[] = [
       { id: "wizkid", label: "Wizkid", emoji: "⭐" },
     ]
   },
+  {
+    id: "anime",
+    label: "Anime",
+    emoji: "🎌",
+    description: "Anime releases, manga updates, and otaku culture",
+    subTopics: [
+      { id: "shonen", label: "Shonen", emoji: "⚡" },
+      { id: "seinen", label: "Seinen", emoji: "🗡️" },
+      { id: "isekai", label: "Isekai", emoji: "🌍" },
+      { id: "romance", label: "Romance", emoji: "💕" },
+    ]
+  },
+  {
+    id: "movies",
+    label: "Movies",
+    emoji: "🎬",
+    description: "Movie releases, reviews, and box office news",
+    subTopics: [
+      { id: "action", label: "Action", emoji: "💥" },
+      { id: "comedy", label: "Comedy", emoji: "😂" },
+      { id: "drama", label: "Drama", emoji: "🎭" },
+      { id: "thriller", label: "Thriller", emoji: "😱" },
+    ]
+  },
+  {
+    id: "politics",
+    label: "Politics",
+    emoji: "🏛️",
+    description: "Political news, elections, and policy updates"
+  },
+  {
+    id: "food",
+    label: "Food",
+    emoji: "🍔",
+    description: "Food trends, recipes, and restaurant news",
+    subTopics: [
+      { id: "recipes", label: "Recipes", emoji: "📖" },
+      { id: "restaurants", label: "Restaurants", emoji: "🍽️" },
+      { id: "street-food", label: "Street Food", emoji: "🌮" },
+      { id: "desserts", label: "Desserts", emoji: "🍰" },
+    ]
+  },
 ];
+
+// Export all valid category labels for validation
+export const validCategories = topics.map(t => t.label);
