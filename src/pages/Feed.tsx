@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Filter, Headphones, TrendingUp } from "lucide-react";
+import { Search, Filter, Headphones, TrendingUp, Play, ChevronDown } from "lucide-react";
 
 interface Gist {
   id: string;
@@ -148,11 +148,25 @@ const Feed = () => {
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header Banner */}
         <div className="mb-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-8 md:p-12 text-white shadow-xl animate-fade-in">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-              <Headphones className="w-6 h-6" />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                <Headphones className="w-6 h-6" />
+              </div>
+              <h1 className="text-3xl md:text-4xl font-bold">Your Personalized Feed</h1>
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold">Your Personalized Feed</h1>
+            <Button
+              variant="secondary"
+              size="lg"
+              className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+              onClick={() => {
+                const firstGist = gists[0];
+                if (firstGist) handlePlay(firstGist.id, firstGist.audio_url);
+              }}
+            >
+              <Play className="w-5 h-5 mr-2" />
+              Play Latest
+            </Button>
           </div>
           <p className="text-blue-100 text-lg">
             Discover curated content tailored just for you. Click play to listen!
@@ -164,9 +178,25 @@ const Feed = () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
-              placeholder="Search articles or paste a social media link..."
+              placeholder="Paste a social media link to generate a gist..."
               className="pl-10 bg-card h-12 border-border"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const input = e.currentTarget.value;
+                  if (input.trim()) {
+                    toast.info("Link parsing coming soon! 🚀");
+                  }
+                }
+              }}
             />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground"
+            >
+              <ChevronDown className="w-4 h-4 mr-1" />
+              Platform
+            </Button>
           </div>
           <Button variant="outline" className="bg-card border-border hidden md:flex">
             <Filter className="w-4 h-4 mr-2" />
@@ -175,12 +205,12 @@ const Feed = () => {
         </div>
 
         {/* Category Pills */}
-        <div className="flex gap-2 overflow-x-auto pb-4 mb-8 scrollbar-hide animate-fade-in">
+        <div className="flex gap-2 overflow-x-auto pb-4 mb-8 animate-fade-in" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {categories.map((category) => (
             <Badge
               key={category}
               onClick={() => setSelectedCategory(category)}
-              className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all ${
+              className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 ${
                 selectedCategory === category
                   ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700"
                   : "bg-card text-foreground hover:bg-accent border border-border"
@@ -250,7 +280,7 @@ const Feed = () => {
                     ].map((item, i) => (
                       <div
                         key={i}
-                        className="p-3 bg-accent/50 rounded-lg hover:bg-accent cursor-pointer transition-colors"
+                        className="p-3 bg-accent/50 rounded-lg hover:bg-accent/70 cursor-pointer transition-colors"
                       >
                         <p className="text-sm font-medium">{item.topic}</p>
                         <p className="text-xs text-muted-foreground">{item.posts}</p>

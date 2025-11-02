@@ -5,10 +5,7 @@ import { useDarkMode } from "@/hooks/useDarkMode";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/feed", id: "home" },
-  { icon: Newspaper, label: "New", path: "/feed", id: "new" },
-  { icon: Radio, label: "Live", path: "/live", id: "live" },
-  { icon: Library, label: "Universe", path: "/universe", id: "universe" },
-  { icon: Sparkles, label: "Fluxa Mode", path: "/fluxa-mode", id: "fluxa-mode" },
+  { icon: Sparkles, label: "Fluxa", path: "/fluxa-mode", id: "fluxa-mode" },
 ];
 
 export const NavigationBar = () => {

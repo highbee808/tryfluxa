@@ -67,8 +67,8 @@ export const FeedCard = ({
               <p className="text-xs text-muted-foreground">{timeAgo}</p>
             </div>
           </div>
-          <Badge variant="outline" className="text-xs">
-            {category}
+          <Badge variant="outline" className="text-xs capitalize">
+            {author}
           </Badge>
         </div>
 

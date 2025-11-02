@@ -208,8 +208,7 @@ const FluxaMode = () => {
               ← Back
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Fluxa Mode 💬</h1>
-              <p className="text-sm text-muted-foreground">Your gossip companion</p>
+              <h1 className="text-2xl font-bold text-foreground">Hey Fluxa 💬</h1>
             </div>
           </div>
           <div className="flex items-center gap-2">
