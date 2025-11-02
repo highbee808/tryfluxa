@@ -14,18 +14,6 @@ export interface TopicData {
 
 export const topics: TopicData[] = [
   {
-    id: "afrobeats",
-    label: "Afrobeats",
-    emoji: "🎵",
-    description: "Latest Afrobeats music, artists, and culture",
-    subTopics: [
-      { id: "burna-boy", label: "Burna Boy", emoji: "🔥" },
-      { id: "wizkid", label: "Wizkid", emoji: "⭐" },
-      { id: "davido", label: "Davido", emoji: "💎" },
-      { id: "tems", label: "Tems", emoji: "🌟" },
-    ]
-  },
-  {
     id: "celebrity-gossip",
     label: "Celebrity Gossip",
     emoji: "⭐",
@@ -47,21 +35,11 @@ export const topics: TopicData[] = [
       { id: "basketball", label: "Basketball", emoji: "🏀" },
       { id: "tennis", label: "Tennis", emoji: "🎾" },
       { id: "athletics", label: "Athletics", emoji: "🏃" },
-    ]
-  },
-  {
-    id: "football",
-    label: "Football",
-    emoji: "⚽",
-    description: "Football news, matches, and player updates",
-    subTopics: [
       { id: "barcelona", label: "Barcelona", emoji: "🔵" },
       { id: "real-madrid", label: "Real Madrid", emoji: "⚪" },
       { id: "man-united", label: "Man United", emoji: "🔴" },
       { id: "chelsea", label: "Chelsea", emoji: "💙" },
       { id: "arsenal", label: "Arsenal", emoji: "🔴" },
-      { id: "psg", label: "PSG", emoji: "💙" },
-      { id: "bayern", label: "Bayern Munich", emoji: "🔴" },
     ]
   },
   {
@@ -107,18 +85,6 @@ export const topics: TopicData[] = [
     ]
   },
   {
-    id: "anime",
-    label: "Anime",
-    emoji: "🎌",
-    description: "Anime releases, manga updates, and otaku culture",
-    subTopics: [
-      { id: "shonen", label: "Shonen", emoji: "⚡" },
-      { id: "seinen", label: "Seinen", emoji: "🗡️" },
-      { id: "isekai", label: "Isekai", emoji: "🌍" },
-      { id: "romance", label: "Romance", emoji: "💕" },
-    ]
-  },
-  {
     id: "music",
     label: "Music",
     emoji: "🎧",
@@ -128,36 +94,9 @@ export const topics: TopicData[] = [
       { id: "pop", label: "Pop", emoji: "🎵" },
       { id: "rnb", label: "R&B", emoji: "🎶" },
       { id: "rock", label: "Rock", emoji: "🎸" },
-    ]
-  },
-  {
-    id: "movies",
-    label: "Movies",
-    emoji: "🎬",
-    description: "Movie releases, reviews, and box office news",
-    subTopics: [
-      { id: "action", label: "Action", emoji: "💥" },
-      { id: "comedy", label: "Comedy", emoji: "😂" },
-      { id: "drama", label: "Drama", emoji: "🎭" },
-      { id: "thriller", label: "Thriller", emoji: "😱" },
-    ]
-  },
-  {
-    id: "politics",
-    label: "Politics",
-    emoji: "🏛️",
-    description: "Political news, elections, and policy updates"
-  },
-  {
-    id: "food",
-    label: "Food",
-    emoji: "🍔",
-    description: "Food trends, recipes, and restaurant news",
-    subTopics: [
-      { id: "recipes", label: "Recipes", emoji: "📖" },
-      { id: "restaurants", label: "Restaurants", emoji: "🍽️" },
-      { id: "street-food", label: "Street Food", emoji: "🌮" },
-      { id: "desserts", label: "Desserts", emoji: "🍰" },
+      { id: "afrobeats", label: "Afrobeats", emoji: "🎵" },
+      { id: "burna-boy", label: "Burna Boy", emoji: "🔥" },
+      { id: "wizkid", label: "Wizkid", emoji: "⭐" },
     ]
   },
 ];
