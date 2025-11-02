@@ -30,9 +30,14 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     )
 
+    // Calculate 24 hours ago timestamp
+    const twentyFourHoursAgo = new Date()
+    twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24)
+
     const { data: gists, error } = await supabase
       .from('gists')
       .select('*')
+      .gte('published_at', twentyFourHoursAgo.toISOString())
       .order('published_at', { ascending: false })
       .limit(limit)
 

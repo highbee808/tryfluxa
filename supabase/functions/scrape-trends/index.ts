@@ -1,8 +1,251 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+interface Trend {
+  title: string
+  source: string
+  category: string
+  url?: string
+  published_at?: string
+  popularity_score: number
+}
+
+// Fetch trends from NewsAPI
+async function fetchNewsAPI(): Promise<Trend[]> {
+  try {
+    const apiKey = Deno.env.get('NEWSAPI_KEY')
+    if (!apiKey) {
+      console.log('⚠️ NewsAPI key not configured')
+      return []
+    }
+
+    const response = await fetch(
+      `https://newsapi.org/v2/top-headlines?country=us&pageSize=20&apiKey=${apiKey}`
+    )
+    
+    if (!response.ok) {
+      console.log('⚠️ NewsAPI error:', response.status)
+      return []
+    }
+    
+    const data = await response.json()
+    return (data.articles || []).map((article: any) => ({
+      title: article.title,
+      source: 'NewsAPI',
+      category: categorizeArticle(article.title),
+      url: article.url,
+      published_at: article.publishedAt,
+      popularity_score: 5,
+    }))
+  } catch (error) {
+    console.error('NewsAPI error:', error)
+    return []
+  }
+}
+
+// Fetch trends from Mediastack
+async function fetchMediastack(): Promise<Trend[]> {
+  try {
+    const apiKey = Deno.env.get('MEDIASTACK_KEY')
+    if (!apiKey) {
+      console.log('⚠️ Mediastack key not configured')
+      return []
+    }
+
+    const response = await fetch(
+      `http://api.mediastack.com/v1/news?access_key=${apiKey}&countries=us&limit=20&sort=published_desc`
+    )
+    
+    if (!response.ok) {
+      console.log('⚠️ Mediastack error:', response.status)
+      return []
+    }
+    
+    const data = await response.json()
+    return (data.data || []).map((article: any) => ({
+      title: article.title,
+      source: 'Mediastack',
+      category: categorizeArticle(article.title),
+      url: article.url,
+      published_at: article.published_at,
+      popularity_score: 4,
+    }))
+  } catch (error) {
+    console.error('Mediastack error:', error)
+    return []
+  }
+}
+
+// Fetch trends from The Guardian
+async function fetchGuardian(): Promise<Trend[]> {
+  try {
+    const apiKey = Deno.env.get('GUARDIAN_API_KEY')
+    if (!apiKey) {
+      console.log('⚠️ Guardian API key not configured')
+      return []
+    }
+
+    const response = await fetch(
+      `https://content.guardianapis.com/search?api-key=${apiKey}&page-size=20&order-by=newest&show-fields=all`
+    )
+    
+    if (!response.ok) {
+      console.log('⚠️ Guardian API error:', response.status)
+      return []
+    }
+    
+    const data = await response.json()
+    return (data.response?.results || []).map((article: any) => ({
+      title: article.webTitle,
+      source: 'The Guardian',
+      category: mapGuardianSection(article.sectionName),
+      url: article.webUrl,
+      published_at: article.webPublicationDate,
+      popularity_score: 6,
+    }))
+  } catch (error) {
+    console.error('Guardian API error:', error)
+    return []
+  }
+}
+
+// Fetch trends from Reddit
+async function fetchReddit(): Promise<Trend[]> {
+  try {
+    const clientId = Deno.env.get('REDDIT_CLIENT_ID')
+    const clientSecret = Deno.env.get('REDDIT_CLIENT_SECRET')
+    if (!clientId || !clientSecret) {
+      console.log('⚠️ Reddit credentials not configured')
+      return []
+    }
+
+    // Get access token
+    const authResponse = await fetch('https://www.reddit.com/api/v1/access_token', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: 'grant_type=client_credentials',
+    })
+
+    if (!authResponse.ok) {
+      console.log('⚠️ Reddit auth error:', authResponse.status)
+      return []
+    }
+    
+    const authData = await authResponse.json()
+    const accessToken = authData.access_token
+
+    // Fetch hot posts
+    const response = await fetch('https://oauth.reddit.com/hot?limit=20', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'User-Agent': 'Fluxa/1.0',
+      },
+    })
+
+    if (!response.ok) {
+      console.log('⚠️ Reddit fetch error:', response.status)
+      return []
+    }
+    
+    const data = await response.json()
+    return (data.data?.children || []).map((post: any) => ({
+      title: post.data.title,
+      source: 'Reddit',
+      category: categorizeArticle(post.data.title),
+      url: `https://reddit.com${post.data.permalink}`,
+      published_at: new Date(post.data.created_utc * 1000).toISOString(),
+      popularity_score: Math.min(10, Math.floor(post.data.score / 1000)),
+    }))
+  } catch (error) {
+    console.error('Reddit API error:', error)
+    return []
+  }
+}
+
+// Categorize article based on title keywords
+function categorizeArticle(title: string): string {
+  const lower = title.toLowerCase()
+  
+  if (/(football|soccer|basketball|nba|nfl|sports|barcelona|real madrid|messi|ronaldo|championship|league|match|game|team)/i.test(lower)) {
+    return 'Sports'
+  }
+  if (/(celebrity|star|actor|actress|singer|musician|drake|beyonce|taylor swift|kardashian|fame)/i.test(lower)) {
+    return 'Celebrity Gossip'
+  }
+  if (/(tech|ai|apple|google|tesla|iphone|android|software|startup|innovation)/i.test(lower)) {
+    return 'Tech'
+  }
+  if (/(business|stock|market|economy|company|startup|bitcoin|crypto)/i.test(lower)) {
+    return 'Tech'
+  }
+  if (/(movie|film|tv|show|entertainment|music|album|concert|festival)/i.test(lower)) {
+    return 'Music'
+  }
+  if (/(meme|viral|funny|trending|tiktok|instagram)/i.test(lower)) {
+    return 'Memes'
+  }
+  if (/(fashion|style|outfit|runway|designer|vogue)/i.test(lower)) {
+    return 'Fashion'
+  }
+  if (/(gaming|esports|video game|xbox|playstation|nintendo|steam)/i.test(lower)) {
+    return 'Gaming'
+  }
+  if (/(anime|manga|otaku|crunchyroll)/i.test(lower)) {
+    return 'Anime'
+  }
+  if (/(food|recipe|restaurant|chef|cooking)/i.test(lower)) {
+    return 'Food'
+  }
+  if (/(politics|election|government|president|senate|congress)/i.test(lower)) {
+    return 'Politics'
+  }
+  
+  return 'Celebrity Gossip'
+}
+
+// Map Guardian sections to our categories
+function mapGuardianSection(section: string): string {
+  const sectionMap: Record<string, string> = {
+    'Sport': 'Sports',
+    'Football': 'Sports',
+    'Technology': 'Tech',
+    'Business': 'Tech',
+    'Film': 'Movies',
+    'Music': 'Music',
+    'Culture': 'Celebrity Gossip',
+    'Fashion': 'Fashion',
+    'Games': 'Gaming',
+    'Food': 'Food',
+    'Politics': 'Politics',
+  }
+  
+  return sectionMap[section] || 'Celebrity Gossip'
+}
+
+// Deduplicate trends by title similarity
+function deduplicateTrends(trends: Trend[]): Trend[] {
+  const seen = new Set<string>()
+  const unique: Trend[] = []
+  
+  for (const trend of trends) {
+    const normalized = trend.title.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const shortened = normalized.substring(0, 50)
+    
+    if (!seen.has(shortened)) {
+      seen.add(shortened)
+      unique.push(trend)
+    }
+  }
+  
+  return unique
 }
 
 serve(async (req) => {
@@ -11,100 +254,91 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Fetching real-time trending topics...')
-
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured')
-    }
-
-    const currentDate = new Date().toISOString().split('T')[0]
-    console.log('Current date:', currentDate)
-
-    // Use Lovable AI with GPT-5 Mini for real-time trending topics
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'openai/gpt-5-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a real-time trending topics analyzer with access to current news. Today's date is ${currentDate}. 
-Return ONLY a valid JSON object with a "trends" array containing exactly 7 trending topics happening RIGHT NOW today.
-Each topic must be ACTUAL current news from the last 24 hours - not generic trends.
-
-CRITICAL SPECIFICITY RULES:
-- For sports teams, use FULL team names: "Barcelona FC latest match" not just "Barcelona"
-- For artists, include context: "Drake new album drop" not just "Drake"
-- For teams/clubs, specify: "Real Madrid Champions League" not just "Real Madrid"
-- Make topics specific and newsworthy
-
-Use these valid categories (choose the most relevant one):
-- Celebrity Gossip (celebrity news, red carpets, relationships)
-- Sports (all sports including football, basketball, soccer, etc)
-- Memes (viral memes and internet culture)
-- Fashion (fashion shows, trends, style)
-- Gaming (video games, esports, gaming news)
-- Tech (technology, AI, startups, gadgets)
-- Music (music releases, concerts, artists)
-- Anime (anime releases, manga, otaku culture)
-- Movies (movie releases, reviews, box office)
-- Politics (political news, elections, policy)
-- Food (food trends, recipes, restaurants)
-
-Format: {"trends": [{"topic": "specific newsworthy description", "category": "one of the categories above"}]}
-
-Focus on: ACTUAL breaking news, viral moments happening now, celebrity updates from today, live sports events, tech announcements, entertainment news.`
-          },
-          {
-            role: 'user',
-            content: `What are the 7 most trending topics with ACTUAL NEWS happening TODAY (${currentDate})? Be specific and newsworthy. Return ONLY valid JSON.`
-          }
-        ],
-        response_format: { type: 'json_object' }
-      }),
-    })
-
-    if (!response.ok) {
-      console.error('AI API error:', response.status)
-      // Fallback to curated current topics with all valid categories
-      const fallbackTopics = [
-        { topic: 'AI breakthrough announcement', category: 'Tech' },
-        { topic: 'Championship finals', category: 'Sports' },
-        { topic: 'Celebrity red carpet', category: 'Celebrity Gossip' },
-        { topic: 'Viral dance challenge', category: 'Memes' },
-        { topic: 'Gaming tournament', category: 'Gaming' },
-        { topic: 'Fashion show highlights', category: 'Fashion' },
-        { topic: 'Music awards night', category: 'Music' },
-      ]
-      return new Response(
-        JSON.stringify({ trends: fallbackTopics }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        },
-      )
-    }
-
-    const data = await response.json()
-    const content = JSON.parse(data.choices[0].message.content)
-    const trendingTopics = content.trends || content.topics || content
+    console.log('🔍 Aggregating trends from multiple sources...')
     
-    console.log(`Found ${trendingTopics.length} trending topics for ${currentDate}`)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Fetch from all sources in parallel
+    const [newsApiTrends, mediastackTrends, guardianTrends, redditTrends] = await Promise.all([
+      fetchNewsAPI(),
+      fetchMediastack(),
+      fetchGuardian(),
+      fetchReddit(),
+    ])
+
+    console.log(`📊 Fetched: NewsAPI=${newsApiTrends.length}, Mediastack=${mediastackTrends.length}, Guardian=${guardianTrends.length}, Reddit=${redditTrends.length}`)
+
+    // Combine all trends
+    let allTrends = [
+      ...newsApiTrends,
+      ...mediastackTrends,
+      ...guardianTrends,
+      ...redditTrends,
+    ]
+
+    // Deduplicate and sort by popularity
+    allTrends = deduplicateTrends(allTrends)
+    allTrends.sort((a, b) => b.popularity_score - a.popularity_score)
+
+    // Take top 20 trends
+    const topTrends = allTrends.slice(0, 20)
+
+    // Store in raw_trends table
+    if (topTrends.length > 0) {
+      const { error: insertError } = await supabase
+        .from('raw_trends')
+        .insert(topTrends.map(trend => ({
+          title: trend.title,
+          source: trend.source,
+          category: trend.category,
+          url: trend.url,
+          published_at: trend.published_at,
+          popularity_score: trend.popularity_score,
+          processed: false,
+        })))
+
+      if (insertError) {
+        console.error('❌ Error storing trends:', insertError)
+      } else {
+        console.log(`✅ Stored ${topTrends.length} trends in database`)
+      }
+    }
+
+    // Return formatted trends for immediate use (top 10)
+    const formattedTrends = topTrends.slice(0, 10).map(trend => ({
+      topic: trend.title,
+      category: trend.category,
+      source_url: trend.url,
+      published_at: trend.published_at,
+    }))
+
+    console.log(`✅ Returning ${formattedTrends.length} trends`)
 
     return new Response(
-      JSON.stringify({ trends: trendingTopics }),
+      JSON.stringify({ 
+        trends: formattedTrends,
+        total_fetched: allTrends.length,
+        sources_used: [
+          newsApiTrends.length > 0 ? 'NewsAPI' : null,
+          mediastackTrends.length > 0 ? 'Mediastack' : null,
+          guardianTrends.length > 0 ? 'Guardian' : null,
+          redditTrends.length > 0 ? 'Reddit' : null,
+        ].filter(Boolean),
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       },
     )
   } catch (error) {
-    console.error('Error in scrape-trends function:', error)
+    console.error('❌ Error in scrape-trends:', error)
+    
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        trends: [], // Return empty array as fallback
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

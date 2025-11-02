@@ -60,7 +60,7 @@ serve(async (req) => {
 
         const gistData = await gistResponse.json()
         
-        // Publish the gist
+        // Publish the gist with source URL and published date
         const publishResponse = await fetch(`${supabaseUrl}/functions/v1/publish-gist`, {
           method: 'POST',
           headers: {
@@ -71,6 +71,8 @@ serve(async (req) => {
             topic: trend.topic,
             topicCategory: trend.category,
             imageUrl: gistData.ai_generated_image,
+            sourceUrl: trend.source_url,
+            newsPublishedAt: trend.published_at,
           }),
         })
 
@@ -78,6 +80,12 @@ serve(async (req) => {
           const publishData = await publishResponse.json()
           generatedGists.push(publishData)
           console.log(`✅ Published gist: ${gistData.headline}`)
+          
+          // Mark trend as processed in raw_trends table
+          await supabase
+            .from('raw_trends')
+            .update({ processed: true })
+            .eq('title', trend.topic)
         }
       } catch (error) {
         console.log(`❌ Error processing ${trend.topic}:`, error instanceof Error ? error.message : 'Unknown error')

@@ -11,7 +11,9 @@ const corsHeaders = {
 const publishSchema = z.object({
   topic: z.string().trim().min(1, 'Topic is required').max(500, 'Topic too long (max 500 characters)'),
   imageUrl: z.string().url('Invalid URL format').optional(),
-  topicCategory: z.string().trim().optional() // Accept any string category
+  topicCategory: z.string().trim().optional(), // Accept any string category
+  sourceUrl: z.string().url('Invalid source URL format').optional(), // URL of the original news article
+  newsPublishedAt: z.string().optional() // Timestamp when the news was published
 })
 
 serve(async (req) => {
@@ -81,12 +83,14 @@ serve(async (req) => {
       })
     }
     
-    const { topic, imageUrl, topicCategory } = validated
+    const { topic, imageUrl, topicCategory, sourceUrl, newsPublishedAt } = validated
 
     console.log('✅ Input validated')
     console.log('📝 Topic:', topic)
     console.log('🖼️ Image URL:', imageUrl || 'auto-generate')
     console.log('🏷️ Category:', topicCategory || 'Trending')
+    console.log('🔗 Source URL:', sourceUrl || 'N/A')
+    console.log('📅 News Published:', newsPublishedAt || 'N/A')
 
     // Check environment variables
     console.log('🔧 Checking environment variables...')
@@ -234,6 +238,8 @@ serve(async (req) => {
         topic,
         topic_category: topicCategory || 'Trending',
         image_url: finalImageUrl,
+        source_url: sourceUrl || null,
+        news_published_at: newsPublishedAt || null,
         status: 'published',
         published_at: new Date().toISOString(),
       }
