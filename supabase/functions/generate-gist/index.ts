@@ -140,53 +140,51 @@ Rules:
       throw new Error('AI returned invalid JSON')
     }
 
-    // Generate image for celebrities using Lovable AI
+    // Generate image using Lovable AI for all topics
     let generatedImageUrl = null
-    if (isCelebrity) {
-      console.log('🧠 Fluxa is creating a custom image for celebrity topic...')
-      try {
-        const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
-        if (!lovableApiKey) {
-          console.log('⚠️ LOVABLE_API_KEY not found, falling back to stock images')
-        } else {
-          const imagePrompt = `High-quality realistic portrait style image of ${content.image_keyword || topic}, cinematic lighting, magazine cover aesthetic, professional photography, vibrant colors`
-          console.log('🎨 Image prompt:', imagePrompt)
-          
-          const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${lovableApiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'google/gemini-2.5-flash-image-preview',
-              messages: [
-                {
-                  role: 'user',
-                  content: imagePrompt
-                }
-              ],
-              modalities: ['image', 'text']
-            }),
-          })
+    console.log('🧠 Fluxa is creating a custom image for topic...')
+    try {
+      const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
+      if (!lovableApiKey) {
+        console.log('⚠️ LOVABLE_API_KEY not found, falling back to stock images')
+      } else {
+        const imagePrompt = `High-quality realistic ${isCelebrity ? 'portrait style' : 'editorial style'} image of ${content.image_keyword || topic}, cinematic lighting, magazine cover aesthetic, professional photography, vibrant colors`
+        console.log('🎨 Image prompt:', imagePrompt)
+        
+        const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${lovableApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash-image-preview',
+            messages: [
+              {
+                role: 'user',
+                content: imagePrompt
+              }
+            ],
+            modalities: ['image', 'text']
+          }),
+        })
 
-          if (imageResponse.ok) {
-            const imageData = await imageResponse.json()
-            const base64Image = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url
-            if (base64Image) {
-              generatedImageUrl = base64Image
-              console.log('🧠 Fluxa created a custom image for celebrity topic (base64 length:', base64Image.length, ')')
-            } else {
-              console.log('⚠️ No image data in response')
-            }
+        if (imageResponse.ok) {
+          const imageData = await imageResponse.json()
+          const base64Image = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url
+          if (base64Image) {
+            generatedImageUrl = base64Image
+            console.log('🧠 Fluxa created a custom image (base64 length:', base64Image.length, ')')
           } else {
-            const error = await imageResponse.text()
-            console.log('⚠️ Fluxa image generation failed:', imageResponse.status, error)
+            console.log('⚠️ No image data in response')
           }
+        } else {
+          const error = await imageResponse.text()
+          console.log('⚠️ Fluxa image generation failed:', imageResponse.status, error)
         }
-      } catch (error) {
-        console.log('⚠️ Error generating custom image:', error instanceof Error ? error.message : 'Unknown error')
       }
+    } catch (error) {
+      console.log('⚠️ Error generating custom image:', error instanceof Error ? error.message : 'Unknown error')
     }
 
     return new Response(
