@@ -1,452 +1,289 @@
-import { useState, useEffect } from "react";
-import { GossipCard } from "@/components/GossipCard";
-import { ChatBox } from "@/components/ChatBox";
-import { StoryBubble } from "@/components/StoryBubble";
-import { StoryViewer } from "@/components/StoryViewer";
+import { useState, useEffect, useRef } from "react";
+import { FeedCard } from "@/components/FeedCard";
 import { NavigationBar } from "@/components/NavigationBar";
-import { FluxaGreeting } from "@/components/FluxaGreeting";
+import { ChatBox } from "@/components/ChatBox";
+import { useFluxaMemory } from "@/hooks/useFluxaMemory";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import useEmblaCarousel from "embla-carousel-react";
-import { useFluxaMemory } from "@/hooks/useFluxaMemory";
-import { Card } from "@/components/ui/card";
-import { requestNotificationPermission, sendFluxaAlert, fluxaNotifications } from "@/lib/notifications";
-import { Sparkles } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Search, Filter, Headphones, TrendingUp } from "lucide-react";
 
 interface Gist {
   id: string;
   headline: string;
   context: string;
   audio_url: string;
-  image_url: string;
-  topic_category: string;
+  image_url: string | null;
+  topic: string;
   published_at?: string;
 }
 
 const Feed = () => {
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
-  const [desktopEmblaRef, desktopEmblaApi] = useEmblaCarousel({ 
-    loop: true, 
-    align: "center",
-    containScroll: "trimSnaps"
-  });
+  const [currentPlayingId, setCurrentPlayingId] = useState<string | null>(null);
   const [gists, setGists] = useState<Gist[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+  const [loading, setLoading] = useState(true);
+  const currentAudio = useRef<HTMLAudioElement | null>(null);
   const [chatContext, setChatContext] = useState<{ topic: string; summary: string } | undefined>(undefined);
-  const [greeting, setGreeting] = useState<string>("");
-  const [isLoadingGreeting, setIsLoadingGreeting] = useState(true);
-  const [dailyDrop, setDailyDrop] = useState<any>(null);
-  const [stories, setStories] = useState<any[]>([]);
-  const [showStoryViewer, setShowStoryViewer] = useState(false);
-  const [storyStartIndex, setStoryStartIndex] = useState(0);
-  const [fluxaQuip, setFluxaQuip] = useState<string>("");
-  const [newGistCount, setNewGistCount] = useState(0);
-  const [showNewGistBanner, setShowNewGistBanner] = useState(false);
-  const { updateGistHistory, getGreeting, getFluxaLine, getFavoriteCategory } = useFluxaMemory();
+  const [likedGists, setLikedGists] = useState<string[]>([]);
+  const [bookmarkedGists, setBookmarkedGists] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  
+  const { toggleFavorite } = useFluxaMemory();
 
-  // Request notification permission on load
+  const categories = ["All", "Technology", "Lifestyle", "Science", "Media", "Productivity"];
+
   useEffect(() => {
-    requestNotificationPermission();
-  }, []);
+    const loadGists = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        let query = supabase
+          .from("gists")
+          .select("*")
+          .eq("published", true)
+          .order("published_at", { ascending: false })
+          .limit(20);
 
-  // Fetch stories
-  const fetchStories = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("stories")
-        .select("*")
-        .gt("expires_at", new Date().toISOString())
-        .order("created_at", { ascending: false });
+        const { data, error } = await query;
 
-      if (error) throw error;
-      setStories(data || []);
+        if (error) throw error;
 
-      // Send notification if new stories available
-      if (data && data.length > 0) {
-        const notification = fluxaNotifications.newStories();
-        sendFluxaAlert(notification.title, notification.body);
-      }
-    } catch (error) {
-      console.error("Error fetching stories:", error);
-    }
-  };
-
-  // Real-time subscription to new gists
-  const subscribeToNewGists = () => {
-    const channel = supabase
-      .channel('gists-feed')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'gists',
-          filter: 'status=eq.published'
-        },
-        (payload) => {
-          console.log('New gist received:', payload);
-          setGists((prev) => [payload.new as Gist, ...prev]);
-          setNewGistCount((prev) => prev + 1);
-          setShowNewGistBanner(true);
-          setTimeout(() => setShowNewGistBanner(false), 5000);
+        if (data) {
+          setGists(data);
           
-          // Send notification
-          const notification = fluxaNotifications.newStories();
-          sendFluxaAlert("New Gist Alert! 🆕", "Fluxa just dropped fresh gist — tap to listen!");
+          // Load user's bookmarked gists
+          if (user) {
+            const { data: favorites } = await supabase
+              .from("user_favorites")
+              .select("gist_id")
+              .eq("user_id", user.id);
+            
+            if (favorites) {
+              setBookmarkedGists(favorites.map(f => f.gist_id));
+            }
+          }
         }
-      )
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  };
-
-  // Fetch gists from backend
-  useEffect(() => {
-    const fetchGists = async () => {
-      try {
-        const favoriteCategory = await getFavoriteCategory();
-        
-        const { data, error } = await supabase.functions.invoke("fetch-feed", {
-          body: { limit: 20 },
-        });
-
-        if (error) throw error;
-
-        const selectedInterests = JSON.parse(localStorage.getItem("fluxaInterests") || "[]");
-        
-        let filteredGists = data.gists || [];
-        
-        // Filter by interests if any selected
-        if (selectedInterests.length > 0) {
-          filteredGists = filteredGists.filter((gist: Gist) =>
-            selectedInterests.includes(gist.topic_category)
-          );
-        }
-
-        // Personalized ranking based on favorite category
-        const rankedGists = filteredGists.sort((a: Gist, b: Gist) => {
-          const scoreA = (favoriteCategory && a.topic_category === favoriteCategory ? 5 : 0) +
-                        (new Date(a.published_at || '').getTime() / 1000000);
-          const scoreB = (favoriteCategory && b.topic_category === favoriteCategory ? 5 : 0) +
-                        (new Date(b.published_at || '').getTime() / 1000000);
-          return scoreB - scoreA;
-        });
-
-        setGists(rankedGists);
-        setNewGistCount(0);
       } catch (error) {
-        console.error("Error fetching gists:", error);
-        toast.error("Failed to load gists");
+        console.error("Error loading gists:", error);
+        toast.error("Failed to load feed");
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
-    const loadGreeting = async () => {
-      setIsLoadingGreeting(true);
-      const greetingText = await getGreeting();
-      setGreeting(greetingText);
-      setIsLoadingGreeting(false);
-    };
-
-    const loadDailyDrop = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-
-        const { data, error } = await supabase.functions.invoke("fluxa-daily-drop", {
-          headers: { Authorization: `Bearer ${session.access_token}` }
-        });
-
-        if (error) throw error;
-        setDailyDrop(data);
-      } catch (error) {
-        console.error("Error loading daily drop:", error);
-      }
-    };
-
-    fetchGists();
-    loadGreeting();
-    loadDailyDrop();
-    fetchStories();
-    
-    // Subscribe to real-time updates
-    const unsubscribe = subscribeToNewGists();
-    
-    return () => {
-      unsubscribe();
-    };
+    loadGists();
   }, []);
 
-  // ✅ Handle mobile carousel selection
-  useEffect(() => {
-    if (!emblaApi) return;
-
-    const onSelect = () => {
-      setCurrentIndex(emblaApi.selectedScrollSnap());
-    };
-
-    emblaApi.on("select", onSelect);
-    onSelect();
-
-    return () => {
-      emblaApi.off("select", onSelect);
-    };
-  }, [emblaApi]);
-
-  // ✅ Handle desktop carousel selection
-  useEffect(() => {
-    if (!desktopEmblaApi) return;
-
-    const onSelect = () => {
-      setCurrentIndex(desktopEmblaApi.selectedScrollSnap());
-    };
-
-    desktopEmblaApi.on("select", onSelect);
-    onSelect();
-
-    return () => {
-      desktopEmblaApi.off("select", onSelect);
-    };
-  }, [desktopEmblaApi]);
-
-  // Stop audio when changing cards
-  useEffect(() => {
-    if (currentAudio) {
-      currentAudio.pause();
+  const handlePlay = async (gistId: string, audioUrl: string) => {
+    if (currentPlayingId === gistId && isPlaying) {
+      // Pause current
+      if (currentAudio.current) {
+        currentAudio.current.pause();
+      }
       setIsPlaying(false);
-    }
-  }, [currentIndex]);
-
-  // Play or stop gist audio
-  const handlePlay = async () => {
-    if (!gists[currentIndex]) return;
-
-    // Update memory when playing
-    await updateGistHistory(gists[currentIndex]);
-
-    if (isPlaying && currentAudio) {
-      currentAudio.pause();
-      setIsPlaying(false);
-      setCurrentAudio(null);
-      
-      // Show idle Fluxa quip
-      const idleLine = await getFluxaLine("idle", "tease");
-      if (idleLine) setFluxaQuip(idleLine);
+      setCurrentPlayingId(null);
     } else {
-      const audio = new Audio(gists[currentIndex].audio_url);
+      // Stop previous and play new
+      if (currentAudio.current) {
+        currentAudio.current.pause();
+      }
+      
+      const audio = new Audio(audioUrl);
+      currentAudio.current = audio;
       audio.play();
       setIsPlaying(true);
-      setCurrentAudio(audio);
+      setCurrentPlayingId(gistId);
 
-      audio.onended = async () => {
+      audio.onended = () => {
         setIsPlaying(false);
-        setCurrentAudio(null);
-        
-        // Show after-gist Fluxa quip
-        const afterLine = await getFluxaLine("after_gist", "funny");
-        if (afterLine) setFluxaQuip(afterLine);
+        setCurrentPlayingId(null);
       };
     }
   };
 
-  // Go to next gist
-  const handleNext = () => {
-    if (window.innerWidth >= 768) {
-      desktopEmblaApi?.scrollNext();
-    } else {
-      emblaApi?.scrollNext();
-    }
+  const handleLike = (gistId: string) => {
+    setLikedGists(prev => 
+      prev.includes(gistId) ? prev.filter(id => id !== gistId) : [...prev, gistId]
+    );
   };
 
-  // "Ask Fluxa" button
-  const handleTellMore = () => {
-    if (!gists[currentIndex]) return;
+  const handleBookmark = async (gistId: string) => {
+    await toggleFavorite(gistId);
+    setBookmarkedGists(prev => 
+      prev.includes(gistId) ? prev.filter(id => id !== gistId) : [...prev, gistId]
+    );
+  };
+
+  const handleTellMore = (gist: Gist) => {
     setChatContext({
-      topic: gists[currentIndex].headline,
-      summary: gists[currentIndex].context,
+      topic: gist.headline,
+      summary: gist.context
     });
   };
 
-  if (isLoading) {
+  const handleShare = () => {
+    toast.success("Link copied to clipboard!");
+  };
+
+  const filteredGists: Gist[] = selectedCategory === "All" 
+    ? gists 
+    : gists.filter(g => g.topic === selectedCategory);
+
+  if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ background: "var(--gradient-hero)" }}>
-        <div className="loader mb-6 animate-glow" />
-        <p className="text-foreground text-base font-medium animate-pulse">
-          Fluxa's gathering the latest gists for you... 💅💬
-        </p>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
+        <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-muted-foreground animate-pulse">Loading your personalized feed...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pb-24 md:pt-28" style={{ background: "var(--gradient-hero)" }}>
-      {/* Navigation Bar */}
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 pb-24 md:pb-8 md:pt-20">
       <NavigationBar />
 
-      {/* Story Viewer */}
-      {showStoryViewer && stories.length > 0 && (
-        <StoryViewer
-          stories={stories}
-          initialIndex={storyStartIndex}
-          onClose={() => setShowStoryViewer(false)}
-        />
-      )}
-
-      {/* Main Content Container */}
-      <div className="flex flex-col items-center justify-center px-4 py-8">
-        {/* New Gist Banner */}
-        {showNewGistBanner && (
-          <div className="max-w-6xl w-full mb-4">
-            <div className="bg-gradient-to-r from-primary to-accent text-white px-6 py-3 rounded-full shadow-lg animate-fade-in flex items-center justify-center gap-2">
-              <Sparkles className="w-5 h-5 animate-pulse" />
-              <span className="font-medium">🆕 Fluxa just dropped fresh gist — tap to listen!</span>
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Header Banner */}
+        <div className="mb-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-8 md:p-12 text-white shadow-xl animate-fade-in">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+              <Headphones className="w-6 h-6" />
             </div>
+            <h1 className="text-3xl md:text-4xl font-bold">Your Personalized Feed</h1>
           </div>
-        )}
-
-        {/* New Gist Count */}
-        {newGistCount > 0 && (
-          <div className="max-w-6xl w-full mb-4 text-center">
-            <span className="text-sm text-white/80">
-              {newGistCount} new {newGistCount === 1 ? 'gist' : 'gists'} since your last visit 💕
-            </span>
-          </div>
-        )}
-        {/* Stories Row */}
-        {stories.length > 0 && (
-          <div className="w-full max-w-6xl mb-6 overflow-x-auto">
-            <div className="flex gap-3 px-4 py-2">
-              {stories.map((story, idx) => (
-                <StoryBubble
-                  key={story.id}
-                  story={story}
-                  onClick={() => {
-                    setStoryStartIndex(idx);
-                    setShowStoryViewer(true);
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Fluxa Greeting with Personality */}
-        <FluxaGreeting greeting={greeting} isLoading={isLoadingGreeting} />
-
-        {/* Daily Drop */}
-        {dailyDrop && (
-          <Card className="max-w-6xl w-full p-4 mb-6 border-primary/30 bg-card animate-fade-in-up">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xl">💅</span>
-              <h3 className="text-sm font-bold">Fluxa's Daily Drop</h3>
-            </div>
-            <p className="text-xs text-muted-foreground whitespace-pre-line">
-              {dailyDrop.message}
-            </p>
-          </Card>
-        )}
-
-        {/* Header */}
-        <div className="mb-10 text-center animate-fade-in">
-          <h1 className="text-6xl md:text-7xl font-bold mb-3 bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-            Fluxa
-          </h1>
-          <p className="text-muted-foreground font-medium text-base">
-            {gists.length > 0 ? `${currentIndex + 1} of ${gists.length} gists` : "No gists available"}
+          <p className="text-blue-100 text-lg">
+            Discover curated content tailored just for you. Click play to listen!
           </p>
         </div>
 
-        {/* Responsive Grid/Carousel */}
-        {gists.length > 0 ? (
-          <>
-            {/* Mobile: Swipeable Carousel */}
-            <div className="md:hidden overflow-hidden max-w-md w-full" ref={emblaRef}>
-              <div className="flex">
-                {gists.map((gist, index) => (
-                  <div key={gist.id} className="flex-[0_0_100%] min-w-0 px-2 animate-fade-in-up">
-                    <GossipCard
-                      gistId={gist.id}
-                      imageUrl={gist.image_url}
-                      headline={gist.headline}
-                      context={gist.context}
-                      isPlaying={isPlaying && index === currentIndex}
-                      onPlay={handlePlay}
-                      onNext={handleNext}
-                      onTellMore={handleTellMore}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Desktop: Grid Layout with Enhanced Cards */}
-            <div className="hidden md:grid w-full max-w-7xl grid-cols-3 gap-6 px-8">
-              {gists.slice(0, 6).map((gist, index) => (
-                <div 
-                  key={gist.id}
-                  className="animate-fade-in"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  <GossipCard
-                    gistId={gist.id}
-                    imageUrl={gist.image_url}
-                    headline={gist.headline}
-                    context={gist.context}
-                    isPlaying={isPlaying && index === currentIndex}
-                    onPlay={() => {
-                      setCurrentIndex(index);
-                      handlePlay();
-                    }}
-                    onNext={handleNext}
-                    onTellMore={() => {
-                      setCurrentIndex(index);
-                      handleTellMore();
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-          </>
-        ) : (
-          <div className="text-center text-muted-foreground mt-10">
-            <p className="text-lg mb-2">
-              {JSON.parse(localStorage.getItem("fluxaInterests") || "[]").length > 0
-                ? "No matching gists for your interests yet 😅"
-                : "No gists available yet 😢"}
-            </p>
-            <p className="text-sm mb-4">
-              {JSON.parse(localStorage.getItem("fluxaInterests") || "[]").length > 0
-                ? "Try selecting different topics or generate some gists below"
-                : "Generate some gists to get started"}
-            </p>
-            <button
-              onClick={() => {
-                window.location.href = "/admin";
-              }}
-              className="mt-4 px-6 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90 transition-all font-medium"
-            >
-              Go to Admin Panel
-            </button>
+        {/* Search and Filters */}
+        <div className="mb-6 flex flex-col md:flex-row gap-4 animate-fade-in">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Input
+              placeholder="Search articles..."
+              className="pl-10 bg-card h-12 border-border"
+            />
           </div>
-        )}
+          <Button variant="outline" className="bg-card border-border">
+            <Filter className="w-4 h-4 mr-2" />
+            Filters
+          </Button>
+        </div>
 
-        {/* Fluxa Quip (appears after interactions) */}
-        {fluxaQuip && (
-          <Card className="max-w-6xl w-full p-3 mt-4 bg-accent/20 border-accent/30 animate-fade-in">
-            <p className="text-xs text-center italic">💬 Fluxa: "{fluxaQuip}"</p>
-          </Card>
-        )}
+        {/* Category Pills */}
+        <div className="flex gap-2 overflow-x-auto pb-4 mb-8 scrollbar-hide animate-fade-in">
+          {categories.map((category) => (
+            <Badge
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all ${
+                selectedCategory === category
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700"
+                  : "bg-card text-foreground hover:bg-accent border border-border"
+              }`}
+            >
+              {category}
+            </Badge>
+          ))}
+        </div>
 
-        {/* Mobile Navigation Hint */}
-        <p className="md:hidden mt-6 text-sm text-muted-foreground animate-fade-in font-medium">
-          Swipe to explore more gists
-        </p>
+        {/* Feed Grid */}
+        <div className="grid lg:grid-cols-[1fr_320px] gap-8">
+          {/* Main Feed */}
+          <div className="space-y-6">
+            {filteredGists.length === 0 ? (
+              <Card className="p-12 text-center">
+                <p className="text-muted-foreground mb-4">No gists available yet</p>
+                <Button onClick={() => window.location.href = '/admin'}>
+                  Go to Admin Panel
+                </Button>
+              </Card>
+            ) : (
+              filteredGists.map((gist) => (
+                <FeedCard
+                  key={gist.id}
+                  id={gist.id}
+                  imageUrl={gist.image_url || undefined}
+                  headline={gist.headline}
+                  context={gist.context}
+                  author="Fluxa"
+                  timeAgo="2h ago"
+                  category={gist.topic}
+                  readTime="5 min"
+                  likes={Math.floor(Math.random() * 1000)}
+                  comments={Math.floor(Math.random() * 200)}
+                  bookmarks={Math.floor(Math.random() * 300)}
+                  isPlaying={currentPlayingId === gist.id && isPlaying}
+                  isLiked={likedGists.includes(gist.id)}
+                  isBookmarked={bookmarkedGists.includes(gist.id)}
+                  onPlay={() => handlePlay(gist.id, gist.audio_url)}
+                  onLike={() => handleLike(gist.id)}
+                  onComment={() => handleTellMore(gist)}
+                  onBookmark={() => handleBookmark(gist.id)}
+                  onShare={handleShare}
+                />
+              ))
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="hidden lg:block">
+            <div className="sticky top-24 space-y-6">
+              {/* Trending Topics */}
+              <Card className="shadow-lg border-border">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <TrendingUp className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold">Trending Topics</h3>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { topic: "AI Revolution", posts: "1.2k posts" },
+                      { topic: "Audio Content", posts: "856 posts" },
+                      { topic: "Digital Wellness", posts: "643 posts" },
+                      { topic: "Voice Tech", posts: "521 posts" },
+                      { topic: "Productivity", posts: "412 posts" },
+                    ].map((item, i) => (
+                      <div
+                        key={i}
+                        className="p-3 bg-accent/50 rounded-lg hover:bg-accent cursor-pointer transition-colors"
+                      >
+                        <p className="text-sm font-medium">{item.topic}</p>
+                        <p className="text-xs text-muted-foreground">{item.posts}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* User Stats */}
+              <Card className="shadow-lg border-0 bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">Your Activity</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm text-blue-100">Articles Read</p>
+                      <p className="text-2xl font-bold">247</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-blue-100">Hours Listened</p>
+                      <p className="text-2xl font-bold">18.5</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-blue-100">Bookmarks</p>
+                      <p className="text-2xl font-bold">{bookmarkedGists.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Chat Box */}

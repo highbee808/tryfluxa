@@ -1,6 +1,7 @@
-import { Home, Newspaper, Radio, Library, Search } from "lucide-react";
+import { Home, Newspaper, Radio, Library, Search, Moon, Sun, Sparkles } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useDarkMode } from "@/hooks/useDarkMode";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/feed", id: "home" },
@@ -13,47 +14,123 @@ const navItems = [
 export const NavigationBar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isDark, toggleDarkMode } = useDarkMode();
 
   return (
-    <nav className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 md:top-8 md:bottom-auto animate-fade-in">
-      <div 
-        className="flex items-center gap-1 px-5 py-4 rounded-full transition-all duration-500"
-        style={{
-          background: "var(--glass-bg)",
-          backdropFilter: "blur(24px)",
-          WebkitBackdropFilter: "blur(24px)",
-          border: "1.5px solid var(--glass-border)",
-          boxShadow: "var(--glass-shadow)"
-        }}
-      >
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = location.pathname === item.path;
-          
-          return (
+    <>
+      {/* Desktop Header */}
+      <nav className="hidden md:block fixed top-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-lg border-b border-border">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/feed")}>
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-bold text-xl">Fluxa</span>
+          </div>
+
+          {/* Nav Links */}
+          <div className="flex items-center gap-8">
             <button
-              key={item.id}
-              onClick={() => navigate(item.path)}
-              className={cn(
-                "p-3.5 rounded-full transition-all duration-400 hover:scale-115 active:scale-95",
-                isActive && "bg-gradient-to-br from-[hsl(var(--coral-active))] to-[hsl(var(--coral-glow))] scale-105"
-              )}
-              style={isActive ? { 
-                boxShadow: "var(--shadow-glow)",
-                transform: "scale(1.05)"
-              } : {}}
-              aria-label={item.label}
+              onClick={() => navigate("/")}
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
-              <Icon 
-                className={cn(
-                  "w-5 h-5 transition-all duration-300",
-                  isActive ? "text-white" : "text-muted-foreground hover:text-foreground"
-                )} 
-              />
+              Home
             </button>
-          );
-        })}
-      </div>
-    </nav>
+            <button
+              onClick={() => navigate("/feed")}
+              className={cn(
+                "text-sm font-medium transition-colors",
+                location.pathname === "/feed" ? "text-blue-600 font-semibold" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Feed
+            </button>
+            <button
+              onClick={() => navigate("/features")}
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Features
+            </button>
+            <button
+              onClick={() => navigate("/pricing")}
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Pricing
+            </button>
+          </div>
+
+          {/* Right Actions */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleDarkMode}
+              className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-accent transition-colors"
+              aria-label="Toggle dark mode"
+            >
+              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+            <button
+              onClick={() => navigate("/auth")}
+              className="text-sm font-medium text-foreground hover:text-foreground/80 transition-colors px-4"
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => navigate("/auth")}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-xl text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all"
+            >
+              Get Started
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Mobile Bottom Nav */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 pb-safe">
+        <div 
+          className="flex items-center justify-around h-20 px-4"
+          style={{
+            background: "var(--glass-bg)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            borderTop: "1px solid var(--glass-border)",
+            boxShadow: "var(--glass-shadow)"
+          }}
+        >
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path;
+            
+            return (
+              <button
+                key={item.id}
+                onClick={() => navigate(item.path)}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1 transition-all duration-300 p-2 rounded-xl",
+                  isActive && "scale-105"
+                )}
+                aria-label={item.label}
+              >
+                <Icon 
+                  className={cn(
+                    "w-6 h-6 transition-all duration-300",
+                    isActive ? "text-blue-600" : "text-muted-foreground"
+                  )} 
+                  style={isActive ? {
+                    filter: "drop-shadow(0 0 8px hsl(221 83% 53% / 0.5))"
+                  } : {}}
+                />
+                <span className={cn(
+                  "text-xs font-medium",
+                  isActive ? "text-blue-600" : "text-muted-foreground"
+                )}>
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+    </>
   );
 };
