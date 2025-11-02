@@ -32,7 +32,7 @@ const Feed = () => {
   const [bookmarkedGists, setBookmarkedGists] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   
-  const { toggleFavorite } = useFluxaMemory();
+  const fluxaMemory = useFluxaMemory();
 
   const categories = ["All", "Technology", "Lifestyle", "Science", "Media", "Productivity"];
 
@@ -44,7 +44,7 @@ const Feed = () => {
         let query = supabase
           .from("gists")
           .select("*")
-          .eq("published", true)
+          .eq("status", "published")
           .order("published_at", { ascending: false })
           .limit(20);
 
@@ -112,7 +112,7 @@ const Feed = () => {
   };
 
   const handleBookmark = async (gistId: string) => {
-    await toggleFavorite(gistId);
+    await fluxaMemory.toggleFavorite(gistId);
     setBookmarkedGists(prev => 
       prev.includes(gistId) ? prev.filter(id => id !== gistId) : [...prev, gistId]
     );
