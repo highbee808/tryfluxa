@@ -13,18 +13,24 @@ interface StoryBubbleProps {
 export const StoryBubble = ({ story, onClick }: StoryBubbleProps) => {
   return (
     <motion.div
-      className="flex flex-col items-center gap-2 cursor-pointer"
+      className="flex flex-col items-center gap-3 cursor-pointer"
       onClick={onClick}
-      whileTap={{ scale: 0.95 }}
+      whileTap={{ scale: 0.90 }}
     >
       <div className="relative">
-        {/* Gradient ring */}
-        <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-primary via-accent to-primary p-[2px]">
+        {/* Gradient ring with glow */}
+        <div 
+          className="absolute inset-0 rounded-full p-[3px] animate-pulse"
+          style={{ 
+            background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--primary)))",
+            boxShadow: "var(--shadow-glow)"
+          }}
+        >
           <div className="w-full h-full rounded-full bg-background" />
         </div>
         
         {/* Story image */}
-        <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-background">
+        <div className="relative w-20 h-20 rounded-full overflow-hidden border-[3px] border-background transition-transform duration-300 hover:scale-105">
           <img
             src={story.image_url || "/placeholder.svg"}
             alt={story.title}
@@ -34,7 +40,7 @@ export const StoryBubble = ({ story, onClick }: StoryBubbleProps) => {
       </div>
       
       {/* Story title */}
-      <p className="text-xs font-medium text-center max-w-[70px] truncate">
+      <p className="text-sm font-semibold text-center max-w-[80px] truncate">
         Fluxa
       </p>
     </motion.div>
