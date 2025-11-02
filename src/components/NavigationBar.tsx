@@ -1,4 +1,4 @@
-import { Home, Newspaper, Radio, Library, Search, Moon, Sun, Sparkles } from "lucide-react";
+import { Home, Newspaper, Radio, Library, Moon, Sun, Sparkles } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useDarkMode } from "@/hooks/useDarkMode";
@@ -8,7 +8,7 @@ const navItems = [
   { icon: Newspaper, label: "New", path: "/feed", id: "new" },
   { icon: Radio, label: "Live", path: "/live", id: "live" },
   { icon: Library, label: "Universe", path: "/universe", id: "universe" },
-  { icon: Search, label: "Search", path: "/feed", id: "search" },
+  { icon: Sparkles, label: "Fluxa Mode", path: "/fluxa-mode", id: "fluxa-mode" },
 ];
 
 export const NavigationBar = () => {
@@ -88,7 +88,7 @@ export const NavigationBar = () => {
       {/* Mobile Bottom Nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 pb-safe">
         <div 
-          className="flex items-center justify-around h-20 px-4"
+          className="flex items-center justify-around h-20 px-2"
           style={{
             background: "var(--glass-bg)",
             backdropFilter: "blur(20px)",
@@ -129,6 +129,22 @@ export const NavigationBar = () => {
               </button>
             );
           })}
+          
+          {/* Dark Mode Toggle on Mobile */}
+          <button
+            onClick={toggleDarkMode}
+            className="flex flex-col items-center justify-center gap-1 transition-all duration-300 p-2 rounded-xl"
+            aria-label="Toggle dark mode"
+          >
+            {isDark ? (
+              <Sun className="w-6 h-6 text-muted-foreground" />
+            ) : (
+              <Moon className="w-6 h-6 text-muted-foreground" />
+            )}
+            <span className="text-xs font-medium text-muted-foreground">
+              {isDark ? "Light" : "Dark"}
+            </span>
+          </button>
         </div>
       </nav>
     </>

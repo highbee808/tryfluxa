@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { FeedCard } from "@/components/FeedCard";
 import { NavigationBar } from "@/components/NavigationBar";
-import { ChatBox } from "@/components/ChatBox";
 import { useFluxaMemory } from "@/hooks/useFluxaMemory";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -286,8 +285,6 @@ const Feed = () => {
         </div>
       </div>
 
-      {/* Chat Box */}
-      <ChatBox initialContext={chatContext} />
     </div>
   );
 };
