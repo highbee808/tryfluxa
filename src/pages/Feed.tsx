@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Filter, Headphones, TrendingUp, Play, ChevronDown } from "lucide-react";
+import { Search, Filter, Headphones, TrendingUp, Play, ChevronDown, Instagram, Facebook, MessageSquare } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface Gist {
   id: string;
@@ -30,8 +32,16 @@ const Feed = () => {
   const [likedGists, setLikedGists] = useState<string[]>([]);
   const [bookmarkedGists, setBookmarkedGists] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedPlatform, setSelectedPlatform] = useState("X");
   
   const fluxaMemory = useFluxaMemory();
+
+  const platforms = [
+    { name: "X", icon: "𝕏" },
+    { name: "Instagram", icon: Instagram },
+    { name: "Facebook", icon: Facebook },
+    { name: "Threads", icon: MessageSquare },
+  ];
 
   const categories = ["All", "Technology", "Lifestyle", "Science", "Media", "Productivity"];
 
@@ -147,7 +157,7 @@ const Feed = () => {
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header Banner */}
-        <div className="mb-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-8 md:p-12 text-white shadow-xl animate-fade-in">
+        <div className="mb-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-8 md:p-12 text-white shadow-xl animate-fade-in relative overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
@@ -155,18 +165,17 @@ const Feed = () => {
               </div>
               <h1 className="text-3xl md:text-4xl font-bold">Your Personalized Feed</h1>
             </div>
-            <Button
-              variant="secondary"
-              size="lg"
-              className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+            {/* Play button - positioned in top right on mobile */}
+            <button
               onClick={() => {
                 const firstGist = gists[0];
                 if (firstGist) handlePlay(firstGist.id, firstGist.audio_url);
               }}
+              className="w-14 h-14 md:w-16 md:h-16 bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/40 transition-all hover:scale-105 border-2 border-white/50"
+              aria-label="Play latest gist"
             >
-              <Play className="w-5 h-5 mr-2" />
-              Play Latest
-            </Button>
+              <Play className="w-7 h-7 md:w-8 md:h-8 fill-white text-white" />
+            </button>
           </div>
           <p className="text-blue-100 text-lg">
             Discover curated content tailored just for you. Click play to listen!
@@ -179,24 +188,62 @@ const Feed = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
               placeholder="Paste a social media link to generate a gist..."
-              className="pl-10 bg-card h-12 border-border"
+              className="pl-10 pr-32 bg-card h-12 border-border"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   const input = e.currentTarget.value;
                   if (input.trim()) {
-                    toast.info("Link parsing coming soon! 🚀");
+                    toast.info(`Generating gist from ${selectedPlatform} link...`);
                   }
                 }
               }}
             />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground"
-            >
-              <ChevronDown className="w-4 h-4 mr-1" />
-              Platform
-            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium gap-1 hover:bg-accent"
+                >
+                  {platforms.find(p => p.name === selectedPlatform)?.name === "X" ? (
+                    <span className="text-base font-bold">𝕏</span>
+                  ) : (
+                    (() => {
+                      const Icon = platforms.find(p => p.name === selectedPlatform)?.icon;
+                      return Icon && typeof Icon !== 'string' ? <Icon className="w-4 h-4" /> : null;
+                    })()
+                  )}
+                  <span>{selectedPlatform}</span>
+                  <ChevronDown className="w-3 h-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2 bg-card border-border z-50">
+                <div className="space-y-1">
+                  {platforms.map((platform) => (
+                    <button
+                      key={platform.name}
+                      onClick={() => setSelectedPlatform(platform.name)}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                        selectedPlatform === platform.name
+                          ? "bg-accent text-accent-foreground"
+                          : "hover:bg-accent/50"
+                      )}
+                    >
+                      {platform.name === "X" ? (
+                        <span className="text-lg font-bold">𝕏</span>
+                      ) : (
+                        (() => {
+                          const Icon = platform.icon;
+                          return typeof Icon !== 'string' ? <Icon className="w-4 h-4" /> : null;
+                        })()
+                      )}
+                      <span>{platform.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
           <Button variant="outline" className="bg-card border-border hidden md:flex">
             <Filter className="w-4 h-4 mr-2" />

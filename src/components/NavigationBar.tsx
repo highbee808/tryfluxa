@@ -85,7 +85,7 @@ export const NavigationBar = () => {
       {/* Mobile Bottom Nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 pb-safe">
         <div 
-          className="flex items-center justify-around h-20 px-2"
+          className="flex items-center justify-center h-20 px-6 gap-6"
           style={{
             background: "var(--glass-bg)",
             backdropFilter: "blur(20px)",
@@ -103,22 +103,27 @@ export const NavigationBar = () => {
                 key={item.id}
                 onClick={() => navigate(item.path)}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 transition-all duration-300 p-2 rounded-xl",
+                  "flex flex-col items-center justify-center gap-1.5 transition-all duration-300 px-6 py-2 rounded-2xl min-w-[80px]",
                   isActive && "scale-105"
                 )}
                 aria-label={item.label}
               >
-                <Icon 
-                  className={cn(
-                    "w-6 h-6 transition-all duration-300",
-                    isActive ? "text-blue-600" : "text-muted-foreground"
-                  )} 
-                  style={isActive ? {
-                    filter: "drop-shadow(0 0 8px hsl(221 83% 53% / 0.5))"
-                  } : {}}
-                />
+                <div className={cn(
+                  "w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300",
+                  isActive ? "bg-blue-600/20" : "bg-transparent"
+                )}>
+                  <Icon 
+                    className={cn(
+                      "w-6 h-6 transition-all duration-300",
+                      isActive ? "text-blue-600" : "text-muted-foreground"
+                    )} 
+                    style={isActive ? {
+                      filter: "drop-shadow(0 0 8px hsl(221 83% 53% / 0.5))"
+                    } : {}}
+                  />
+                </div>
                 <span className={cn(
-                  "text-xs font-medium",
+                  "text-xs font-medium whitespace-nowrap",
                   isActive ? "text-blue-600" : "text-muted-foreground"
                 )}>
                   {item.label}
@@ -130,15 +135,17 @@ export const NavigationBar = () => {
           {/* Dark Mode Toggle on Mobile */}
           <button
             onClick={toggleDarkMode}
-            className="flex flex-col items-center justify-center gap-1 transition-all duration-300 p-2 rounded-xl"
+            className="flex flex-col items-center justify-center gap-1.5 transition-all duration-300 px-6 py-2 rounded-2xl min-w-[80px]"
             aria-label="Toggle dark mode"
           >
-            {isDark ? (
-              <Sun className="w-6 h-6 text-muted-foreground" />
-            ) : (
-              <Moon className="w-6 h-6 text-muted-foreground" />
-            )}
-            <span className="text-xs font-medium text-muted-foreground">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center bg-transparent">
+              {isDark ? (
+                <Sun className="w-6 h-6 text-muted-foreground" />
+              ) : (
+                <Moon className="w-6 h-6 text-muted-foreground" />
+              )}
+            </div>
+            <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
               {isDark ? "Light" : "Dark"}
             </span>
           </button>
