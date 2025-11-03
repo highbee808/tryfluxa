@@ -33,8 +33,8 @@ const Onboarding = () => {
       // ✅ Save interests for feed personalization
       localStorage.setItem("fluxaInterests", JSON.stringify(selectedInterests));
 
-      toast.success("Nice picks! Let's personalize your feed ✨");
-      navigate("/feed");
+      toast.success("Nice picks! Now let's set up your football teams ⚽");
+      navigate("/team-selection");
     } else {
       toast.error("Please select at least 3 interests to continue 💡");
     }

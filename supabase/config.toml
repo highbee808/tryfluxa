@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.admin-refresh-trends]
 verify_jwt = true
+
+[functions.fetch-sports-results]
+verify_jwt = false
+
+[functions.generate-sports-gist]
+verify_jwt = false

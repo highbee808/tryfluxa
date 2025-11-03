@@ -377,6 +377,45 @@ export type Database = {
         }
         Relationships: []
       }
+      match_results: {
+        Row: {
+          created_at: string
+          id: string
+          league: string
+          match_date: string
+          match_id: string
+          score_away: number | null
+          score_home: number | null
+          status: string
+          team_away: string
+          team_home: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          league: string
+          match_date: string
+          match_id: string
+          score_away?: number | null
+          score_home?: number | null
+          status: string
+          team_away: string
+          team_home: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          league?: string
+          match_date?: string
+          match_id?: string
+          score_away?: number | null
+          score_home?: number | null
+          status?: string
+          team_away?: string
+          team_home?: string
+        }
+        Relationships: []
+      }
       raw_trends: {
         Row: {
           category: string
@@ -721,6 +760,30 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_teams: {
+        Row: {
+          created_at: string
+          favorite_teams: string[] | null
+          id: string
+          rival_teams: string[] | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          favorite_teams?: string[] | null
+          id?: string
+          rival_teams?: string[] | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          favorite_teams?: string[] | null
+          id?: string
+          rival_teams?: string[] | null
           user_id?: string
         }
         Relationships: []

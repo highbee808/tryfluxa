@@ -1,4 +1,4 @@
-import { Home, Newspaper, Radio, Library, Moon, Sun, Sparkles } from "lucide-react";
+import { Home, Newspaper, Radio, Library, Moon, Sun, Sparkles, User } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useDarkMode } from "@/hooks/useDarkMode";
@@ -6,6 +6,7 @@ import { useDarkMode } from "@/hooks/useDarkMode";
 const navItems = [
   { icon: Home, label: "Home", path: "/feed", id: "home" },
   { icon: Sparkles, label: "Fluxa", path: "/fluxa-mode", id: "fluxa-mode" },
+  { icon: User, label: "Profile", path: "/profile", id: "profile" },
 ];
 
 export const NavigationBar = () => {

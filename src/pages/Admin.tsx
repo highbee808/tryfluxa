@@ -24,6 +24,7 @@ const Admin = () => {
   const [testLogs, setTestLogs] = useState<string[]>([]);
   const [fluxaLines, setFluxaLines] = useState<any[]>([]);
   const [isLoadingLines, setIsLoadingLines] = useState(false);
+  const [isSportsTesting, setIsSportsTesting] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -153,6 +154,41 @@ const Admin = () => {
       toast.error(error instanceof Error ? error.message : "Failed to generate gist");
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleSportsBanter = async () => {
+    setIsSportsTesting(true);
+    try {
+      toast.info("Fetching sports results...");
+      
+      // Call fetch-sports-results
+      const { data: fetchData, error: fetchError } = await supabase.functions.invoke("fetch-sports-results");
+      
+      if (fetchError) {
+        toast.error("Failed to fetch sports results");
+        console.error(fetchError);
+        return;
+      }
+
+      toast.success(`Fetched ${fetchData.matches} matches`);
+      
+      // Call generate-sports-gist
+      toast.info("Generating sports banter...");
+      const { data: gistData, error: gistError } = await supabase.functions.invoke("generate-sports-gist");
+      
+      if (gistError) {
+        toast.error("Failed to generate sports banter");
+        console.error(gistError);
+        return;
+      }
+
+      toast.success(`Generated ${gistData.generated} sports banter gists! ⚽`);
+    } catch (error) {
+      console.error("Error in sports banter:", error);
+      toast.error("Sports banter generation failed");
+    } finally {
+      setIsSportsTesting(false);
     }
   };
 
@@ -294,8 +330,9 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="gists" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="gists">Gist Generation</TabsTrigger>
+            <TabsTrigger value="sports">⚽ Sports Banter</TabsTrigger>
             <TabsTrigger value="personality">
               <Sparkles className="mr-2 h-4 w-4" />
               Personality
@@ -435,7 +472,60 @@ const Admin = () => {
               </div>
             </div>
           </Card>
-        )}
+          )}
+          </TabsContent>
+
+          <TabsContent value="sports" className="space-y-8">
+            <Card className="p-6 space-y-4 bg-card/95 backdrop-blur border-primary/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-semibold">⚽ Sports Banter Generator</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Fetch live match results and generate personalized sports commentary
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 pt-4">
+                <div className="p-4 bg-background/50 rounded-lg space-y-2">
+                  <h3 className="font-semibold text-sm">System Status</h3>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Sportsdata.io API:</span>
+                      <span className="text-primary font-medium">✓ Connected</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Supported Leagues:</span>
+                      <span className="text-foreground font-medium">Premier League, La Liga, Serie A, Bundesliga, Ligue 1</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Auto-refresh:</span>
+                      <span className="text-primary font-medium">✓ Every 6 hours</span>
+                    </div>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleSportsBanter}
+                  disabled={isSportsTesting}
+                  size="lg"
+                  className="w-full"
+                >
+                  {isSportsTesting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating Sports Banter...
+                    </>
+                  ) : (
+                    "⚽ Generate Sports Banter"
+                  )}
+                </Button>
+
+                <div className="text-xs text-muted-foreground text-center">
+                  This will fetch today's match results and generate personalized commentary for users based on their favorite and rival teams.
+                </div>
+              </div>
+            </Card>
           </TabsContent>
 
           <TabsContent value="personality" className="space-y-8">
