@@ -24,26 +24,42 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get today's date in YYYY-MM-DD format
-    const today = new Date().toISOString().split('T')[0]
+    // Fetch matches from the past 3 days and next 3 days
+    const allMatches = []
+    const errors = []
     
-    // Fetch matches from Sportsdata.io
-    const response = await fetch(
-      `https://api.sportsdata.io/v4/soccer/scores/json/GamesByDate/${today}`,
-      {
-        headers: {
-          'Ocp-Apim-Subscription-Key': apiKey,
-        },
-      }
-    )
+    for (let dayOffset = -3; dayOffset <= 3; dayOffset++) {
+      const date = new Date()
+      date.setDate(date.getDate() + dayOffset)
+      const dateStr = date.toISOString().split('T')[0]
+      
+      try {
+        const response = await fetch(
+          `https://api.sportsdata.io/v4/soccer/scores/json/GamesByDate/${dateStr}`,
+          {
+            headers: {
+              'Ocp-Apim-Subscription-Key': apiKey,
+            },
+          }
+        )
 
-    if (!response.ok) {
-      console.error('Sports API error:', response.status, await response.text())
-      throw new Error(`Sports API returned ${response.status}`)
+        if (response.ok) {
+          const dayMatches = await response.json()
+          allMatches.push(...dayMatches)
+          console.log(`✅ Fetched ${dayMatches.length} matches for ${dateStr}`)
+        } else {
+          errors.push(`${dateStr}: ${response.status}`)
+        }
+      } catch (err) {
+        errors.push(`${dateStr}: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      }
+    }
+    
+    if (errors.length > 0) {
+      console.warn('Some dates failed:', errors)
     }
 
-    const matches = await response.json()
-    console.log(`Fetched ${matches.length} matches`)
+    console.log(`Total fetched: ${allMatches.length} matches`)
 
     // Top leagues to filter
     const topLeagues = [
@@ -55,7 +71,7 @@ serve(async (req) => {
     ]
 
     // Filter and store relevant matches
-    const relevantMatches = matches.filter((match: any) => 
+    const relevantMatches = allMatches.filter((match: any) => 
       topLeagues.includes(match.Competition?.Name)
     )
 
