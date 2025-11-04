@@ -173,7 +173,30 @@ Return only the commentary text, nothing else.`
             continue
           }
 
-          // Insert as draft gist (will be published by text-to-speech)
+          // Generate Fluxa voice audio using TTS
+          console.log('🎙️ Generating Fluxa audio reaction...')
+          let audioUrl = ''
+          
+          try {
+            const ttsResponse = await supabase.functions.invoke('text-to-speech', {
+              body: { 
+                text: commentary, 
+                voice: 'shimmer',
+                speed: 0.94
+              }
+            })
+
+            if (ttsResponse.data?.audioUrl) {
+              audioUrl = ttsResponse.data.audioUrl
+              console.log('✅ Audio generated:', audioUrl)
+            } else {
+              console.error('TTS error:', ttsResponse.error)
+            }
+          } catch (ttsError) {
+            console.error('Failed to generate TTS:', ttsError)
+          }
+
+          // Insert gist with audio (published if audio generated, draft if not)
           const { error: gistError } = await supabase
             .from('gists')
             .insert({
@@ -182,9 +205,9 @@ Return only the commentary text, nothing else.`
               context: `${match.league} match result`,
               script: script,
               narration: commentary,
-              audio_url: '', // Will be generated
+              audio_url: audioUrl,
               topic_category: 'Sports Banter',
-              status: 'draft',
+              status: audioUrl ? 'published' : 'draft',
               meta: {
                 user_id: user.user_id,
                 match_id: match.match_id,

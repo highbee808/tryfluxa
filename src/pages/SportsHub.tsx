@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Volume2, Play, Pause } from "lucide-react";
 
 interface Match {
   id: string;
@@ -16,17 +16,37 @@ interface Match {
   score_away: number | null;
   status: string;
   match_date: string;
+  match_id?: string;
+}
+
+interface Gist {
+  id: string;
+  topic: string;
+  narration: string;
+  audio_url: string;
+  meta: {
+    match_id?: string;
+  };
 }
 
 const SportsHub = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [userTeams, setUserTeams] = useState<string[]>([]);
+  const [matchGists, setMatchGists] = useState<Record<string, Gist>>({});
+  const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+  const [audioElements, setAudioElements] = useState<Record<string, HTMLAudioElement>>({});
 
   useEffect(() => {
     fetchUserTeams();
     fetchMatches();
   }, []);
+
+  useEffect(() => {
+    if (matches.length > 0) {
+      fetchMatchGists();
+    }
+  }, [matches]);
 
   const fetchUserTeams = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -58,6 +78,53 @@ const SportsHub = () => {
       setMatches(data || []);
     }
     setLoading(false);
+  };
+
+  const fetchMatchGists = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("gists")
+      .select("*")
+      .eq("topic_category", "Sports Banter")
+      .eq("status", "published")
+      .not("audio_url", "is", null);
+
+    if (!error && data) {
+      const gistMap: Record<string, Gist> = {};
+      data.forEach((gist: any) => {
+        if (gist.meta?.match_id) {
+          gistMap[gist.meta.match_id] = gist;
+        }
+      });
+      setMatchGists(gistMap);
+    }
+  };
+
+  const playFluxaReaction = (matchId: string, audioUrl: string) => {
+    // Stop currently playing audio
+    if (playingAudio && audioElements[playingAudio]) {
+      audioElements[playingAudio].pause();
+      audioElements[playingAudio].currentTime = 0;
+    }
+
+    // If clicking the same audio, just stop it
+    if (playingAudio === matchId) {
+      setPlayingAudio(null);
+      return;
+    }
+
+    // Create or reuse audio element
+    let audio = audioElements[matchId];
+    if (!audio) {
+      audio = new Audio(audioUrl);
+      audio.onended = () => setPlayingAudio(null);
+      setAudioElements(prev => ({ ...prev, [matchId]: audio }));
+    }
+
+    audio.play();
+    setPlayingAudio(matchId);
   };
 
   const handleReaction = async (matchId: string, team: string, reaction: string) => {
@@ -127,6 +194,38 @@ const SportsHub = () => {
                 <p className="text-lg">{match.team_away}</p>
               </div>
             </div>
+
+            {/* Fluxa Audio Reaction */}
+            {matchGists[match.match_id || match.id] && matchGists[match.match_id || match.id].audio_url && (
+              <div className="pt-3 border-t">
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="w-full gap-2"
+                  onClick={() => playFluxaReaction(
+                    match.match_id || match.id, 
+                    matchGists[match.match_id || match.id].audio_url
+                  )}
+                >
+                  {playingAudio === (match.match_id || match.id) ? (
+                    <>
+                      <Pause className="w-4 h-4" />
+                      Stop Fluxa's Take
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="w-4 h-4" />
+                      🔊 Fluxa's Take
+                    </>
+                  )}
+                </Button>
+                {matchGists[match.match_id || match.id].narration && (
+                  <p className="text-xs text-muted-foreground mt-2 italic">
+                    "{matchGists[match.match_id || match.id].narration}"
+                  </p>
+                )}
+              </div>
+            )}
 
             {match.status === "Final" && (isUserTeam(match.team_home) || isUserTeam(match.team_away)) && (
               <div className="flex gap-2 justify-center pt-3 border-t">
