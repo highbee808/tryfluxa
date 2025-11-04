@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { toast } from "sonner";
-import { Loader2, Volume2, Play, Pause, RefreshCw, Radio } from "lucide-react";
+import { Loader2, Volume2, Play, Pause, RefreshCw, Radio, Sparkles } from "lucide-react";
 import { sendFluxaPushNotification } from "@/lib/notifications";
 
 interface Match {
@@ -41,6 +41,7 @@ const SportsHub = () => {
   const [audioElements, setAudioElements] = useState<Record<string, HTMLAudioElement>>({});
   const [liveUpdates, setLiveUpdates] = useState<Record<string, boolean>>({});
   const [refreshing, setRefreshing] = useState(false);
+  const [generatingGists, setGeneratingGists] = useState(false);
   const lastScoresRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
@@ -176,6 +177,29 @@ const SportsHub = () => {
     setLiveUpdates(prev => ({ ...prev, [matchId]: false }));
   };
 
+  const handleGenerateGists = async () => {
+    setGeneratingGists(true);
+    try {
+      const { error } = await supabase.functions.invoke('generate-sports-gist');
+      
+      if (error) {
+        toast.error("Failed to generate Fluxa's commentary");
+        console.error(error);
+      } else {
+        toast.success("✨ Fluxa is analyzing the matches...");
+        // Wait a bit then refresh gists
+        setTimeout(() => {
+          fetchMatchGists();
+        }, 3000);
+      }
+    } catch (err) {
+      toast.error("Error generating commentary");
+      console.error(err);
+    } finally {
+      setGeneratingGists(false);
+    }
+  };
+
   const handleReaction = async (matchId: string, team: string, reaction: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -237,14 +261,25 @@ const SportsHub = () => {
             <h1 className="text-4xl font-bold mb-2">⚽ Sports Hub</h1>
             <p className="text-muted-foreground">Live scores & match updates</p>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => fetchMatches(true)}
-            disabled={refreshing}
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => fetchMatches(true)}
+              disabled={refreshing}
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button
+              size="sm"
+              variant="default"
+              onClick={handleGenerateGists}
+              disabled={generatingGists}
+            >
+              <Sparkles className={`w-4 h-4 mr-2 ${generatingGists ? 'animate-spin' : ''}`} />
+              Generate Gists
+            </Button>
+          </div>
         </div>
       </div>
 
