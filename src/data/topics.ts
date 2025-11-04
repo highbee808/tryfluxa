@@ -19,9 +19,10 @@ export const topics: TopicData[] = [
     emoji: "⭐",
     description: "Hot celebrity news and entertainment gossip",
     subTopics: [
-      { id: "reality-tv", label: "Reality TV", emoji: "📺" },
-      { id: "movie-stars", label: "Movie Stars", emoji: "🎬" },
+      { id: "hollywood", label: "Hollywood", emoji: "🎬" },
+      { id: "music-celebs", label: "Music Stars", emoji: "🎤" },
       { id: "influencers", label: "Influencers", emoji: "📱" },
+      { id: "reality-tv", label: "Reality TV", emoji: "📺" },
     ]
   },
   {
@@ -32,9 +33,13 @@ export const topics: TopicData[] = [
     subTopics: [
       { id: "football", label: "Football", emoji: "⚽" },
       { id: "basketball", label: "Basketball", emoji: "🏀" },
-      { id: "formula-1", label: "Formula 1", emoji: "🏎️" },
-      { id: "ufc", label: "UFC", emoji: "🥊" },
       { id: "tennis", label: "Tennis", emoji: "🎾" },
+      { id: "athletics", label: "Athletics", emoji: "🏃" },
+      { id: "barcelona", label: "Barcelona", emoji: "🔵" },
+      { id: "real-madrid", label: "Real Madrid", emoji: "⚪" },
+      { id: "man-united", label: "Man United", emoji: "🔴" },
+      { id: "chelsea", label: "Chelsea", emoji: "💙" },
+      { id: "arsenal", label: "Arsenal", emoji: "🔴" },
     ]
   },
   {
@@ -90,8 +95,8 @@ export const topics: TopicData[] = [
       { id: "rnb", label: "R&B", emoji: "🎶" },
       { id: "rock", label: "Rock", emoji: "🎸" },
       { id: "afrobeats", label: "Afrobeats", emoji: "🎵" },
-      { id: "kpop", label: "K-Pop", emoji: "🎤" },
-      { id: "country", label: "Country", emoji: "🤠" },
+      { id: "burna-boy", label: "Burna Boy", emoji: "🔥" },
+      { id: "wizkid", label: "Wizkid", emoji: "⭐" },
     ]
   },
   {
@@ -100,10 +105,10 @@ export const topics: TopicData[] = [
     emoji: "🎌",
     description: "Anime releases, manga updates, and otaku culture",
     subTopics: [
-      { id: "series", label: "Series", emoji: "📺" },
-      { id: "movies", label: "Movies", emoji: "🎬" },
-      { id: "games", label: "Games", emoji: "🎮" },
-      { id: "kdrama", label: "K-Drama", emoji: "🎭" },
+      { id: "shonen", label: "Shonen", emoji: "⚡" },
+      { id: "seinen", label: "Seinen", emoji: "🗡️" },
+      { id: "isekai", label: "Isekai", emoji: "🌍" },
+      { id: "romance", label: "Romance", emoji: "💕" },
     ]
   },
   {
@@ -122,13 +127,7 @@ export const topics: TopicData[] = [
     id: "politics",
     label: "Politics",
     emoji: "🏛️",
-    description: "Political news, elections, and policy updates",
-    subTopics: [
-      { id: "elections", label: "Elections", emoji: "🗳️" },
-      { id: "foreign-policy", label: "Foreign Policy", emoji: "🌍" },
-      { id: "local-news", label: "Local News", emoji: "📰" },
-      { id: "political-satire", label: "Political Satire", emoji: "🎭" },
-    ]
+    description: "Political news, elections, and policy updates"
   },
   {
     id: "food",
