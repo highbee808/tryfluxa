@@ -20,6 +20,10 @@ interface Entity {
   bio: string | null;
   achievements: any;
   stats: any;
+  primary_color: string | null;
+  secondary_color: string | null;
+  current_match: any;
+  news_feed: any;
 }
 
 interface Post {
@@ -198,19 +202,26 @@ const EntityPage = () => {
 
   if (!entity) return null;
 
+  const primaryColor = entity.primary_color || 'hsl(var(--primary))';
+  const secondaryColor = entity.secondary_color || 'hsl(var(--secondary))';
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-background/80 pb-20">
+    <div className="min-h-screen pb-20" style={{ background: `linear-gradient(to bottom, ${primaryColor}15, hsl(var(--background)))` }}>
       {/* Header with Background */}
       <div 
-        className="relative h-48 bg-gradient-to-r from-primary/30 via-secondary/30 to-accent/30"
-        style={entity.background_url ? { backgroundImage: `url(${entity.background_url})`, backgroundSize: 'cover' } : {}}
+        className="relative h-48"
+        style={{
+          backgroundImage: entity.background_url ? `url(${entity.background_url})` : `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
       >
         <div className="absolute inset-0 bg-black/40" />
         <Button
           variant="ghost"
           size="sm"
-          className="absolute top-4 left-4 text-white"
-          onClick={() => navigate("/fanbase")}
+          className="absolute top-4 left-4 text-white hover:bg-white/20"
+          onClick={() => navigate("/fanbase-hub")}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
@@ -266,17 +277,77 @@ const EntityPage = () => {
           {/* Achievements */}
           {entity.achievements && entity.achievements.length > 0 && (
             <div className="mt-6 pt-6 border-t">
-              <h3 className="font-bold mb-3">🏆 Achievements</h3>
-              <div className="flex flex-wrap gap-2">
-                {entity.achievements.map((achievement, i) => (
-                  <Badge key={i} variant="outline">
-                    {achievement}
-                  </Badge>
+              <h3 className="font-bold mb-3 flex items-center gap-2">
+                🏆 Major Trophies
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                {entity.achievements.map((trophy: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2 p-3 rounded-lg bg-gradient-to-br from-yellow-500/10 to-yellow-600/10 border border-yellow-500/20">
+                    <span className="text-2xl">🏆</span>
+                    <div>
+                      <p className="font-bold text-sm">{trophy.name}</p>
+                      <p className="text-xs text-muted-foreground">{trophy.count}x Champion</p>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
           )}
         </Card>
+
+        {/* Current Match */}
+        {entity.current_match && (
+          <Card className="mt-6 p-6" style={{ 
+            background: `linear-gradient(135deg, ${primaryColor}10, ${secondaryColor}10)`,
+            borderColor: primaryColor
+          }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold flex items-center gap-2">
+                ⚽ {entity.current_match.status === 'live' ? '🔴 LIVE' : 'Upcoming Match'}
+              </h3>
+              <Badge variant={entity.current_match.status === 'live' ? 'destructive' : 'secondary'}>
+                {entity.current_match.league}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="text-center flex-1">
+                <p className="font-bold text-lg">{entity.current_match.home_team}</p>
+                <p className="text-3xl font-bold mt-2" style={{ color: primaryColor }}>
+                  {entity.current_match.home_score || 0}
+                </p>
+              </div>
+              <div className="text-muted-foreground px-4">VS</div>
+              <div className="text-center flex-1">
+                <p className="font-bold text-lg">{entity.current_match.away_team}</p>
+                <p className="text-3xl font-bold mt-2" style={{ color: secondaryColor }}>
+                  {entity.current_match.away_score || 0}
+                </p>
+              </div>
+            </div>
+            {entity.current_match.match_time && (
+              <p className="text-center text-sm text-muted-foreground mt-4">
+                {entity.current_match.match_time}
+              </p>
+            )}
+          </Card>
+        )}
+
+        {/* News Feed */}
+        {entity.news_feed && entity.news_feed.length > 0 && (
+          <Card className="mt-6 p-6">
+            <h3 className="font-bold mb-4 flex items-center gap-2">
+              📰 Latest News
+            </h3>
+            <div className="space-y-4">
+              {entity.news_feed.slice(0, 5).map((news: any, i: number) => (
+                <div key={i} className="pb-4 border-b last:border-0">
+                  <h4 className="font-semibold text-sm mb-1">{news.title}</h4>
+                  <p className="text-xs text-muted-foreground">{news.source} • {news.time}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
 
         {/* Posts Section */}
         <div className="mt-6">

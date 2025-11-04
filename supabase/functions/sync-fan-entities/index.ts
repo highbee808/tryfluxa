@@ -6,6 +6,65 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Team data with colors, logos, and achievements
+const teamData: Record<string, any> = {
+  'Barcelona': {
+    primary_color: '#004D98',
+    secondary_color: '#A50044',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/4/47/FC_Barcelona_%28crest%29.svg',
+    achievements: [
+      { name: 'Champions League', count: 5 },
+      { name: 'La Liga', count: 27 },
+      { name: 'Copa del Rey', count: 31 },
+      { name: 'Club World Cup', count: 3 }
+    ]
+  },
+  'Real Madrid': {
+    primary_color: '#FFFFFF',
+    secondary_color: '#00529F',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg',
+    achievements: [
+      { name: 'Champions League', count: 14 },
+      { name: 'La Liga', count: 35 },
+      { name: 'Copa del Rey', count: 20 },
+      { name: 'Club World Cup', count: 5 }
+    ]
+  },
+  'Manchester United': {
+    primary_color: '#DA291C',
+    secondary_color: '#FBE122',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/7/7a/Manchester_United_FC_crest.svg',
+    achievements: [
+      { name: 'Champions League', count: 3 },
+      { name: 'Premier League', count: 20 },
+      { name: 'FA Cup', count: 12 },
+      { name: 'Europa League', count: 1 }
+    ]
+  },
+  'Liverpool': {
+    primary_color: '#C8102E',
+    secondary_color: '#00B2A9',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/0/0c/Liverpool_FC.svg',
+    achievements: [
+      { name: 'Champions League', count: 6 },
+      { name: 'Premier League', count: 19 },
+      { name: 'FA Cup', count: 8 },
+      { name: 'Club World Cup', count: 1 }
+    ]
+  },
+  'Bayern Munich': {
+    primary_color: '#DC052D',
+    secondary_color: '#0066B2',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/commons/1/1b/FC_Bayern_M%C3%BCnchen_logo_%282017%29.svg',
+    achievements: [
+      { name: 'Champions League', count: 6 },
+      { name: 'Bundesliga', count: 32 },
+      { name: 'DFB-Pokal', count: 20 },
+      { name: 'Club World Cup', count: 2 }
+    ]
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -19,119 +78,171 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get all unique teams from match_results
+    // Get all matches including live/scheduled ones
     const { data: matches, error: matchError } = await supabase
       .from('match_results')
-      .select('team_home, team_away, league')
+      .select('team_home, team_away, league, status, score_home, score_away, match_date, match_id')
+      .order('match_date', { ascending: false })
       .limit(1000)
 
     if (matchError) {
       throw matchError
     }
 
-    // Extract unique teams
+    // Extract unique teams and their current matches
     const teamsSet = new Set<string>()
     const teamLeagues: Record<string, string> = {}
+    const teamMatches: Record<string, any> = {}
     
     matches?.forEach((match: any) => {
       if (match.team_home) {
         teamsSet.add(match.team_home)
         teamLeagues[match.team_home] = match.league
+        
+        // Store current/upcoming match for each team (live or scheduled)
+        if ((match.status === 'live' || match.status === 'scheduled') && !teamMatches[match.team_home]) {
+          teamMatches[match.team_home] = {
+            status: match.status,
+            league: match.league,
+            home_team: match.team_home,
+            away_team: match.team_away,
+            home_score: match.score_home || 0,
+            away_score: match.score_away || 0,
+            match_time: new Date(match.match_date).toLocaleString(),
+            match_id: match.match_id
+          }
+        }
       }
       if (match.team_away) {
         teamsSet.add(match.team_away)
         teamLeagues[match.team_away] = match.league
+        
+        // Store current/upcoming match for each team
+        if ((match.status === 'live' || match.status === 'scheduled') && !teamMatches[match.team_away]) {
+          teamMatches[match.team_away] = {
+            status: match.status,
+            league: match.league,
+            home_team: match.team_home,
+            away_team: match.team_away,
+            home_score: match.score_home || 0,
+            away_score: match.score_away || 0,
+            match_time: new Date(match.match_date).toLocaleString(),
+            match_id: match.match_id
+          }
+        }
       }
     })
 
     console.log(`Found ${teamsSet.size} unique teams`)
 
-    // Create fan entities for each team
+    // Create/update fan entities for each team
     let created = 0
-    let skipped = 0
+    let updated = 0
 
     for (const teamName of teamsSet) {
       const slug = teamName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+      const data = teamData[teamName] || {}
       
-      // Check if entity already exists
-      const { data: existing } = await supabase
+      // Upsert entity with all data
+      const { error: upsertError } = await supabase
         .from('fan_entities')
-        .select('id')
-        .eq('slug', slug)
-        .single()
-
-      if (existing) {
-        skipped++
-        continue
-      }
-
-      // Create new entity
-      const { error: insertError } = await supabase
-        .from('fan_entities')
-        .insert({
+        .upsert({
           name: teamName,
           slug,
           category: 'sports',
           bio: `Official ${teamName} fanbase. Follow for live updates, match discussions, and community banter.`,
           api_source: 'sportsdata',
+          logo_url: data.logo_url || null,
+          primary_color: data.primary_color || null,
+          secondary_color: data.secondary_color || null,
           stats: {
             league: teamLeagues[teamName],
             followers: 0
-          }
+          },
+          achievements: data.achievements || [],
+          current_match: teamMatches[teamName] || null,
+          news_feed: []
+        }, {
+          onConflict: 'slug',
+          ignoreDuplicates: false
         })
 
-      if (insertError) {
-        console.error(`Error creating entity for ${teamName}:`, insertError)
+      if (upsertError) {
+        console.error(`Error upserting entity for ${teamName}:`, upsertError)
       } else {
-        created++
+        updated++
       }
     }
 
-    // Add some sample music artists
+    // Add sample music artists
     const artists = [
-      { name: 'Drake', bio: 'Canadian rapper, singer, and actor. 6 God. OVO Sound.' },
-      { name: 'Taylor Swift', bio: 'Singer-songwriter. Multiple Grammy winner. Swiftie HQ.' },
-      { name: 'The Weeknd', bio: 'R&B artist. XO. After Hours.' },
-      { name: 'Bad Bunny', bio: 'Puerto Rican rapper and singer. El Conejo Malo.' },
-      { name: 'Beyoncé', bio: 'Queen Bey. Icon. Legend. Renaissance.' },
+      { 
+        name: 'Drake', 
+        bio: 'Canadian rapper, singer, and actor. 6 God. OVO Sound.',
+        primary_color: '#FFD700',
+        secondary_color: '#000000',
+        achievements: [
+          { name: 'Grammy Awards', count: 5 },
+          { name: 'Billboard #1 Albums', count: 11 }
+        ]
+      },
+      { 
+        name: 'Taylor Swift', 
+        bio: 'Singer-songwriter. Multiple Grammy winner. Swiftie HQ.',
+        primary_color: '#B58AC6',
+        secondary_color: '#FFE4E1',
+        achievements: [
+          { name: 'Grammy Awards', count: 14 },
+          { name: 'Billboard #1 Albums', count: 13 }
+        ]
+      },
+      { 
+        name: 'The Weeknd', 
+        bio: 'R&B artist. XO. After Hours.',
+        primary_color: '#FF0000',
+        secondary_color: '#000000',
+        achievements: [
+          { name: 'Grammy Awards', count: 4 },
+          { name: 'Billboard #1 Singles', count: 6 }
+        ]
+      },
     ]
 
     for (const artist of artists) {
       const slug = artist.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
       
-      const { data: existing } = await supabase
+      const { error: upsertError } = await supabase
         .from('fan_entities')
-        .select('id')
-        .eq('slug', slug)
-        .single()
+        .upsert({
+          name: artist.name,
+          slug,
+          category: 'music',
+          bio: artist.bio,
+          primary_color: artist.primary_color,
+          secondary_color: artist.secondary_color,
+          stats: {
+            followers: 0,
+            monthly_listeners: '50M+'
+          },
+          achievements: artist.achievements,
+          news_feed: []
+        }, {
+          onConflict: 'slug',
+          ignoreDuplicates: false
+        })
 
-      if (!existing) {
-        await supabase
-          .from('fan_entities')
-          .insert({
-            name: artist.name,
-            slug,
-            category: 'music',
-            bio: artist.bio,
-            stats: {
-              followers: 0,
-              monthly_listeners: '50M+'
-            }
-          })
-        created++
-      } else {
-        skipped++
+      if (!upsertError) {
+        updated++
       }
     }
 
-    console.log(`✅ Sync complete: ${created} created, ${skipped} skipped`)
+    console.log(`✅ Sync complete: ${updated} entities synced`)
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        created,
-        skipped,
-        message: 'Fan entities synced successfully'
+        synced: updated,
+        message: 'Fan entities synced successfully with logos, colors, and achievements'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

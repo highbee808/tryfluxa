@@ -47,9 +47,13 @@ export type Database = {
           bio: string | null
           category: Database["public"]["Enums"]["fan_entity_category"]
           created_at: string | null
+          current_match: Json | null
           id: string
           logo_url: string | null
           name: string
+          news_feed: Json | null
+          primary_color: string | null
+          secondary_color: string | null
           slug: string
           stats: Json | null
           updated_at: string | null
@@ -62,9 +66,13 @@ export type Database = {
           bio?: string | null
           category: Database["public"]["Enums"]["fan_entity_category"]
           created_at?: string | null
+          current_match?: Json | null
           id?: string
           logo_url?: string | null
           name: string
+          news_feed?: Json | null
+          primary_color?: string | null
+          secondary_color?: string | null
           slug: string
           stats?: Json | null
           updated_at?: string | null
@@ -77,9 +85,13 @@ export type Database = {
           bio?: string | null
           category?: Database["public"]["Enums"]["fan_entity_category"]
           created_at?: string | null
+          current_match?: Json | null
           id?: string
           logo_url?: string | null
           name?: string
+          news_feed?: Json | null
+          primary_color?: string | null
+          secondary_color?: string | null
           slug?: string
           stats?: Json | null
           updated_at?: string | null
