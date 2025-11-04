@@ -152,7 +152,7 @@ const FanbaseHub = () => {
           <div className="flex items-center gap-2 mt-2">
             <Badge variant="outline" className="text-xs">
               <Users className="w-3 h-3 mr-1" />
-              {entity.followerCount || 0} fans
+              {entity.followerCount?.[0]?.count || 0} fans
             </Badge>
           </div>
         </div>
@@ -261,7 +261,7 @@ const FanbaseHub = () => {
           </h2>
           <div className="space-y-3">
             {entities
-              .sort((a, b) => (b.followerCount || 0) - (a.followerCount || 0))
+              .sort((a, b) => (b.followerCount?.[0]?.count || 0) - (a.followerCount?.[0]?.count || 0))
               .slice(0, 5)
               .map(renderEntityCard)}
           </div>
