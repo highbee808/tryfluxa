@@ -38,6 +38,159 @@ export type Database = {
         }
         Relationships: []
       }
+      fan_entities: {
+        Row: {
+          achievements: Json | null
+          api_id: string | null
+          api_source: string | null
+          background_url: string | null
+          bio: string | null
+          category: Database["public"]["Enums"]["fan_entity_category"]
+          created_at: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          slug: string
+          stats: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          achievements?: Json | null
+          api_id?: string | null
+          api_source?: string | null
+          background_url?: string | null
+          bio?: string | null
+          category: Database["public"]["Enums"]["fan_entity_category"]
+          created_at?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          slug: string
+          stats?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          achievements?: Json | null
+          api_id?: string | null
+          api_source?: string | null
+          background_url?: string | null
+          bio?: string | null
+          category?: Database["public"]["Enums"]["fan_entity_category"]
+          created_at?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          slug?: string
+          stats?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      fan_entity_stats: {
+        Row: {
+          entity_id: string
+          id: string
+          stat_type: string
+          stat_value: Json
+          updated_at: string | null
+        }
+        Insert: {
+          entity_id: string
+          id?: string
+          stat_type: string
+          stat_value: Json
+          updated_at?: string | null
+        }
+        Update: {
+          entity_id?: string
+          id?: string
+          stat_type?: string
+          stat_value?: Json
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fan_entity_stats_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "fan_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fan_follows: {
+        Row: {
+          created_at: string | null
+          entity_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          entity_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          entity_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fan_follows_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "fan_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fan_posts: {
+        Row: {
+          content: string
+          created_at: string | null
+          entity_id: string
+          id: string
+          media_url: string | null
+          reaction_count: number | null
+          reactions: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          entity_id: string
+          id?: string
+          media_url?: string | null
+          reaction_count?: number | null
+          reactions?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          entity_id?: string
+          id?: string
+          media_url?: string | null
+          reaction_count?: number | null
+          reactions?: Json | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fan_posts_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "fan_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fanbase_threads: {
         Row: {
           audio_url: string | null
@@ -912,6 +1065,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      fan_entity_category: "sports" | "music" | "culture"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1040,6 +1194,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      fan_entity_category: ["sports", "music", "culture"],
     },
   },
 } as const

@@ -8,7 +8,7 @@ export const BottomNavigation = () => {
 
   const navItems = [
     { icon: Home, label: "Home", path: "/feed" },
-    { icon: Radio, label: "Fanbase", path: "/fanbase" },
+    { icon: Radio, label: "Fanbase", path: "/fanbase-hub" },
     { icon: Trophy, label: "Sports", path: "/sports-hub" },
     { icon: Search, label: "Discover", path: "/universe" },
     { icon: User, label: "Profile", path: "/profile" },

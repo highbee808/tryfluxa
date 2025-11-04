@@ -20,6 +20,8 @@ import AdminSponsors from "./pages/AdminSponsors";
 import AdminHealth from "./pages/AdminHealth";
 import SportsHub from "./pages/SportsHub";
 import Fanbase from "./pages/Fanbase";
+import FanbaseHub from "./pages/FanbaseHub";
+import EntityPage from "./pages/EntityPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +48,8 @@ const App = () => (
           <Route path="/room/:roomId" element={<Room />} />
           <Route path="/sports-hub" element={<SportsHub />} />
           <Route path="/fanbase" element={<Fanbase />} />
+          <Route path="/fanbase-hub" element={<FanbaseHub />} />
+          <Route path="/fanbase/:slug" element={<EntityPage />} />
           <Route path="/admin/sponsors" element={<AdminSponsors />} />
           <Route path="/admin/health" element={<AdminHealth />} />
           <Route path="*" element={<NotFound />} />
