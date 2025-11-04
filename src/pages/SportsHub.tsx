@@ -71,14 +71,20 @@ const SportsHub = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("user_teams")
       .select("favorite_teams")
-      .eq("user_id", user.id)
-      .single();
+      .eq("user_id", user.id);
 
-    if (data?.favorite_teams) {
-      setUserTeams(data.favorite_teams);
+    if (error) {
+      console.error("Error fetching user teams:", error);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      // Flatten all favorite_teams arrays into a single array
+      const allTeams = data.flatMap(row => row.favorite_teams || []);
+      setUserTeams(allTeams);
     }
   };
 
