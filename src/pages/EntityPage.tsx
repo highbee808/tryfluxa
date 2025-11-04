@@ -207,10 +207,10 @@ const EntityPage = () => {
   const secondaryColor = entity.secondary_color || 'hsl(var(--secondary))';
 
   return (
-    <div className="min-h-screen pb-20" style={{ background: `linear-gradient(to bottom, ${primaryColor}15, hsl(var(--background)))` }}>
+    <div className="min-h-screen pb-20">
       {/* Header with Background */}
       <div 
-        className="relative h-32 md:h-48"
+        className="relative h-40 md:h-56"
         style={{
           backgroundImage: entity.background_url ? `url(${entity.background_url})` : `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
           backgroundSize: 'cover',
@@ -221,7 +221,7 @@ const EntityPage = () => {
         <Button
           variant="ghost"
           size="sm"
-          className="absolute top-4 left-4 text-white hover:bg-white/20"
+          className="absolute top-4 left-4 text-white hover:bg-white/20 z-10"
           onClick={() => navigate("/fanbase-hub")}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -230,18 +230,25 @@ const EntityPage = () => {
       </div>
 
       {/* Main Content - Desktop Grid Layout */}
-      <div className="max-w-7xl mx-auto px-4 -mt-12 md:-mt-16">
+      <div className="max-w-7xl mx-auto px-4" style={{ marginTop: '-80px' }}>
         <div className="flex flex-col lg:flex-row gap-6">
           
           {/* Main Column */}
           <div className="flex-1">
             {/* Profile Section */}
-            <Card className="p-6">
+            <Card className="p-6 shadow-xl bg-background/95 backdrop-blur">
               <div className="flex items-start gap-4">
                 {entity.logo_url ? (
-                  <img src={entity.logo_url} alt={entity.name} className="w-20 h-20 md:w-24 md:h-24 rounded-full object-contain bg-white p-2 border-4 border-background shadow-lg" />
+                  <img 
+                    src={entity.logo_url} 
+                    alt={entity.name} 
+                    className="w-20 h-20 md:w-28 md:h-28 rounded-full object-contain bg-white p-3 border-4 border-background shadow-2xl ring-2 ring-primary/20" 
+                  />
                 ) : (
-                  <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-3xl font-bold border-4 border-background">
+                  <div 
+                    className="w-20 h-20 md:w-28 md:h-28 rounded-full flex items-center justify-center text-3xl font-bold border-4 border-background shadow-2xl ring-2 ring-primary/20"
+                    style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+                  >
                     {entity.name.charAt(0)}
                   </div>
                 )}

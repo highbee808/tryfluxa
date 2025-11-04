@@ -180,6 +180,117 @@ const teamData: Record<string, any> = {
       { name: 'Conference Titles', count: 6 },
       { name: 'Division Titles', count: 9 }
     ]
+  },
+  // Additional Football Teams
+  'Atletico Madrid': {
+    primary_color: '#CB3524',
+    secondary_color: '#1B458F',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/f/f4/Atletico_Madrid_2017_logo.svg',
+    achievements: [
+      { name: 'La Liga', count: 11 },
+      { name: 'Copa del Rey', count: 10 },
+      { name: 'Europa League', count: 3 }
+    ]
+  },
+  'Tottenham': {
+    primary_color: '#132257',
+    secondary_color: '#FFFFFF',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/b/b4/Tottenham_Hotspur.svg',
+    achievements: [
+      { name: 'League Titles', count: 2 },
+      { name: 'FA Cup', count: 8 },
+      { name: 'League Cup', count: 4 }
+    ]
+  },
+  'Borussia Dortmund': {
+    primary_color: '#FDE100',
+    secondary_color: '#000000',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/commons/6/67/Borussia_Dortmund_logo.svg',
+    achievements: [
+      { name: 'Champions League', count: 1 },
+      { name: 'Bundesliga', count: 8 },
+      { name: 'DFB-Pokal', count: 5 }
+    ]
+  },
+  'Napoli': {
+    primary_color: '#0067B0',
+    secondary_color: '#87CEEB',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/commons/2/2d/SSC_Neapel.svg',
+    achievements: [
+      { name: 'Serie A', count: 3 },
+      { name: 'Coppa Italia', count: 6 },
+      { name: 'Supercoppa', count: 2 }
+    ]
+  },
+  'Roma': {
+    primary_color: '#8B0304',
+    secondary_color: '#F7B500',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/f/f7/AS_Roma_logo_%282017%29.svg',
+    achievements: [
+      { name: 'Serie A', count: 3 },
+      { name: 'Coppa Italia', count: 9 },
+      { name: 'Supercoppa', count: 2 }
+    ]
+  },
+  'Sevilla': {
+    primary_color: '#D40C23',
+    secondary_color: '#FFFFFF',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/3/3b/Sevilla_FC_logo.svg',
+    achievements: [
+      { name: 'Europa League', count: 7 },
+      { name: 'Copa del Rey', count: 5 },
+      { name: 'La Liga', count: 1 }
+    ]
+  },
+  'Porto': {
+    primary_color: '#003DA5',
+    secondary_color: '#FFFFFF',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/f/f1/FC_Porto.svg',
+    achievements: [
+      { name: 'Champions League', count: 2 },
+      { name: 'Primeira Liga', count: 30 },
+      { name: 'Taça de Portugal', count: 19 }
+    ]
+  },
+  'Benfica': {
+    primary_color: '#DA0812',
+    secondary_color: '#FFFFFF',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/a/a2/SL_Benfica_logo.svg',
+    achievements: [
+      { name: 'Champions League', count: 2 },
+      { name: 'Primeira Liga', count: 38 },
+      { name: 'Taça de Portugal', count: 26 }
+    ]
+  },
+  'Ajax': {
+    primary_color: '#D2122E',
+    secondary_color: '#FFFFFF',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/7/79/Ajax_Amsterdam.svg',
+    achievements: [
+      { name: 'Champions League', count: 4 },
+      { name: 'Eredivisie', count: 36 },
+      { name: 'KNVB Cup', count: 20 }
+    ]
+  },
+  // Additional Basketball Teams
+  'Miami Heat': {
+    primary_color: '#98002E',
+    secondary_color: '#F9A01B',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/f/fb/Miami_Heat_logo.svg',
+    achievements: [
+      { name: 'NBA Championships', count: 3 },
+      { name: 'Conference Titles', count: 7 },
+      { name: 'Division Titles', count: 16 }
+    ]
+  },
+  'Brooklyn Nets': {
+    primary_color: '#000000',
+    secondary_color: '#FFFFFF',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/commons/4/44/Brooklyn_Nets_newlogo.svg',
+    achievements: [
+      { name: 'Conference Titles', count: 2 },
+      { name: 'Division Titles', count: 5 }
+    ]
   }
 }
 
