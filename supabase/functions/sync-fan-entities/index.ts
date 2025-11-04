@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Team data with colors, logos, and achievements
+// Team data with colors, logos, and achievements (updated 2025)
 const teamData: Record<string, any> = {
   'Barcelona': {
     primary_color: '#004D98',
@@ -20,12 +20,12 @@ const teamData: Record<string, any> = {
     ]
   },
   'Real Madrid': {
-    primary_color: '#FFFFFF',
+    primary_color: '#FEBE10',
     secondary_color: '#00529F',
     logo_url: 'https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg',
     achievements: [
-      { name: 'Champions League', count: 14 },
-      { name: 'La Liga', count: 35 },
+      { name: 'Champions League', count: 15 },
+      { name: 'La Liga', count: 36 },
       { name: 'Copa del Rey', count: 20 },
       { name: 'Club World Cup', count: 5 }
     ]
@@ -37,7 +37,7 @@ const teamData: Record<string, any> = {
     achievements: [
       { name: 'Champions League', count: 3 },
       { name: 'Premier League', count: 20 },
-      { name: 'FA Cup', count: 12 },
+      { name: 'FA Cup', count: 13 },
       { name: 'Europa League', count: 1 }
     ]
   },
@@ -47,7 +47,7 @@ const teamData: Record<string, any> = {
     logo_url: 'https://upload.wikimedia.org/wikipedia/en/0/0c/Liverpool_FC.svg',
     achievements: [
       { name: 'Champions League', count: 6 },
-      { name: 'Premier League', count: 19 },
+      { name: 'Premier League', count: 1 },
       { name: 'FA Cup', count: 8 },
       { name: 'Club World Cup', count: 1 }
     ]
@@ -58,9 +58,127 @@ const teamData: Record<string, any> = {
     logo_url: 'https://upload.wikimedia.org/wikipedia/commons/1/1b/FC_Bayern_M%C3%BCnchen_logo_%282017%29.svg',
     achievements: [
       { name: 'Champions League', count: 6 },
-      { name: 'Bundesliga', count: 32 },
+      { name: 'Bundesliga', count: 33 },
       { name: 'DFB-Pokal', count: 20 },
       { name: 'Club World Cup', count: 2 }
+    ]
+  },
+  'Chelsea': {
+    primary_color: '#034694',
+    secondary_color: '#FFFFFF',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/c/cc/Chelsea_FC.svg',
+    achievements: [
+      { name: 'Champions League', count: 2 },
+      { name: 'Premier League', count: 6 },
+      { name: 'FA Cup', count: 8 },
+      { name: 'Europa League', count: 2 }
+    ]
+  },
+  'Manchester City': {
+    primary_color: '#6CABDD',
+    secondary_color: '#1C2C5B',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/e/eb/Manchester_City_FC_badge.svg',
+    achievements: [
+      { name: 'Champions League', count: 1 },
+      { name: 'Premier League', count: 10 },
+      { name: 'FA Cup', count: 7 },
+      { name: 'League Cup', count: 8 }
+    ]
+  },
+  'Arsenal': {
+    primary_color: '#EF0107',
+    secondary_color: '#FFFFFF',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/5/53/Arsenal_FC.svg',
+    achievements: [
+      { name: 'Premier League', count: 13 },
+      { name: 'FA Cup', count: 14 },
+      { name: 'League Cup', count: 2 },
+      { name: 'Europa League', count: 0 }
+    ]
+  },
+  'Paris Saint-Germain': {
+    primary_color: '#004170',
+    secondary_color: '#DA291C',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/a/a7/Paris_Saint-Germain_F.C..svg',
+    achievements: [
+      { name: 'Ligue 1', count: 12 },
+      { name: 'Coupe de France', count: 14 },
+      { name: 'Coupe de la Ligue', count: 9 },
+      { name: 'Champions League', count: 0 }
+    ]
+  },
+  'Juventus': {
+    primary_color: '#000000',
+    secondary_color: '#FFFFFF',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/commons/0/07/Juventus_FC_-_pictogram_black_%28Italy%2C_2017%29.svg',
+    achievements: [
+      { name: 'Champions League', count: 2 },
+      { name: 'Serie A', count: 36 },
+      { name: 'Coppa Italia', count: 14 },
+      { name: 'Supercoppa', count: 9 }
+    ]
+  },
+  'AC Milan': {
+    primary_color: '#FB090B',
+    secondary_color: '#000000',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/commons/d/d0/Logo_of_AC_Milan.svg',
+    achievements: [
+      { name: 'Champions League', count: 7 },
+      { name: 'Serie A', count: 19 },
+      { name: 'Coppa Italia', count: 5 },
+      { name: 'Club World Cup', count: 1 }
+    ]
+  },
+  'Inter Milan': {
+    primary_color: '#0068A8',
+    secondary_color: '#000000',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/commons/0/05/FC_Internazionale_Milano_2021.svg',
+    achievements: [
+      { name: 'Champions League', count: 3 },
+      { name: 'Serie A', count: 20 },
+      { name: 'Coppa Italia', count: 9 },
+      { name: 'Club World Cup', count: 1 }
+    ]
+  },
+  // Basketball Teams
+  'Los Angeles Lakers': {
+    primary_color: '#552583',
+    secondary_color: '#FDB927',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/commons/3/3c/Los_Angeles_Lakers_logo.svg',
+    achievements: [
+      { name: 'NBA Championships', count: 17 },
+      { name: 'Conference Titles', count: 32 },
+      { name: 'Division Titles', count: 24 }
+    ]
+  },
+  'Boston Celtics': {
+    primary_color: '#007A33',
+    secondary_color: '#BA9653',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/8/8f/Boston_Celtics.svg',
+    achievements: [
+      { name: 'NBA Championships', count: 18 },
+      { name: 'Conference Titles', count: 23 },
+      { name: 'Division Titles', count: 33 }
+    ]
+  },
+  'Golden State Warriors': {
+    primary_color: '#1D428A',
+    secondary_color: '#FFC72C',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/0/01/Golden_State_Warriors_logo.svg',
+    achievements: [
+      { name: 'NBA Championships', count: 7 },
+      { name: 'Conference Titles', count: 12 },
+      { name: 'Division Titles', count: 12 }
+    ]
+  },
+  'Chicago Bulls': {
+    primary_color: '#CE1141',
+    secondary_color: '#000000',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/6/67/Chicago_Bulls_logo.svg',
+    achievements: [
+      { name: 'NBA Championships', count: 6 },
+      { name: 'Conference Titles', count: 6 },
+      { name: 'Division Titles', count: 9 }
     ]
   }
 }
