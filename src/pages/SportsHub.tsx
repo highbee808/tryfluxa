@@ -47,25 +47,13 @@ const SportsHub = () => {
   useEffect(() => {
     fetchUserTeams();
     fetchMatches();
-    
-    // Auto-refresh every 30 seconds if there are live matches
-    const interval = setInterval(() => {
-      const hasLiveMatches = matches.some(m => 
-        m.status === 'InProgress' || m.status === 'Live' || m.status === 'Halftime'
-      );
-      if (hasLiveMatches) {
-        fetchMatches(true);
-      }
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [matches]);
+  }, []);
 
   useEffect(() => {
     if (matches.length > 0) {
       fetchMatchGists();
     }
-  }, [matches]);
+  }, [matches.length]);
 
   const fetchUserTeams = async () => {
     const { data: { user } } = await supabase.auth.getUser();
