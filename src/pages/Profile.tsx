@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { BottomNavigation } from "@/components/BottomNavigation";
 import { Heart, ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -98,7 +99,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20">
       <div className="container mx-auto px-4 py-6 max-w-4xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -179,6 +180,8 @@ const Profile = () => {
           </div>
         )}
       </div>
+
+      <BottomNavigation />
     </div>
   );
 };

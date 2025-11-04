@@ -38,6 +38,39 @@ export type Database = {
         }
         Relationships: []
       }
+      fanbase_threads: {
+        Row: {
+          audio_url: string | null
+          category: string
+          created_at: string
+          id: string
+          post: string
+          reactions: Json | null
+          topic_name: string
+          user_id: string | null
+        }
+        Insert: {
+          audio_url?: string | null
+          category: string
+          created_at?: string
+          id?: string
+          post: string
+          reactions?: Json | null
+          topic_name: string
+          user_id?: string | null
+        }
+        Update: {
+          audio_url?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          post?: string
+          reactions?: Json | null
+          topic_name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       feedback: {
         Row: {
           created_at: string
@@ -599,6 +632,33 @@ export type Database = {
           },
         ]
       }
+      sports_fan_reactions: {
+        Row: {
+          created_at: string
+          id: string
+          match_id: string | null
+          reaction: string
+          team: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          match_id?: string | null
+          reaction: string
+          team: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          match_id?: string | null
+          reaction?: string
+          team?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       stories: {
         Row: {
           audio_url: string
@@ -760,6 +820,30 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_subniches: {
+        Row: {
+          created_at: string
+          id: string
+          main_topic: string
+          sub_niches: string[]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          main_topic: string
+          sub_niches?: string[]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          main_topic?: string
+          sub_niches?: string[]
           user_id?: string
         }
         Relationships: []
