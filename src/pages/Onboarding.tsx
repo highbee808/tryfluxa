@@ -1,46 +1,127 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { InterestChip } from "@/components/InterestChip";
+import { SubNicheSelection } from "@/components/SubNicheSelection";
 import { Button } from "@/components/ui/button";
 import { topics } from "@/data/topics";
 import { toast } from "sonner";
-import { ChevronLeft } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const Onboarding = () => {
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [subNicheSelections, setSubNicheSelections] = useState<Record<string, string[]>>({});
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
+  const [showSubNiches, setShowSubNiches] = useState(false);
+  const [currentMainTopic, setCurrentMainTopic] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const toggleInterest = (interest: string) => {
-    setSelectedInterests((prev) =>
-      prev.includes(interest) ? prev.filter((i) => i !== interest) : [...prev, interest],
-    );
+    setSelectedInterests((prev) => {
+      const newInterests = prev.includes(interest) 
+        ? prev.filter((i) => i !== interest) 
+        : [...prev, interest];
+      
+      // If deselecting, remove sub-niches
+      if (prev.includes(interest)) {
+        const newSubNiches = { ...subNicheSelections };
+        delete newSubNiches[interest];
+        setSubNicheSelections(newSubNiches);
+      }
+      
+      return newInterests;
+    });
   };
 
   const handleTopicClick = (topicId: string, hasSubTopics: boolean) => {
-    if (hasSubTopics) {
-      setExpandedTopic(expandedTopic === topicId ? null : topicId);
-    } else {
-      const topic = topics.find(t => t.id === topicId);
-      if (topic) {
-        toggleInterest(topic.label);
-      }
+    const topic = topics.find(t => t.id === topicId);
+    if (!topic) return;
+
+    // Toggle selection
+    toggleInterest(topic.label);
+
+    // If has sub-topics and is now selected, show sub-niche selection
+    if (hasSubTopics && !selectedInterests.includes(topic.label)) {
+      setCurrentMainTopic(topic.label);
+      setShowSubNiches(true);
     }
   };
 
-  const handleContinue = () => {
-    if (selectedInterests.length >= 3) {
-      // ✅ Save interests for feed personalization
-      localStorage.setItem("fluxaInterests", JSON.stringify(selectedInterests));
+  const toggleSubNiche = (mainTopic: string, subNiche: string) => {
+    setSubNicheSelections(prev => {
+      const current = prev[mainTopic] || [];
+      const updated = current.includes(subNiche)
+        ? current.filter(s => s !== subNiche)
+        : [...current, subNiche];
+      
+      return { ...prev, [mainTopic]: updated };
+    });
+  };
 
+  const handleContinue = async () => {
+    if (selectedInterests.length < 3) {
+      toast.error("Please select at least 3 interests to continue 💡");
+      return;
+    }
+
+    // Save interests to localStorage
+    localStorage.setItem("fluxaInterests", JSON.stringify(selectedInterests));
+
+    // Save sub-niches to database
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      for (const [mainTopic, subNiches] of Object.entries(subNicheSelections)) {
+        if (subNiches.length > 0) {
+          await supabase.from("user_subniches").insert({
+            user_id: user.id,
+            main_topic: mainTopic,
+            sub_niches: subNiches,
+          });
+        }
+      }
+    }
+
+    // Navigate based on whether Sports is selected
+    if (selectedInterests.includes("Sports")) {
       toast.success("Nice picks! Now let's set up your football teams ⚽");
       navigate("/team-selection");
     } else {
-      toast.error("Please select at least 3 interests to continue 💡");
+      toast.success("All set! Welcome to Fluxa 🎉");
+      navigate("/feed");
     }
   };
 
   const canContinue = selectedInterests.length >= 3;
+
+  if (showSubNiches && currentMainTopic) {
+    const topic = topics.find(t => t.label === currentMainTopic);
+    if (topic?.subTopics) {
+      return (
+        <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--gradient-hero)" }}>
+          <div className="max-w-4xl w-full space-y-10">
+            <SubNicheSelection
+              mainTopic={currentMainTopic}
+              emoji={topic.emoji}
+              subTopics={topic.subTopics}
+              selectedSubNiches={subNicheSelections[currentMainTopic] || []}
+              onToggle={(subNiche) => toggleSubNiche(currentMainTopic, subNiche)}
+              onBack={() => setShowSubNiches(false)}
+            />
+            
+            {/* Continue Button */}
+            <div className="flex justify-center">
+              <Button
+                onClick={() => setShowSubNiches(false)}
+                size="lg"
+                className="text-lg font-bold shadow-xl"
+              >
+                Done →
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--gradient-hero)" }}>
@@ -54,45 +135,16 @@ const Onboarding = () => {
           <p className="text-base text-muted-foreground">Select at least 3 interests to personalize your feed</p>
         </div>
 
-        {/* Back button when viewing sub-topics */}
-        {expandedTopic && (
-          <div className="flex justify-center">
-            <Button
-              variant="ghost"
-              onClick={() => setExpandedTopic(null)}
-              className="gap-2"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Back to all topics
-            </Button>
-          </div>
-        )}
-
         {/* Interest Chips */}
         <div className="flex flex-wrap gap-4 justify-center">
-          {!expandedTopic ? (
-            // Show main topics
-            topics.map((topic) => (
-              <InterestChip
-                key={topic.id}
-                label={`${topic.emoji || ""} ${topic.label}`}
-                selected={selectedInterests.includes(topic.label)}
-                onClick={() => handleTopicClick(topic.id, !!topic.subTopics)}
-              />
-            ))
-          ) : (
-            // Show sub-topics
-            topics
-              .find(t => t.id === expandedTopic)
-              ?.subTopics?.map((subTopic) => (
-                <InterestChip
-                  key={subTopic.id}
-                  label={`${subTopic.emoji || ""} ${subTopic.label}`}
-                  selected={selectedInterests.includes(subTopic.label)}
-                  onClick={() => toggleInterest(subTopic.label)}
-                />
-              ))
-          )}
+          {topics.map((topic) => (
+            <InterestChip
+              key={topic.id}
+              label={`${topic.emoji || ""} ${topic.label}`}
+              selected={selectedInterests.includes(topic.label)}
+              onClick={() => handleTopicClick(topic.id, !!topic.subTopics)}
+            />
+          ))}
         </div>
 
         {/* Selection Counter */}

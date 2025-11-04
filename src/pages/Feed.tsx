@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { FeedCard } from "@/components/FeedCard";
 import { NavigationBar } from "@/components/NavigationBar";
+import { BottomNavigation } from "@/components/BottomNavigation";
 import { useFluxaMemory } from "@/hooks/useFluxaMemory";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -152,7 +153,7 @@ const Feed = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 pb-24 md:pb-8 md:pt-20">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 pb-20 md:pb-8 md:pt-20">
       <NavigationBar />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -362,6 +363,7 @@ const Feed = () => {
         </div>
       </div>
 
+      <BottomNavigation />
     </div>
   );
 };
