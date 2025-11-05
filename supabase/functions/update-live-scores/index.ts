@@ -122,19 +122,19 @@ serve(async (req) => {
           return homeTeamLower.includes(entityNameLower) || awayTeamLower.includes(entityNameLower)
         }) || []
 
-        // Find live match
+        // Find live match - support multiple status variations
         const liveMatch = validMatches.find(m => 
-          m.status === 'InProgress' || m.status === 'Halftime'
+          m.status === 'InProgress' || m.status === 'Halftime' || m.status === 'LIVE' || m.status === '1H' || m.status === '2H' || m.status === 'HT'
         )
 
-        // Find completed matches
+        // Find completed matches - support multiple status variations
         const completedMatches = validMatches.filter(m => 
-          m.status === 'FullTime' || m.status === 'Finished'
+          m.status === 'FullTime' || m.status === 'Finished' || m.status === 'Final' || m.status === 'FT' || m.status === 'Closed'
         ).sort((a, b) => new Date(b.match_date).getTime() - new Date(a.match_date).getTime())
 
-        // Find scheduled matches
+        // Find scheduled matches - support multiple status variations
         const scheduledMatches = validMatches.filter(m => 
-          m.status === 'Scheduled' || m.status === 'Not Started'
+          m.status === 'Scheduled' || m.status === 'Not Started' || m.status === 'NS' || m.status === 'TBD' || (!m.score_home && !m.score_away && m.status !== 'Final')
         ).sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime())
 
         const currentMatch = liveMatch ? {
