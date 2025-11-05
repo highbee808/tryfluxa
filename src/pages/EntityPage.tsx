@@ -236,49 +236,52 @@ const EntityPage = () => {
           {/* Main Column */}
           <div className="flex-1">
             {/* Profile Section */}
-            <Card className="p-6 shadow-xl bg-background/95 backdrop-blur">
-              <div className="flex items-start gap-4">
+            <Card className="p-4 md:p-6 shadow-xl bg-background/95 backdrop-blur">
+              <div className="flex flex-col sm:flex-row items-start gap-4">
                 {entity.logo_url ? (
                   <img 
                     src={entity.logo_url} 
                     alt={entity.name} 
-                    className="w-20 h-20 md:w-28 md:h-28 rounded-full object-contain bg-white p-3 border-4 border-background shadow-2xl ring-2 ring-primary/20" 
+                    className="w-20 h-20 md:w-28 md:h-28 rounded-full object-contain bg-white p-3 border-4 border-background shadow-2xl ring-2 ring-primary/20 mx-auto sm:mx-0" 
                   />
                 ) : (
                   <div 
-                    className="w-20 h-20 md:w-28 md:h-28 rounded-full flex items-center justify-center text-3xl font-bold border-4 border-background shadow-2xl ring-2 ring-primary/20"
+                    className="w-20 h-20 md:w-28 md:h-28 rounded-full flex items-center justify-center text-3xl font-bold border-4 border-background shadow-2xl ring-2 ring-primary/20 mx-auto sm:mx-0"
                     style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
                   >
                     {entity.name.charAt(0)}
                   </div>
                 )}
 
-                <div className="flex-1">
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h1 className="text-2xl md:text-3xl font-bold">{entity.name}</h1>
+                <div className="flex-1 w-full">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
+                    <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-center sm:text-left w-full sm:w-auto">{entity.name}</h1>
                     <Button
                       variant={isFollowing ? "default" : "outline"}
                       onClick={handleFollow}
                       size="sm"
+                      className="w-full sm:w-auto"
                     >
                       <Heart className={`w-4 h-4 mr-2 ${isFollowing ? 'fill-current' : ''}`} />
                       {isFollowing ? 'Following' : 'Follow'}
                     </Button>
                   </div>
 
-                  <Badge variant="secondary" className="mb-3">
-                    {entity.category}
-                  </Badge>
+                  <div className="flex justify-center sm:justify-start mb-3">
+                    <Badge variant="secondary">
+                      {entity.category}
+                    </Badge>
+                  </div>
 
                   {entity.bio && (
-                    <p className="text-muted-foreground text-sm md:text-base mb-4">{entity.bio}</p>
+                    <p className="text-muted-foreground text-sm md:text-base mb-4 text-center sm:text-left">{entity.bio}</p>
                   )}
 
                   {/* Stats */}
                   {Object.keys(entity.stats).length > 0 && (
-                    <div className="flex gap-4 md:gap-6 text-sm">
+                    <div className="flex flex-wrap justify-center sm:justify-start gap-3 md:gap-6 text-sm">
                       {Object.entries(entity.stats).map(([key, value]) => (
-                        <div key={key}>
+                        <div key={key} className="text-center sm:text-left">
                           <span className="font-bold">{value as string}</span>
                           <span className="text-muted-foreground ml-1">{key}</span>
                         </div>

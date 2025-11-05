@@ -291,6 +291,75 @@ const teamData: Record<string, any> = {
       { name: 'Conference Titles', count: 2 },
       { name: 'Division Titles', count: 5 }
     ]
+  },
+  'Milwaukee Bucks': {
+    primary_color: '#00471B',
+    secondary_color: '#EEE1C6',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/4/4a/Milwaukee_Bucks_logo.svg',
+    achievements: [
+      { name: 'NBA Championships', count: 2 },
+      { name: 'Conference Titles', count: 3 },
+      { name: 'Division Titles', count: 17 }
+    ]
+  },
+  'Philadelphia 76ers': {
+    primary_color: '#006BB6',
+    secondary_color: '#ED174C',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/0/0e/Philadelphia_76ers_logo.svg',
+    achievements: [
+      { name: 'NBA Championships', count: 3 },
+      { name: 'Conference Titles', count: 5 },
+      { name: 'Division Titles', count: 12 }
+    ]
+  },
+  'Phoenix Suns': {
+    primary_color: '#1D1160',
+    secondary_color: '#E56020',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/d/dc/Phoenix_Suns_logo.svg',
+    achievements: [
+      { name: 'Conference Titles', count: 3 },
+      { name: 'Division Titles', count: 9 }
+    ]
+  },
+  'Dallas Mavericks': {
+    primary_color: '#00538C',
+    secondary_color: '#002B5E',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/9/97/Dallas_Mavericks_logo.svg',
+    achievements: [
+      { name: 'NBA Championships', count: 1 },
+      { name: 'Conference Titles', count: 3 },
+      { name: 'Division Titles', count: 5 }
+    ]
+  },
+  'New York Knicks': {
+    primary_color: '#006BB6',
+    secondary_color: '#F58426',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/2/25/New_York_Knicks_logo.svg',
+    achievements: [
+      { name: 'NBA Championships', count: 2 },
+      { name: 'Conference Titles', count: 4 },
+      { name: 'Division Titles', count: 8 }
+    ]
+  },
+  'Toronto Raptors': {
+    primary_color: '#CE1141',
+    secondary_color: '#000000',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/3/36/Toronto_Raptors_logo.svg',
+    achievements: [
+      { name: 'NBA Championships', count: 1 },
+      { name: 'Conference Titles', count: 1 },
+      { name: 'Division Titles', count: 7 }
+    ]
+  },
+  'Denver Nuggets': {
+    primary_color: '#0E2240',
+    secondary_color: '#FEC524',
+    logo_url: 'https://upload.wikimedia.org/wikipedia/en/7/76/Denver_Nuggets.svg',
+    achievements: [
+      { name: 'NBA Championships', count: 1 },
+      { name: 'Conference Titles', count: 1 },
+      { name: 'Division Titles', count: 10 }
+    ]
   }
 }
 

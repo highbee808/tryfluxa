@@ -21,12 +21,14 @@ const TEAMS = [
   { name: "Real Madrid", league: "La Liga", sport: "football" },
   { name: "Barcelona", league: "La Liga", sport: "football" },
   { name: "Atletico Madrid", league: "La Liga", sport: "football" },
+  { name: "Sevilla", league: "La Liga", sport: "football" },
   
   // Serie A
   { name: "Inter Milan", league: "Serie A", sport: "football" },
   { name: "AC Milan", league: "Serie A", sport: "football" },
   { name: "Juventus", league: "Serie A", sport: "football" },
   { name: "Napoli", league: "Serie A", sport: "football" },
+  { name: "Roma", league: "Serie A", sport: "football" },
   
   // Bundesliga
   { name: "Bayern Munich", league: "Bundesliga", sport: "football" },
@@ -34,6 +36,11 @@ const TEAMS = [
   
   // Ligue 1
   { name: "Paris Saint-Germain", league: "Ligue 1", sport: "football" },
+  
+  // Other European
+  { name: "Ajax", league: "Eredivisie", sport: "football" },
+  { name: "Porto", league: "Primeira Liga", sport: "football" },
+  { name: "Benfica", league: "Primeira Liga", sport: "football" },
   
   // NBA
   { name: "Los Angeles Lakers", league: "NBA", sport: "basketball" },
@@ -46,6 +53,9 @@ const TEAMS = [
   { name: "Philadelphia 76ers", league: "NBA", sport: "basketball" },
   { name: "Phoenix Suns", league: "NBA", sport: "basketball" },
   { name: "Dallas Mavericks", league: "NBA", sport: "basketball" },
+  { name: "New York Knicks", league: "NBA", sport: "basketball" },
+  { name: "Toronto Raptors", league: "NBA", sport: "basketball" },
+  { name: "Denver Nuggets", league: "NBA", sport: "basketball" },
 ];
 
 const TeamSelection = () => {
