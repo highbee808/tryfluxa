@@ -647,11 +647,14 @@ export type Database = {
           league: string
           match_date: string
           match_id: string
+          referee: string | null
+          round: string | null
           score_away: number | null
           score_home: number | null
           status: string
           team_away: string
           team_home: string
+          venue: string | null
         }
         Insert: {
           created_at?: string
@@ -659,11 +662,14 @@ export type Database = {
           league: string
           match_date: string
           match_id: string
+          referee?: string | null
+          round?: string | null
           score_away?: number | null
           score_home?: number | null
           status: string
           team_away: string
           team_home: string
+          venue?: string | null
         }
         Update: {
           created_at?: string
@@ -671,11 +677,14 @@ export type Database = {
           league?: string
           match_date?: string
           match_id?: string
+          referee?: string | null
+          round?: string | null
           score_away?: number | null
           score_home?: number | null
           status?: string
           team_away?: string
           team_home?: string
+          venue?: string | null
         }
         Relationships: []
       }

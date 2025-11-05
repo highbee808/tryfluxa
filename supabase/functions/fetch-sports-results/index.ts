@@ -110,19 +110,15 @@ serve(async (req) => {
 
     console.log(`Total fetched: ${allMatches.length} matches`)
 
-    // Top leagues to filter
-    const topLeagues = [
-      'Premier League',
-      'La Liga',
-      'Serie A',
-      'Bundesliga',
-      'Ligue 1',
-    ]
-
-    // Filter and store relevant matches
-    const relevantMatches = allMatches.filter((match: any) => 
-      topLeagues.includes(match.Competition?.Name)
-    )
+    // Fetch ALL competitions - not just top leagues
+    // Include Champions League, Europa League, domestic cups, etc.
+    const relevantMatches = allMatches.filter((match: any) => {
+      const compName = match.Competition?.Name || ''
+      // Include all major competitions
+      return compName.length > 0 && 
+        !compName.includes('Friendly') && 
+        !compName.includes('Training')
+    })
 
     console.log(`Found ${relevantMatches.length} relevant matches`)
 
@@ -139,6 +135,9 @@ serve(async (req) => {
           score_away: match.AwayTeamScore,
           status: match.Status,
           match_date: match.DateTime,
+          venue: match.VenueName,
+          round: match.Round,
+          referee: match.Referee,
         }, {
           onConflict: 'match_id'
         })

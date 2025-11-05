@@ -204,8 +204,12 @@ serve(async (req) => {
             upcoming_events: upcomingEvents,
             stats: {
               ...entity.stats,
-              team_code: teamCode || entity.stats?.team_code
-            }
+              team_code: teamCode || entity.stats?.team_code,
+              total_matches: validMatches.length,
+              live_matches: liveMatch ? 1 : 0,
+              last_data_update: new Date().toISOString(),
+            },
+            updated_at: new Date().toISOString(),
           })
           .eq('id', entity.id)
 
