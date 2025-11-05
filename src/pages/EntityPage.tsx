@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { toast } from "sonner";
 import { Loader2, Heart, ArrowLeft, Send, Clock, Flame } from "lucide-react";
 
@@ -57,6 +58,40 @@ const EntityPage = () => {
       checkFollowStatus();
     }
   }, [slug]);
+
+  // Set up realtime subscription for live updates
+  useEffect(() => {
+    if (!entity?.id) return;
+
+    console.log('🔴 Setting up realtime subscription for entity:', entity.name);
+    
+    const channel = supabase
+      .channel(`entity-${entity.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'fan_entities',
+          filter: `id=eq.${entity.id}`
+        },
+        (payload) => {
+          console.log('🔴 LIVE UPDATE received:', payload);
+          setEntity(payload.new as Entity);
+          toast.success('🔴 Live update!', {
+            description: 'Match scores updated'
+          });
+        }
+      )
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+      });
+
+    return () => {
+      console.log('Cleaning up realtime subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [entity?.id]);
 
   const fetchEntity = async () => {
     setLoading(true);
@@ -321,15 +356,24 @@ const EntityPage = () => {
               )}
             </Card>
 
-            {/* Current/Live Match */}
+            {/* Current/Live Match with Real-time Updates */}
             {entity.current_match && (
-              <Card className="mt-6 p-6" style={{ 
+              <Card className="mt-6 p-6 relative overflow-hidden" style={{ 
                 background: `linear-gradient(135deg, ${primaryColor}10, ${secondaryColor}10)`,
                 borderColor: primaryColor
               }}>
+                {entity.current_match.status === 'live' && (
+                  <div className="absolute top-2 right-2 flex items-center gap-2">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                    </span>
+                    <span className="text-xs font-bold text-red-500">LIVE</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold flex items-center gap-2 text-sm md:text-base">
-                    {entity.category === 'football' || entity.category === 'basketball' ? '⚽' : '🎵'} {entity.current_match.status === 'live' ? '🔴 LIVE' : 'Current Event'}
+                    {entity.category === 'football' || entity.category === 'basketball' ? '⚽' : '🎵'} {entity.current_match.status === 'live' ? '🔴 LIVE MATCH' : 'Current Event'}
                   </h3>
                   <Badge variant={entity.current_match.status === 'live' ? 'destructive' : 'secondary'}>
                     {entity.current_match.league || entity.current_match.venue}
@@ -338,14 +382,14 @@ const EntityPage = () => {
                 <div className="flex items-center justify-between">
                   <div className="text-center flex-1">
                     <p className="font-bold text-sm md:text-lg">{entity.current_match.home_team}</p>
-                    <p className="text-2xl md:text-3xl font-bold mt-2" style={{ color: primaryColor }}>
+                    <p className="text-3xl md:text-4xl font-bold mt-2 transition-all duration-300" style={{ color: primaryColor }}>
                       {entity.current_match.home_score || 0}
                     </p>
                   </div>
-                  <div className="text-muted-foreground px-2 md:px-4 text-sm md:text-base">VS</div>
+                  <div className="text-muted-foreground px-2 md:px-4 text-sm md:text-base font-bold">VS</div>
                   <div className="text-center flex-1">
                     <p className="font-bold text-sm md:text-lg">{entity.current_match.away_team}</p>
-                    <p className="text-2xl md:text-3xl font-bold mt-2" style={{ color: secondaryColor }}>
+                    <p className="text-3xl md:text-4xl font-bold mt-2 transition-all duration-300" style={{ color: secondaryColor }}>
                       {entity.current_match.away_score || 0}
                     </p>
                   </div>
@@ -355,10 +399,17 @@ const EntityPage = () => {
                     {entity.current_match.match_time}
                   </p>
                 )}
+                {entity.current_match.commentary && (
+                  <div className="mt-4 pt-4 border-t">
+                    <p className="text-xs md:text-sm text-muted-foreground italic">
+                      💬 {entity.current_match.commentary}
+                    </p>
+                  </div>
+                )}
               </Card>
             )}
 
-            {/* Next Match/Event */}
+            {/* Next Match/Event - Carousel */}
             {entity.next_match && (
               <Card className="mt-6 p-6 border-2" style={{ borderColor: primaryColor }}>
                 <div className="flex items-center justify-between mb-4">
@@ -403,7 +454,7 @@ const EntityPage = () => {
               </Card>
             )}
 
-            {/* Last Match/Event */}
+            {/* Last Match/Event - Carousel */}
             {entity.last_match && (
               <Card className="mt-6 p-6 bg-muted/30">
                 <div className="flex items-center justify-between mb-4">
@@ -454,25 +505,34 @@ const EntityPage = () => {
               </Card>
             )}
 
-            {/* Upcoming Events */}
+            {/* Upcoming Events Carousel */}
             {entity.upcoming_events && entity.upcoming_events.length > 0 && (
               <Card className="mt-6 p-6">
                 <h3 className="font-bold mb-4 flex items-center gap-2">
                   🎫 Upcoming {entity.category === 'music' ? 'Events' : 'Fixtures'}
                 </h3>
-                <div className="space-y-3">
-                  {entity.upcoming_events.slice(0, 5).map((event: any, i: number) => (
-                    <div key={i} className="pb-3 border-b last:border-0 flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-sm">{event.title}</h4>
-                        <p className="text-xs text-muted-foreground mt-1">{event.date}</p>
-                      </div>
-                      {event.venue && (
-                        <Badge variant="outline" className="ml-2">{event.venue}</Badge>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <Carousel className="w-full">
+                  <CarouselContent>
+                    {entity.upcoming_events.map((event: any, i: number) => (
+                      <CarouselItem key={i} className="md:basis-1/2 lg:basis-1/3">
+                        <Card className="p-4 h-full border-2 hover:border-primary transition-colors">
+                          <div className="space-y-2">
+                            <h4 className="font-semibold text-sm">{event.title}</h4>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Clock className="w-3 h-3" />
+                              <span>{event.date}</span>
+                            </div>
+                            {event.venue && (
+                              <Badge variant="outline" className="text-xs">{event.venue}</Badge>
+                            )}
+                          </div>
+                        </Card>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  <CarouselPrevious className="hidden md:flex" />
+                  <CarouselNext className="hidden md:flex" />
+                </Carousel>
               </Card>
             )}
 
