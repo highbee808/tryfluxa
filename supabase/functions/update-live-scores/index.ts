@@ -39,11 +39,17 @@ const TEAM_CODE_MAP: Record<string, string> = {
   'Washington Wizards': 'WAS',
   'Charlotte Hornets': 'CHA',
   'Detroit Pistons': 'DET',
-  // Soccer teams (if needed)
-  'Manchester United': 'MUN',
-  'Liverpool': 'LIV',
-  'Chelsea': 'CHE',
-  'Arsenal': 'ARS',
+  // Soccer teams - use full team names as they appear in API
+  'Manchester United': 'Manchester United',
+  'Liverpool': 'Liverpool',
+  'Chelsea': 'Chelsea',
+  'Arsenal': 'Arsenal',
+  'Barcelona': 'Barcelona',
+  'Real Madrid': 'Real Madrid',
+  'AC Milan': 'AC Milan',
+  'Inter Milan': 'Inter',
+  'Bayern Munich': 'Bayern Munich',
+  'Borussia Dortmund': 'Borussia Dortmund',
 }
 
 serve(async (req) => {

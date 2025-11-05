@@ -6,20 +6,23 @@ export const useAutoUpdateScores = () => {
   useEffect(() => {
     console.log('🔄 Setting up auto updates for sports and music data...');
 
-    // Sync comprehensive sports data every hour
+    // Fetch comprehensive sports results with fallback system every hour
     const syncSportsData = async () => {
       try {
-        console.log('🔄 Syncing sports data from APIs...');
-        const { data, error } = await supabase.functions.invoke('sync-sports-data');
+        console.log('🔄 Fetching sports results from APIs with fallback...');
+        const { data, error } = await supabase.functions.invoke('fetch-sports-results');
         
         if (error) {
-          console.error('Error syncing sports data:', error);
+          console.error('Error fetching sports results:', error);
           return;
         }
 
-        console.log(`✅ Synced ${data?.totalMatches || 0} matches`);
+        console.log(`✅ Synced ${data?.matches || 0} matches from ${data?.sources?.length || 0} source(s)`);
+        if (data?.sources) {
+          console.log(`📊 Sources: ${data.sources.join(', ')}`);
+        }
       } catch (err) {
-        console.error('Failed to sync sports data:', err);
+        console.error('Failed to fetch sports results:', err);
       }
     };
 
