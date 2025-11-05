@@ -197,9 +197,9 @@ async function fetchSoccerFromTheSportsDB(): Promise<MatchData[]> {
         const team = searchData.teams?.[0]
         
         if (team && team.idTeam) {
-          // Fetch next events for this team
+          // Fetch NEXT 15 upcoming events for this team (future matches)
           const eventsResponse = await fetch(
-            `https://www.thesportsdb.com/api/v1/json/3/eventsnext.php?id=${team.idTeam}`
+            `https://www.thesportsdb.com/api/v1/json/3/eventsnext.php?id=${team.idTeam}&limit=15`
           )
 
           if (eventsResponse.ok) {
@@ -208,6 +208,10 @@ async function fetchSoccerFromTheSportsDB(): Promise<MatchData[]> {
             
             for (const event of events) {
               if (event.strSport === 'Soccer') {
+                // Parse the date to ensure it's a future match
+                const eventDate = new Date(event.strTimestamp || event.dateEvent)
+                const now = new Date()
+                
                 matches.push({
                   match_id: `thesportsdb-${event.idEvent}`,
                   league: event.strLeague || 'Soccer',
@@ -215,7 +219,7 @@ async function fetchSoccerFromTheSportsDB(): Promise<MatchData[]> {
                   team_away: event.strAwayTeam,
                   score_home: event.intHomeScore ? parseInt(event.intHomeScore) : null,
                   score_away: event.intAwayScore ? parseInt(event.intAwayScore) : null,
-                  status: event.strStatus || 'NS',
+                  status: eventDate > now ? 'Scheduled' : (event.strStatus || 'NS'),
                   match_date: event.strTimestamp || event.dateEvent,
                   venue: event.strVenue || null,
                   round: event.intRound ? `Round ${event.intRound}` : null,
@@ -225,9 +229,9 @@ async function fetchSoccerFromTheSportsDB(): Promise<MatchData[]> {
             }
           }
 
-          // Also fetch last events for completed matches
+          // Also fetch LAST 5 completed matches
           const lastEventsResponse = await fetch(
-            `https://www.thesportsdb.com/api/v1/json/3/eventslast.php?id=${team.idTeam}`
+            `https://www.thesportsdb.com/api/v1/json/3/eventslast.php?id=${team.idTeam}&limit=5`
           )
 
           if (lastEventsResponse.ok) {
@@ -243,7 +247,7 @@ async function fetchSoccerFromTheSportsDB(): Promise<MatchData[]> {
                   team_away: event.strAwayTeam,
                   score_home: event.intHomeScore ? parseInt(event.intHomeScore) : null,
                   score_away: event.intAwayScore ? parseInt(event.intAwayScore) : null,
-                  status: event.strStatus || 'FT',
+                  status: 'Match Finished',
                   match_date: event.strTimestamp || event.dateEvent,
                   venue: event.strVenue || null,
                   round: event.intRound ? `Round ${event.intRound}` : null,
