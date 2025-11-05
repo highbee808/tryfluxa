@@ -69,7 +69,7 @@ serve(async (req) => {
           const homeTeamLower = match.team_home.toLowerCase()
           const awayTeamLower = match.team_away.toLowerCase()
           
-          return homeTeamLower.includes(entityNameLower) || awayTeamLower.includes(awayTeamLower)
+          return homeTeamLower.includes(entityNameLower) || awayTeamLower.includes(entityNameLower)
         }) || []
 
         // Find live match

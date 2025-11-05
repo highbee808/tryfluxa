@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { toast } from "sonner";
-import { Loader2, Heart, ArrowLeft, Send, Clock, Flame } from "lucide-react";
+import { Loader2, Heart, ArrowLeft, Send, Clock, Flame, RefreshCw } from "lucide-react";
 import { useAutoUpdateScores } from "@/hooks/useAutoUpdateScores";
 import { LiveMatchRoom } from "@/components/LiveMatchRoom";
 import { requestNotificationPermission, sendFluxaPushNotification } from "@/lib/notifications";
@@ -54,6 +54,7 @@ const EntityPage = () => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [sortBy, setSortBy] = useState<'latest' | 'top'>('latest');
   const [showLiveRoom, setShowLiveRoom] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Enable automatic score updates
   useAutoUpdateScores();
@@ -269,6 +270,21 @@ const EntityPage = () => {
     fetchPosts();
   };
 
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    toast.loading('Refreshing match data...');
+    
+    try {
+      await supabase.functions.invoke('update-live-scores');
+      await fetchEntity();
+      toast.success('✅ Match data refreshed!');
+    } catch (err) {
+      toast.error('Failed to refresh data');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
     if (entity) {
       fetchPosts();
@@ -338,15 +354,29 @@ const EntityPage = () => {
                 <div className="flex-1 w-full">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
                     <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-center sm:text-left w-full sm:w-auto">{entity.name}</h1>
-                    <Button
-                      variant={isFollowing ? "default" : "outline"}
-                      onClick={handleFollow}
-                      size="sm"
-                      className="w-full sm:w-auto"
-                    >
-                      <Heart className={`w-4 h-4 mr-2 ${isFollowing ? 'fill-current' : ''}`} />
-                      {isFollowing ? 'Following' : 'Follow'}
-                    </Button>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      {entity.category === 'sports' && (
+                        <Button
+                          variant="outline"
+                          onClick={handleManualRefresh}
+                          size="sm"
+                          disabled={refreshing}
+                          className="flex-1 sm:flex-none"
+                        >
+                          <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                          Refresh
+                        </Button>
+                      )}
+                      <Button
+                        variant={isFollowing ? "default" : "outline"}
+                        onClick={handleFollow}
+                        size="sm"
+                        className="flex-1 sm:flex-none"
+                      >
+                        <Heart className={`w-4 h-4 mr-2 ${isFollowing ? 'fill-current' : ''}`} />
+                        {isFollowing ? 'Following' : 'Follow'}
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="flex justify-center sm:justify-start mb-3">
