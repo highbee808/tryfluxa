@@ -16,11 +16,36 @@ serve(async (req) => {
 
   try {
     const { message, conversationHistory } = await req.json()
-    console.log('📥 User message:', message)
+    console.log('📥 User message received')
 
-    if (!message) {
+    // Input validation
+    if (!message || typeof message !== 'string') {
       return new Response(
         JSON.stringify({ error: 'Message is required' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+
+    // Validate message length and content
+    if (message.length > 500) {
+      return new Response(
+        JSON.stringify({ error: 'Message too long (max 500 characters)' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+
+    // Sanitize message - remove potentially dangerous characters
+    const sanitizedMessage = message.trim().replace(/[<>\"';()&+]/g, '')
+    
+    if (!sanitizedMessage) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid message content' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -31,7 +56,7 @@ serve(async (req) => {
     // Check for Lovable API key
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
     if (!lovableApiKey) {
-      console.log('❌ LOVABLE_API_KEY not found')
+      console.error('LOVABLE_API_KEY not configured')
       throw new Error('Service configuration error')
     }
 
@@ -42,11 +67,13 @@ serve(async (req) => {
     )
 
     // Try to find relevant gists based on the user's message
+    // Use safe search term - limit length and escape special characters
+    const searchTerm = sanitizedMessage.substring(0, 100).replace(/[%_\\]/g, '\\$&')
     console.log('🔍 Searching for relevant gists...')
     const { data: gists } = await supabase
       .from('gists')
       .select('headline, context, topic')
-      .or(`headline.ilike.%${message}%,topic.ilike.%${message}%,context.ilike.%${message}%`)
+      .or(`headline.ilike.*${searchTerm}*,topic.ilike.*${searchTerm}*,context.ilike.*${searchTerm}*`)
       .limit(3)
 
     let contextInfo = ''
@@ -93,7 +120,7 @@ Keep your responses short, snappy, and engaging. You're here to gossip and have 
           },
           {
             role: 'user',
-            content: message
+            content: sanitizedMessage
           }
         ],
       }),
