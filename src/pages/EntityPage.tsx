@@ -11,6 +11,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { toast } from "sonner";
 import { Loader2, Heart, ArrowLeft, Send, Clock, Flame } from "lucide-react";
+import { useAutoUpdateScores } from "@/hooks/useAutoUpdateScores";
 
 interface Entity {
   id: string;
@@ -50,6 +51,9 @@ const EntityPage = () => {
   const [posting, setPosting] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [sortBy, setSortBy] = useState<'latest' | 'top'>('latest');
+
+  // Enable automatic score updates
+  useAutoUpdateScores();
 
   useEffect(() => {
     if (slug) {
@@ -409,122 +413,144 @@ const EntityPage = () => {
               </Card>
             )}
 
-            {/* Next Match/Event - Carousel */}
-            {entity.next_match && (
-              <Card className="mt-6 p-6 border-2" style={{ borderColor: primaryColor }}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold flex items-center gap-2 text-sm md:text-base">
-                    📅 {entity.category === 'music' ? 'Next Concert' : 'Next Match'}
-                  </h3>
-                  <Badge variant="outline">
-                    {entity.next_match.league || entity.next_match.venue}
-                  </Badge>
-                </div>
-                {entity.category === 'music' ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Event:</span>
-                      <span className="font-semibold">{entity.next_match.event_name}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Venue:</span>
-                      <span className="font-semibold">{entity.next_match.venue}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Date:</span>
-                      <span className="font-semibold">{entity.next_match.date}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <div className="text-center flex-1">
-                        <p className="font-bold text-sm md:text-base">{entity.next_match.home_team}</p>
-                      </div>
-                      <div className="text-muted-foreground px-2 md:px-4 text-sm">VS</div>
-                      <div className="text-center flex-1">
-                        <p className="font-bold text-sm md:text-base">{entity.next_match.away_team}</p>
-                      </div>
-                    </div>
-                    <p className="text-center text-sm text-muted-foreground mt-4">
-                      {entity.next_match.date}
-                    </p>
-                  </>
-                )}
-              </Card>
-            )}
-
-            {/* Last Match/Event - Carousel */}
-            {entity.last_match && (
-              <Card className="mt-6 p-6 bg-muted/30">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold flex items-center gap-2 text-sm md:text-base">
-                    ⏮️ {entity.category === 'music' ? 'Last Performance' : 'Last Match'}
-                  </h3>
-                  <Badge variant="secondary">
-                    {entity.last_match.league || entity.last_match.venue}
-                  </Badge>
-                </div>
-                {entity.category === 'music' ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Event:</span>
-                      <span className="font-semibold">{entity.last_match.event_name}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Venue:</span>
-                      <span className="font-semibold">{entity.last_match.venue}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Date:</span>
-                      <span className="font-semibold">{entity.last_match.date}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <div className="text-center flex-1">
-                        <p className="font-bold text-sm md:text-base">{entity.last_match.home_team}</p>
-                        <p className="text-xl md:text-2xl font-bold mt-2" style={{ color: primaryColor }}>
-                          {entity.last_match.home_score}
-                        </p>
-                      </div>
-                      <div className="text-muted-foreground px-2 md:px-4 text-sm">-</div>
-                      <div className="text-center flex-1">
-                        <p className="font-bold text-sm md:text-base">{entity.last_match.away_team}</p>
-                        <p className="text-xl md:text-2xl font-bold mt-2" style={{ color: secondaryColor }}>
-                          {entity.last_match.away_score}
-                        </p>
-                      </div>
-                    </div>
-                    <p className="text-center text-xs md:text-sm text-muted-foreground mt-4">
-                      {entity.last_match.date}
-                    </p>
-                  </>
-                )}
-              </Card>
-            )}
-
-            {/* Upcoming Events Carousel */}
-            {entity.upcoming_events && entity.upcoming_events.length > 0 && (
+            {/* Matches Carousel - Next, Last, and Upcoming */}
+            {(entity.next_match || entity.last_match || (entity.upcoming_events && entity.upcoming_events.length > 0)) && (
               <Card className="mt-6 p-6">
                 <h3 className="font-bold mb-4 flex items-center gap-2">
-                  🎫 Upcoming {entity.category === 'music' ? 'Events' : 'Fixtures'}
+                  📅 {entity.category === 'music' ? 'Events & Performances' : 'Matches & Fixtures'}
                 </h3>
                 <Carousel className="w-full">
                   <CarouselContent>
-                    {entity.upcoming_events.map((event: any, i: number) => (
-                      <CarouselItem key={i} className="md:basis-1/2 lg:basis-1/3">
-                        <Card className="p-4 h-full border-2 hover:border-primary transition-colors">
-                          <div className="space-y-2">
-                            <h4 className="font-semibold text-sm">{event.title}</h4>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Clock className="w-3 h-3" />
-                              <span>{event.date}</span>
+                    {/* Next Match */}
+                    {entity.next_match && (
+                      <CarouselItem className="md:basis-1/2 lg:basis-1/3">
+                        <Card className="p-4 h-full border-2 hover:border-primary transition-colors" style={{ borderColor: primaryColor }}>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between mb-3">
+                              <Badge variant="outline" className="font-bold">
+                                {entity.category === 'music' ? '🎤 Next Concert' : '⚽ Next Match'}
+                              </Badge>
+                              <Badge variant="secondary" className="text-xs">
+                                {entity.next_match.league || entity.next_match.venue}
+                              </Badge>
                             </div>
-                            {event.venue && (
-                              <Badge variant="outline" className="text-xs">{event.venue}</Badge>
+                            
+                            {entity.category === 'music' ? (
+                              <div className="space-y-2">
+                                <div className="text-center py-3">
+                                  <p className="font-bold text-lg">{entity.next_match.event_name}</p>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">Venue:</span>
+                                  <span className="font-semibold">{entity.next_match.venue}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">Date:</span>
+                                  <span className="font-semibold">{entity.next_match.date}</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex items-center justify-between py-2">
+                                  <div className="text-center flex-1">
+                                    <p className="font-bold text-sm">{entity.next_match.home_team}</p>
+                                  </div>
+                                  <div className="text-muted-foreground px-3 text-sm font-bold">VS</div>
+                                  <div className="text-center flex-1">
+                                    <p className="font-bold text-sm">{entity.next_match.away_team}</p>
+                                  </div>
+                                </div>
+                                <div className="text-center pt-2">
+                                  <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                                    <Clock className="w-3 h-3" />
+                                    <span>{entity.next_match.date}</span>
+                                  </div>
+                                </div>
+                              </>
                             )}
+                          </div>
+                        </Card>
+                      </CarouselItem>
+                    )}
+
+                    {/* Last Match */}
+                    {entity.last_match && (
+                      <CarouselItem className="md:basis-1/2 lg:basis-1/3">
+                        <Card className="p-4 h-full bg-muted/30 hover:bg-muted/50 transition-colors">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between mb-3">
+                              <Badge variant="secondary" className="font-bold">
+                                {entity.category === 'music' ? '🎵 Last Show' : '⏮️ Last Match'}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {entity.last_match.league || entity.last_match.venue}
+                              </Badge>
+                            </div>
+                            
+                            {entity.category === 'music' ? (
+                              <div className="space-y-2">
+                                <div className="text-center py-3">
+                                  <p className="font-bold text-lg">{entity.last_match.event_name}</p>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">Venue:</span>
+                                  <span className="font-semibold">{entity.last_match.venue}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">Date:</span>
+                                  <span className="font-semibold">{entity.last_match.date}</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex items-center justify-between py-2">
+                                  <div className="text-center flex-1">
+                                    <p className="font-bold text-sm mb-2">{entity.last_match.home_team}</p>
+                                    <p className="text-2xl font-bold" style={{ color: primaryColor }}>
+                                      {entity.last_match.home_score}
+                                    </p>
+                                  </div>
+                                  <div className="text-muted-foreground px-3 text-sm font-bold">-</div>
+                                  <div className="text-center flex-1">
+                                    <p className="font-bold text-sm mb-2">{entity.last_match.away_team}</p>
+                                    <p className="text-2xl font-bold" style={{ color: secondaryColor }}>
+                                      {entity.last_match.away_score}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-center pt-2">
+                                  <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                                    <Clock className="w-3 h-3" />
+                                    <span>{entity.last_match.date}</span>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </Card>
+                      </CarouselItem>
+                    )}
+
+                    {/* Upcoming Events */}
+                    {entity.upcoming_events?.map((event: any, i: number) => (
+                      <CarouselItem key={i} className="md:basis-1/2 lg:basis-1/3">
+                        <Card className="p-4 h-full border hover:border-primary/50 transition-colors">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <Badge variant="outline" className="text-xs">
+                                🎫 Upcoming #{i + 1}
+                              </Badge>
+                            </div>
+                            <div className="text-center py-2">
+                              <h4 className="font-semibold text-sm mb-2">{event.title}</h4>
+                              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mb-1">
+                                <Clock className="w-3 h-3" />
+                                <span>{event.date}</span>
+                              </div>
+                              {event.venue && (
+                                <Badge variant="secondary" className="text-xs mt-2">{event.venue}</Badge>
+                              )}
+                            </div>
                           </div>
                         </Card>
                       </CarouselItem>
