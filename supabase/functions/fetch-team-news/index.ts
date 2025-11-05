@@ -14,9 +14,11 @@ serve(async (req) => {
   try {
     console.log('📰 Fetching team news and updates...')
     
-    const apiKey = Deno.env.get('SPORTSDATA_API_KEY')
-    if (!apiKey) {
-      throw new Error('SPORTSDATA_API_KEY not configured')
+    const sportsDataApiKey = Deno.env.get('SPORTSDATA_API_KEY')
+    const footballApiKey = Deno.env.get('API_FOOTBALL_KEY')
+    
+    if (!sportsDataApiKey && !footballApiKey) {
+      throw new Error('No API keys configured')
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
@@ -39,88 +41,187 @@ serve(async (req) => {
     let updatedCount = 0
     const errors = []
 
+    // Map of soccer team names to API-Football team IDs
+    const soccerTeamIds: { [key: string]: number } = {
+      'Barcelona': 529,
+      'Real Madrid': 541,
+      'Manchester United': 33,
+      'Liverpool': 40,
+      'Arsenal': 42,
+      'Chelsea': 49,
+      'Manchester City': 50,
+      'Bayern Munich': 157,
+      'Juventus': 496,
+      'AC Milan': 489,
+      'Inter Milan': 505,
+      'Paris Saint-Germain': 85,
+    }
+
     for (const entity of entities || []) {
       try {
         const teamName = entity.name
-        const league = entity.stats?.league || 'Premier League'
+        const teamId = soccerTeamIds[teamName]
         
-        // Fetch news for this team
-        const newsResponse = await fetch(
-          `https://api.sportsdata.io/v4/soccer/scores/json/NewsByTeam/${encodeURIComponent(teamName)}`,
-          {
-            headers: {
-              'Ocp-Apim-Subscription-Key': apiKey,
-            },
-          }
-        )
-
         let news = []
-        if (newsResponse.ok) {
-          news = await newsResponse.json()
-          // Take latest 10 news items
-          news = news.slice(0, 10).map((item: any) => ({
-            title: item.Title,
-            content: item.Content,
-            url: item.Url,
-            source: item.Source,
-            published: item.Updated || item.TimeAgo,
-            image: item.OriginalSourceUrl,
-          }))
-        }
-
-        // Fetch team injuries/suspensions
-        const injuriesResponse = await fetch(
-          `https://api.sportsdata.io/v4/soccer/scores/json/InjuriesByTeam/${encodeURIComponent(teamName)}`,
-          {
-            headers: {
-              'Ocp-Apim-Subscription-Key': apiKey,
-            },
-          }
-        )
-
         let injuries = []
-        if (injuriesResponse.ok) {
-          const injuryData = await injuriesResponse.json()
-          injuries = injuryData.map((inj: any) => ({
-            player: inj.Name,
-            type: inj.InjuryBodyPart,
-            status: inj.Status,
-            expected_return: inj.ExpectedReturn,
-          }))
-        }
-
-        // Fetch team standings
-        const standingsResponse = await fetch(
-          `https://api.sportsdata.io/v4/soccer/scores/json/Standings/${encodeURIComponent(league)}`,
-          {
-            headers: {
-              'Ocp-Apim-Subscription-Key': apiKey,
-            },
-          }
-        )
-
         let standings = null
-        if (standingsResponse.ok) {
-          const standingsData = await standingsResponse.json()
-          const teamStanding = standingsData.find((s: any) => 
-            s.Name?.toLowerCase().includes(teamName.toLowerCase())
-          )
-          if (teamStanding) {
-            standings = {
-              position: teamStanding.Position,
-              played: teamStanding.Games,
-              wins: teamStanding.Wins,
-              draws: teamStanding.Draws,
-              losses: teamStanding.Losses,
-              goals_for: teamStanding.GoalsFor,
-              goals_against: teamStanding.GoalsAgainst,
-              goal_difference: teamStanding.GoalsDifferential,
-              points: teamStanding.Points,
+
+        // Determine if soccer team (use API-Football) or NBA team (use SportsData.io)
+        if (teamId && footballApiKey) {
+          // SOCCER TEAM - Use API-Football
+          console.log(`Using API-Football for ${teamName}`)
+          
+          // Fetch injuries
+          try {
+            const injuriesResponse = await fetch(
+              `https://v3.football.api-sports.io/injuries?team=${teamId}&season=2024`,
+              {
+                headers: {
+                  'x-apisports-key': footballApiKey,
+                },
+              }
+            )
+
+            if (injuriesResponse.ok) {
+              const injuriesData = await injuriesResponse.json()
+              if (injuriesData.response && injuriesData.response.length > 0) {
+                injuries = injuriesData.response.map((injury: any) => ({
+                  player: injury.player.name,
+                  type: injury.player.type,
+                  reason: injury.player.reason,
+                }))
+              }
             }
+          } catch (err) {
+            console.error(`Failed to fetch injuries for ${teamName}:`, err)
           }
+
+          // Fetch team statistics which includes form and standings info
+          try {
+            const statsResponse = await fetch(
+              `https://v3.football.api-sports.io/teams/statistics?team=${teamId}&season=2024&league=39`,
+              {
+                headers: {
+                  'x-apisports-key': footballApiKey,
+                },
+              }
+            )
+
+            if (statsResponse.ok) {
+              const statsData = await statsResponse.json()
+              if (statsData.response) {
+                const stats = statsData.response
+                standings = {
+                  form: stats.form,
+                  wins: stats.fixtures?.wins?.total || 0,
+                  draws: stats.fixtures?.draws?.total || 0,
+                  losses: stats.fixtures?.loses?.total || 0,
+                  goals_for: stats.goals?.for?.total?.total || 0,
+                  goals_against: stats.goals?.against?.total?.total || 0,
+                }
+              }
+            }
+          } catch (err) {
+            console.error(`Failed to fetch stats for ${teamName}:`, err)
+          }
+
+          // Rate limiting for API-Football
+          await new Promise(resolve => setTimeout(resolve, 2000))
+          
+        } else if (sportsDataApiKey) {
+          // NBA TEAM or fallback to SportsData.io for soccer
+          console.log(`Using SportsData.io for ${teamName}`)
+          
+          // Fetch news
+          try {
+            const newsResponse = await fetch(
+              `https://api.sportsdata.io/v4/soccer/scores/json/NewsByTeam/${encodeURIComponent(teamName)}`,
+              {
+                headers: {
+                  'Ocp-Apim-Subscription-Key': sportsDataApiKey,
+                },
+              }
+            )
+
+            if (newsResponse.ok) {
+              const newsData = await newsResponse.json()
+              news = newsData.slice(0, 10).map((item: any) => ({
+                title: item.Title,
+                content: item.Content,
+                url: item.Url,
+                source: item.Source,
+                published: item.Updated || item.TimeAgo,
+                image: item.OriginalSourceUrl,
+              }))
+            }
+          } catch (err) {
+            console.error(`Failed to fetch news for ${teamName}:`, err)
+          }
+
+          // Fetch injuries
+          try {
+            const injuriesResponse = await fetch(
+              `https://api.sportsdata.io/v4/soccer/scores/json/InjuriesByTeam/${encodeURIComponent(teamName)}`,
+              {
+                headers: {
+                  'Ocp-Apim-Subscription-Key': sportsDataApiKey,
+                },
+              }
+            )
+
+            if (injuriesResponse.ok) {
+              const injuryData = await injuriesResponse.json()
+              injuries = injuryData.map((inj: any) => ({
+                player: inj.Name,
+                type: inj.InjuryBodyPart,
+                status: inj.Status,
+                expected_return: inj.ExpectedReturn,
+              }))
+            }
+          } catch (err) {
+            console.error(`Failed to fetch injuries for ${teamName}:`, err)
+          }
+
+          // Fetch standings
+          try {
+            const league = entity.stats?.league || 'Premier League'
+            const standingsResponse = await fetch(
+              `https://api.sportsdata.io/v4/soccer/scores/json/Standings/${encodeURIComponent(league)}`,
+              {
+                headers: {
+                  'Ocp-Apim-Subscription-Key': sportsDataApiKey,
+                },
+              }
+            )
+
+            if (standingsResponse.ok) {
+              const standingsData = await standingsResponse.json()
+              const teamStanding = standingsData.find((s: any) => 
+                s.Name?.toLowerCase().includes(teamName.toLowerCase())
+              )
+              if (teamStanding) {
+                standings = {
+                  position: teamStanding.Position,
+                  played: teamStanding.Games,
+                  wins: teamStanding.Wins,
+                  draws: teamStanding.Draws,
+                  losses: teamStanding.Losses,
+                  goals_for: teamStanding.GoalsFor,
+                  goals_against: teamStanding.GoalsAgainst,
+                  goal_difference: teamStanding.GoalsDifferential,
+                  points: teamStanding.Points,
+                }
+              }
+            }
+          } catch (err) {
+            console.error(`Failed to fetch standings for ${teamName}:`, err)
+          }
+
+          // Rate limiting for SportsData.io
+          await new Promise(resolve => setTimeout(resolve, 200))
         }
 
-        // Update entity with comprehensive data
+        // Update entity with fetched data
         const newsArray = Array.isArray(entity.news_feed) ? entity.news_feed : []
         const updatedNewsFeed = [...news, ...newsArray].slice(0, 20) // Keep latest 20
 
@@ -145,9 +246,6 @@ serve(async (req) => {
           updatedCount++
           console.log(`✅ Updated ${teamName} with ${news.length} news items`)
         }
-
-        // Rate limiting
-        await new Promise(resolve => setTimeout(resolve, 200))
 
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Unknown error'
