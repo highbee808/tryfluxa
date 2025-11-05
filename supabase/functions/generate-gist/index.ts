@@ -53,10 +53,9 @@ serve(async (req) => {
     // Check API key
     const apiKey = Deno.env.get('LOVABLE_API_KEY')
     if (!apiKey) {
-      console.log('❌ LOVABLE_API_KEY not found')
+      console.error('[CONFIG] Missing required API key')
       throw new Error('Service configuration error')
     }
-    console.log('✅ LOVABLE_API_KEY found')
 
     // Detect if topic is about a celebrity or public figure
     const isCelebrity = /drake|taylor swift|messi|rihanna|beyonce|kanye|cristiano|ronaldo|lebron|kim kardashian|ariana grande|justin bieber|selena gomez|bad bunny|dua lipa/i.test(topic)
@@ -128,17 +127,16 @@ Rules:
     console.log('📨 AI response status:', response.status)
     
     if (!response.ok) {
-      const error = await response.text()
-      console.log('❌ Lovable AI error:', response.status, error)
+      console.error('[AI] Generation failed:', response.status)
       
       if (response.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.')
+        throw new Error('Rate limit exceeded')
       }
       if (response.status === 402) {
-        throw new Error('AI credits exhausted. Please add credits to continue.')
+        throw new Error('Service credits exhausted')
       }
       
-      throw new Error(`Failed to generate gist: ${error}`)
+      throw new Error('Content generation failed')
     }
 
     console.log('✅ AI responded successfully')
@@ -224,8 +222,7 @@ Rules:
       },
     )
   } catch (error) {
-    console.log('❌ Error in generate-gist function:', error instanceof Error ? error.message : 'Unknown error')
-    console.log('📚 Error stack:', error instanceof Error ? error.stack : 'No stack')
+    console.error('[ERROR] generate-gist failed:', error)
     
     return new Response(
       JSON.stringify({ error: 'Failed to process request' }),

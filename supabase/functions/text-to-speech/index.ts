@@ -54,10 +54,9 @@ serve(async (req) => {
     // Check API key
     const apiKey = Deno.env.get('OPENAI_API_KEY')
     if (!apiKey) {
-      console.log('❌ OPENAI_API_KEY not found')
+      console.error('[CONFIG] Missing required API key')
       throw new Error('Service configuration error')
     }
-    console.log('✅ OPENAI_API_KEY found')
 
     // Generate speech from text using OpenAI
     console.log('🎙️ Fluxa is recording her voice...')
@@ -79,8 +78,7 @@ serve(async (req) => {
     console.log('📨 OpenAI response status:', response.status)
     
     if (!response.ok) {
-      const error = await response.text()
-      console.log('❌ Voice recording error:', response.status, error)
+      console.error('[TTS] Speech generation failed:', response.status)
       throw new Error('Speech generation failed')
     }
 
@@ -136,8 +134,7 @@ serve(async (req) => {
       },
     )
   } catch (error) {
-    console.log('❌ Error in text-to-speech function:', error instanceof Error ? error.message : 'Unknown error')
-    console.log('📚 Error stack:', error instanceof Error ? error.stack : 'No stack')
+    console.error('[ERROR] text-to-speech failed:', error)
     
     return new Response(
       JSON.stringify({ error: 'Failed to process request' }),

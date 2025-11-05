@@ -93,18 +93,24 @@ serve(async (req) => {
     console.log('📅 News Published:', newsPublishedAt || 'N/A')
 
     // Check environment variables
-    console.log('🔧 Checking environment variables...')
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
     
-    if (!supabaseUrl) console.log('⚠️ SUPABASE_URL missing')
-    if (!serviceRoleKey) console.log('⚠️ SUPABASE_SERVICE_ROLE_KEY missing')
-    if (!lovableApiKey) console.log('⚠️ LOVABLE_API_KEY missing')
-    if (!openaiApiKey) console.log('⚠️ OPENAI_API_KEY missing')
+    const missingVars = []
+    if (!supabaseUrl) missingVars.push('SUPABASE_URL')
+    if (!serviceRoleKey) missingVars.push('SERVICE_ROLE_KEY')
+    if (!lovableApiKey) missingVars.push('LOVABLE_API_KEY')
+    if (!openaiApiKey) missingVars.push('OPENAI_API_KEY')
     
-    console.log('✅ Environment variables checked')
+    if (missingVars.length > 0) {
+      console.error('[CONFIG] Missing required environment variables')
+      return new Response(
+        JSON.stringify({ success: false, error: 'Service configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     const supabase = createClient(supabaseUrl ?? '', serviceRoleKey ?? '')
 
@@ -122,7 +128,7 @@ serve(async (req) => {
       console.log('📨 Generate-gist response:', generateResponse.error ? 'ERROR' : 'SUCCESS')
       
       if (generateResponse.error) {
-        console.log('❌ Generate-gist error:', JSON.stringify(generateResponse.error))
+        console.error('[PIPELINE] Content generation failed:', generateResponse.error)
         throw new Error('Content generation failed')
       }
 
@@ -157,8 +163,8 @@ serve(async (req) => {
       console.log('📨 TTS response data:', ttsResponse.data ? JSON.stringify(ttsResponse.data) : 'No data')
       
       if (ttsResponse.error) {
-        console.log('❌ Text-to-speech error:', JSON.stringify(ttsResponse.error))
-        throw new Error(`Audio generation failed: ${ttsResponse.error.message || 'Unknown error'}`)
+        console.error('[PIPELINE] Audio generation failed:', ttsResponse.error)
+        throw new Error('Audio generation failed')
       }
 
       if (!ttsResponse.data) {
@@ -286,28 +292,22 @@ serve(async (req) => {
         },
       )
     } catch (stepError) {
-      const errorMessage = stepError instanceof Error ? stepError.message : 'Unknown error'
-      const errorStack = stepError instanceof Error ? stepError.stack : 'No stack'
-      
-      console.log('❌ Pipeline step failed:', errorMessage)
-      console.log('📚 Error stack:', errorStack)
+      console.error('[PIPELINE] Step failed:', stepError)
       
       // Determine which stage failed
+      const errorMessage = stepError instanceof Error ? stepError.message : 'Unknown error'
       let failedStage = 'unknown'
-      if (errorMessage.includes('generate-gist')) failedStage = 'generate-gist'
-      else if (errorMessage.includes('text-to-speech')) failedStage = 'text-to-speech'
-      else if (errorMessage.includes('Database')) failedStage = 'database'
-      
-      console.log('🔍 Failed stage:', failedStage)
+      if (errorMessage.includes('generate-gist') || errorMessage.includes('Content generation')) failedStage = 'generate-gist'
+      else if (errorMessage.includes('text-to-speech') || errorMessage.includes('Audio generation')) failedStage = 'text-to-speech'
+      else if (errorMessage.includes('Database') || errorMessage.includes('save')) failedStage = 'database'
       
       // If any step fails, mark gist as failed if we created one
       if (gistId) {
-        console.log('🔄 Marking gist as failed:', gistId)
         await supabase
           .from('gists')
           .update({
             status: 'failed',
-            meta: { error: errorMessage, stage: failedStage }
+            meta: { stage: failedStage }
           })
           .eq('id', gistId)
       }
@@ -315,7 +315,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: errorMessage,
+          error: 'Failed to process request',
           stage: failedStage
         }),
         {
@@ -325,13 +325,12 @@ serve(async (req) => {
       )
     }
   } catch (error) {
-    console.log('❌ Fatal error in publish-gist:', error instanceof Error ? error.message : 'Unknown error')
-    console.log('📚 Error stack:', error instanceof Error ? error.stack : 'No stack')
+    console.error('[ERROR] Fatal error in publish-gist:', error)
     
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+        error: 'An error occurred processing your request'
       }),
       {
         status: 500,

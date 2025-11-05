@@ -61,14 +61,12 @@ const AdminSponsors = () => {
         return;
       }
 
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .single();
+      const { data: hasAdminRole, error } = await supabase.rpc('has_role', {
+        _user_id: user.id,
+        _role: 'admin'
+      });
 
-      if (!roleData) {
+      if (error || !hasAdminRole) {
         toast({
           title: "Access Denied",
           description: "You don't have admin permissions",
