@@ -145,7 +145,9 @@ const FanbaseHub = () => {
         )}
         
         <div className="flex-1">
-          <h3 className="font-bold text-lg">{entity.name}</h3>
+          <h3 className="font-bold text-lg">
+            {entity.name}{entity.category === 'music' ? ' News' : ''}
+          </h3>
           {entity.bio && (
             <p className="text-sm text-muted-foreground line-clamp-2">{entity.bio}</p>
           )}

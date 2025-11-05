@@ -7,33 +7,45 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronLeft } from "lucide-react";
 
-// Top football teams from major leagues
+// Top football and basketball teams
 const TEAMS = [
   // Premier League
-  { name: "Manchester City", league: "Premier League" },
-  { name: "Arsenal", league: "Premier League" },
-  { name: "Liverpool", league: "Premier League" },
-  { name: "Manchester United", league: "Premier League" },
-  { name: "Chelsea", league: "Premier League" },
-  { name: "Tottenham", league: "Premier League" },
+  { name: "Manchester City", league: "Premier League", sport: "football" },
+  { name: "Arsenal", league: "Premier League", sport: "football" },
+  { name: "Liverpool", league: "Premier League", sport: "football" },
+  { name: "Manchester United", league: "Premier League", sport: "football" },
+  { name: "Chelsea", league: "Premier League", sport: "football" },
+  { name: "Tottenham", league: "Premier League", sport: "football" },
   
   // La Liga
-  { name: "Real Madrid", league: "La Liga" },
-  { name: "Barcelona", league: "La Liga" },
-  { name: "Atletico Madrid", league: "La Liga" },
+  { name: "Real Madrid", league: "La Liga", sport: "football" },
+  { name: "Barcelona", league: "La Liga", sport: "football" },
+  { name: "Atletico Madrid", league: "La Liga", sport: "football" },
   
   // Serie A
-  { name: "Inter Milan", league: "Serie A" },
-  { name: "AC Milan", league: "Serie A" },
-  { name: "Juventus", league: "Serie A" },
-  { name: "Napoli", league: "Serie A" },
+  { name: "Inter Milan", league: "Serie A", sport: "football" },
+  { name: "AC Milan", league: "Serie A", sport: "football" },
+  { name: "Juventus", league: "Serie A", sport: "football" },
+  { name: "Napoli", league: "Serie A", sport: "football" },
   
   // Bundesliga
-  { name: "Bayern Munich", league: "Bundesliga" },
-  { name: "Borussia Dortmund", league: "Bundesliga" },
+  { name: "Bayern Munich", league: "Bundesliga", sport: "football" },
+  { name: "Borussia Dortmund", league: "Bundesliga", sport: "football" },
   
   // Ligue 1
-  { name: "Paris Saint-Germain", league: "Ligue 1" },
+  { name: "Paris Saint-Germain", league: "Ligue 1", sport: "football" },
+  
+  // NBA
+  { name: "Los Angeles Lakers", league: "NBA", sport: "basketball" },
+  { name: "Boston Celtics", league: "NBA", sport: "basketball" },
+  { name: "Golden State Warriors", league: "NBA", sport: "basketball" },
+  { name: "Chicago Bulls", league: "NBA", sport: "basketball" },
+  { name: "Miami Heat", league: "NBA", sport: "basketball" },
+  { name: "Brooklyn Nets", league: "NBA", sport: "basketball" },
+  { name: "Milwaukee Bucks", league: "NBA", sport: "basketball" },
+  { name: "Philadelphia 76ers", league: "NBA", sport: "basketball" },
+  { name: "Phoenix Suns", league: "NBA", sport: "basketball" },
+  { name: "Dallas Mavericks", league: "NBA", sport: "basketball" },
 ];
 
 const TeamSelection = () => {
@@ -102,10 +114,10 @@ const TeamSelection = () => {
         {/* Header */}
         <div className="text-center space-y-4">
           <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-            Pick Your Teams ⚽
+            Pick Your Teams ⚽🏀
           </h1>
           <p className="text-xl text-foreground font-medium">
-            Choose your favorites and rivals for personalized sports banter
+            Choose your favorite football & basketball teams and rivals
           </p>
         </div>
 

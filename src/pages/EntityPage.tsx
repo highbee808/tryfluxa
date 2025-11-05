@@ -294,13 +294,13 @@ const EntityPage = () => {
                   <Accordion type="single" collapsible>
                     <AccordionItem value="trophies">
                       <AccordionTrigger className="font-bold">
-                        🏆 Major Trophies ({entity.achievements.length})
+                        {entity.category === 'music' ? '🎵' : '🏆'} {entity.category === 'music' ? 'Major Awards' : 'Major Trophies'} ({entity.achievements.length})
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="grid grid-cols-2 gap-3 pt-2">
                           {entity.achievements.map((trophy: any, i: number) => (
                             <div key={i} className="flex items-center gap-2 p-3 rounded-lg bg-gradient-to-br from-yellow-500/10 to-yellow-600/10 border border-yellow-500/20">
-                              <span className="text-xl">🏆</span>
+                              <span className="text-xl">{entity.category === 'music' ? '🎵' : '🏆'}</span>
                               <div>
                                 <p className="font-bold text-xs">{trophy.name}</p>
                                 <p className="text-xs text-muted-foreground">{trophy.count}x</p>
@@ -448,15 +448,15 @@ const EntityPage = () => {
             {entity.achievements && entity.achievements.length > 0 && (
               <Card className="p-6 sticky top-4">
                 <h3 className="font-bold mb-4 flex items-center gap-2">
-                  🏆 Major Trophies
+                  {entity.category === 'music' ? '🎵' : '🏆'} {entity.category === 'music' ? 'Major Awards' : 'Major Trophies'}
                 </h3>
                 <div className="space-y-3">
                   {entity.achievements.map((trophy: any, i: number) => (
                     <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-br from-yellow-500/10 to-yellow-600/10 border border-yellow-500/20">
-                      <span className="text-2xl">🏆</span>
+                      <span className="text-2xl">{entity.category === 'music' ? '🎵' : '🏆'}</span>
                       <div className="flex-1">
                         <p className="font-bold text-sm">{trophy.name}</p>
-                        <p className="text-xs text-muted-foreground">{trophy.count}x Champion</p>
+                        <p className="text-xs text-muted-foreground">{trophy.count}x {entity.category === 'music' ? 'Winner' : 'Champion'}</p>
                       </div>
                     </div>
                   ))}

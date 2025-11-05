@@ -403,13 +403,14 @@ serve(async (req) => {
       }
     }
 
-    // Add sample music artists
+    // Add music artists
     const artists = [
       { 
         name: 'Drake', 
         bio: 'Canadian rapper, singer, and actor. 6 God. OVO Sound.',
         primary_color: '#FFD700',
         secondary_color: '#000000',
+        logo_url: 'https://upload.wikimedia.org/wikipedia/commons/2/28/Drake_July_2016.jpg',
         achievements: [
           { name: 'Grammy Awards', count: 5 },
           { name: 'Billboard #1 Albums', count: 11 }
@@ -420,6 +421,7 @@ serve(async (req) => {
         bio: 'Singer-songwriter. Multiple Grammy winner. Swiftie HQ.',
         primary_color: '#B58AC6',
         secondary_color: '#FFE4E1',
+        logo_url: 'https://upload.wikimedia.org/wikipedia/commons/b/b5/191125_Taylor_Swift_at_the_2019_American_Music_Awards_%28cropped%29.png',
         achievements: [
           { name: 'Grammy Awards', count: 14 },
           { name: 'Billboard #1 Albums', count: 13 }
@@ -430,9 +432,65 @@ serve(async (req) => {
         bio: 'R&B artist. XO. After Hours.',
         primary_color: '#FF0000',
         secondary_color: '#000000',
+        logo_url: 'https://upload.wikimedia.org/wikipedia/commons/3/32/The_Weeknd_in_2018.png',
         achievements: [
           { name: 'Grammy Awards', count: 4 },
           { name: 'Billboard #1 Singles', count: 6 }
+        ]
+      },
+      { 
+        name: 'Beyoncé', 
+        bio: 'Queen Bey. Icon. Legend. Renaissance.',
+        primary_color: '#FFD700',
+        secondary_color: '#000000',
+        logo_url: 'https://upload.wikimedia.org/wikipedia/commons/1/17/Beyonc%C3%A9_at_The_Lion_King_European_Premiere_2019.png',
+        achievements: [
+          { name: 'Grammy Awards', count: 32 },
+          { name: 'Billboard #1 Albums', count: 8 }
+        ]
+      },
+      { 
+        name: 'Bad Bunny', 
+        bio: 'Puerto Rican rapper and singer. El Conejo Malo.',
+        primary_color: '#FF6B35',
+        secondary_color: '#F7931E',
+        logo_url: 'https://upload.wikimedia.org/wikipedia/commons/f/f8/Bad_Bunny_2019_by_Glenn_Francis_%28cropped%29.jpg',
+        achievements: [
+          { name: 'Grammy Awards', count: 2 },
+          { name: 'Billboard #1 Albums', count: 4 }
+        ]
+      },
+      { 
+        name: 'Wizkid', 
+        bio: 'Nigerian superstar. Afrobeats pioneer. Starboy.',
+        primary_color: '#006B3F',
+        secondary_color: '#FFD700',
+        logo_url: 'https://upload.wikimedia.org/wikipedia/commons/5/5f/Wizkid_in_2018.jpg',
+        achievements: [
+          { name: 'Grammy Awards', count: 1 },
+          { name: 'MOBO Awards', count: 4 }
+        ]
+      },
+      { 
+        name: 'Davido', 
+        bio: 'Nigerian music icon. OBO. Afrobeats king.',
+        primary_color: '#008751',
+        secondary_color: '#FCD116',
+        logo_url: 'https://upload.wikimedia.org/wikipedia/commons/7/72/Davido_2019_by_Glenn_Francis.jpg',
+        achievements: [
+          { name: 'BET Awards', count: 2 },
+          { name: 'MTV Africa Music Awards', count: 5 }
+        ]
+      },
+      { 
+        name: 'Tems', 
+        bio: 'Nigerian R&B sensation. Grammy winner. Leading lady.',
+        primary_color: '#008751',
+        secondary_color: '#FCD116',
+        logo_url: 'https://upload.wikimedia.org/wikipedia/commons/d/d1/Tems_in_2023.jpg',
+        achievements: [
+          { name: 'Grammy Awards', count: 1 },
+          { name: 'BET Awards', count: 1 }
         ]
       },
     ]
@@ -447,6 +505,7 @@ serve(async (req) => {
           slug,
           category: 'music',
           bio: artist.bio,
+          logo_url: artist.logo_url,
           primary_color: artist.primary_color,
           secondary_color: artist.secondary_color,
           stats: {
@@ -454,6 +513,80 @@ serve(async (req) => {
             monthly_listeners: '50M+'
           },
           achievements: artist.achievements,
+          news_feed: []
+        }, {
+          onConflict: 'slug',
+          ignoreDuplicates: false
+        })
+
+      if (!upsertError) {
+        updated++
+      }
+    }
+    
+    // Add more basketball teams
+    const basketballTeams = [
+      { 
+        name: 'Milwaukee Bucks', 
+        primary_color: '#00471B',
+        secondary_color: '#EEE1C6',
+        logo_url: 'https://upload.wikimedia.org/wikipedia/en/4/4a/Milwaukee_Bucks_logo.svg',
+        achievements: [
+          { name: 'NBA Championships', count: 2 },
+          { name: 'Conference Titles', count: 3 }
+        ]
+      },
+      { 
+        name: 'Philadelphia 76ers', 
+        primary_color: '#006BB6',
+        secondary_color: '#ED174C',
+        logo_url: 'https://upload.wikimedia.org/wikipedia/en/0/0e/Philadelphia_76ers_logo.svg',
+        achievements: [
+          { name: 'NBA Championships', count: 3 },
+          { name: 'Conference Titles', count: 9 }
+        ]
+      },
+      { 
+        name: 'Phoenix Suns', 
+        primary_color: '#1D1160',
+        secondary_color: '#E56020',
+        logo_url: 'https://upload.wikimedia.org/wikipedia/en/d/dc/Phoenix_Suns_logo.svg',
+        achievements: [
+          { name: 'Conference Titles', count: 3 },
+          { name: 'Division Titles', count: 7 }
+        ]
+      },
+      { 
+        name: 'Dallas Mavericks', 
+        primary_color: '#00538C',
+        secondary_color: '#B8C4CA',
+        logo_url: 'https://upload.wikimedia.org/wikipedia/en/9/97/Dallas_Mavericks_logo.svg',
+        achievements: [
+          { name: 'NBA Championships', count: 1 },
+          { name: 'Conference Titles', count: 3 }
+        ]
+      },
+    ]
+    
+    for (const team of basketballTeams) {
+      const slug = team.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+      
+      const { error: upsertError } = await supabase
+        .from('fan_entities')
+        .upsert({
+          name: team.name,
+          slug,
+          category: 'sports',
+          bio: `Official ${team.name} fanbase. Follow for live updates, match discussions, and community banter.`,
+          logo_url: team.logo_url,
+          primary_color: team.primary_color,
+          secondary_color: team.secondary_color,
+          api_source: 'sportsdata',
+          stats: {
+            league: 'NBA',
+            followers: 0
+          },
+          achievements: team.achievements,
           news_feed: []
         }, {
           onConflict: 'slug',
