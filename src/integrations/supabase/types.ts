@@ -49,13 +49,16 @@ export type Database = {
           created_at: string | null
           current_match: Json | null
           id: string
+          last_match: Json | null
           logo_url: string | null
           name: string
           news_feed: Json | null
+          next_match: Json | null
           primary_color: string | null
           secondary_color: string | null
           slug: string
           stats: Json | null
+          upcoming_events: Json | null
           updated_at: string | null
         }
         Insert: {
@@ -68,13 +71,16 @@ export type Database = {
           created_at?: string | null
           current_match?: Json | null
           id?: string
+          last_match?: Json | null
           logo_url?: string | null
           name: string
           news_feed?: Json | null
+          next_match?: Json | null
           primary_color?: string | null
           secondary_color?: string | null
           slug: string
           stats?: Json | null
+          upcoming_events?: Json | null
           updated_at?: string | null
         }
         Update: {
@@ -87,13 +93,16 @@ export type Database = {
           created_at?: string | null
           current_match?: Json | null
           id?: string
+          last_match?: Json | null
           logo_url?: string | null
           name?: string
           news_feed?: Json | null
+          next_match?: Json | null
           primary_color?: string | null
           secondary_color?: string | null
           slug?: string
           stats?: Json | null
+          upcoming_events?: Json | null
           updated_at?: string | null
         }
         Relationships: []

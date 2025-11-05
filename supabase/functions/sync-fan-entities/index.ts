@@ -459,6 +459,25 @@ serve(async (req) => {
           },
           achievements: data.achievements || [],
           current_match: teamMatches[teamName] || null,
+          next_match: {
+            home_team: teamName,
+            away_team: 'TBD',
+            league: teamLeagues[teamName],
+            date: 'Nov 15, 2025 - 8:00 PM'
+          },
+          last_match: {
+            home_team: teamName,
+            away_team: 'Previous Opponent',
+            home_score: 2,
+            away_score: 1,
+            league: teamLeagues[teamName],
+            date: 'Nov 1, 2025'
+          },
+          upcoming_events: [
+            { title: `${teamName} vs TBD`, date: 'Nov 15, 2025', venue: 'Home Stadium' },
+            { title: `Away vs TBD`, date: 'Nov 22, 2025', venue: 'Away Stadium' },
+            { title: `${teamName} vs TBD`, date: 'Nov 29, 2025', venue: 'Home Stadium' }
+          ],
           news_feed: []
         }, {
           onConflict: 'slug',
@@ -582,6 +601,21 @@ serve(async (req) => {
             monthly_listeners: '50M+'
           },
           achievements: artist.achievements,
+          next_match: {
+            event_name: `${artist.name} World Tour`,
+            venue: 'Madison Square Garden',
+            date: 'Dec 20, 2025'
+          },
+          last_match: {
+            event_name: `${artist.name} Live`,
+            venue: 'Arena',
+            date: 'Nov 5, 2025'
+          },
+          upcoming_events: [
+            { title: `${artist.name} - NYC`, date: 'Dec 20, 2025', venue: 'Madison Square Garden' },
+            { title: `${artist.name} - LA`, date: 'Dec 27, 2025', venue: 'Crypto.com Arena' },
+            { title: `${artist.name} - Miami`, date: 'Jan 3, 2026', venue: 'FTX Arena' }
+          ],
           news_feed: []
         }, {
           onConflict: 'slug',
@@ -656,6 +690,25 @@ serve(async (req) => {
             followers: 0
           },
           achievements: team.achievements,
+          next_match: {
+            home_team: team.name,
+            away_team: 'TBD',
+            league: 'NBA',
+            date: 'Nov 15, 2025 - 7:30 PM EST'
+          },
+          last_match: {
+            home_team: team.name,
+            away_team: 'Previous Opponent',
+            home_score: 105,
+            away_score: 98,
+            league: 'NBA',
+            date: 'Nov 3, 2025'
+          },
+          upcoming_events: [
+            { title: `${team.name} vs TBD`, date: 'Nov 15, 2025', venue: 'Home Arena' },
+            { title: `Away vs TBD`, date: 'Nov 18, 2025', venue: 'Away Arena' },
+            { title: `${team.name} vs TBD`, date: 'Nov 22, 2025', venue: 'Home Arena' }
+          ],
           news_feed: []
         }, {
           onConflict: 'slug',

@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ArrowLeft } from "lucide-react";
 
 // Top football and basketball teams
 const TEAMS = [
@@ -59,10 +59,13 @@ const TEAMS = [
 ];
 
 const TeamSelection = () => {
+  const [sportType, setSportType] = useState<'football' | 'basketball' | null>(null);
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [rivalTeams, setRivalTeams] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  const filteredTeams = sportType ? TEAMS.filter(team => team.sport === sportType) : TEAMS;
 
   const toggleFavorite = (team: string) => {
     if (rivalTeams.includes(team)) {
@@ -118,17 +121,82 @@ const TeamSelection = () => {
     }
   };
 
+  // Sport selection screen
+  if (!sportType) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--gradient-hero)" }}>
+        <div className="max-w-4xl w-full space-y-8 animate-fade-in">
+          <div className="text-center space-y-4">
+            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+              Choose Your Sport
+            </h1>
+            <p className="text-xl text-foreground font-medium">
+              Which sport do you want to follow?
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card 
+              className="p-12 cursor-pointer hover:shadow-2xl transition-all hover:scale-105 border-2 hover:border-primary group"
+              onClick={() => setSportType('football')}
+            >
+              <div className="text-center space-y-4">
+                <div className="text-7xl group-hover:scale-110 transition-transform">⚽</div>
+                <h2 className="text-3xl font-bold">Football</h2>
+                <p className="text-muted-foreground">Follow your favorite football clubs from around the world</p>
+              </div>
+            </Card>
+
+            <Card 
+              className="p-12 cursor-pointer hover:shadow-2xl transition-all hover:scale-105 border-2 hover:border-primary group"
+              onClick={() => setSportType('basketball')}
+            >
+              <div className="text-center space-y-4">
+                <div className="text-7xl group-hover:scale-110 transition-transform">🏀</div>
+                <h2 className="text-3xl font-bold">Basketball</h2>
+                <p className="text-muted-foreground">Follow your favorite NBA teams and players</p>
+              </div>
+            </Card>
+          </div>
+
+          <div className="flex justify-center">
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/onboarding")}
+              className="gap-2"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Team selection screen
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--gradient-hero)" }}>
       <div className="max-w-4xl w-full space-y-8 animate-fade-in">
         {/* Header */}
-        <div className="text-center space-y-4">
-          <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-            Pick Your Teams ⚽🏀
-          </h1>
-          <p className="text-xl text-foreground font-medium">
-            Choose your favorite football & basketball teams and rivals
-          </p>
+        <div className="space-y-4">
+          <Button
+            variant="ghost"
+            onClick={() => setSportType(null)}
+            className="gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Sport Selection
+          </Button>
+
+          <div className="text-center">
+            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+              Pick Your {sportType === 'football' ? 'Football' : 'Basketball'} Teams {sportType === 'football' ? '⚽' : '🏀'}
+            </h1>
+            <p className="text-xl text-foreground font-medium mt-4">
+              Choose your favorite and rival teams
+            </p>
+          </div>
         </div>
 
         {/* Team Selection */}
@@ -139,7 +207,7 @@ const TeamSelection = () => {
               ❤️ Favorite Teams ({favoriteTeams.length})
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {TEAMS.map((team) => (
+              {filteredTeams.map((team) => (
                 <div
                   key={team.name}
                   className={`flex items-center space-x-2 p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -170,7 +238,7 @@ const TeamSelection = () => {
               😤 Rival Teams ({rivalTeams.length})
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {TEAMS.map((team) => (
+              {filteredTeams.map((team) => (
                 <div
                   key={team.name}
                   className={`flex items-center space-x-2 p-3 rounded-lg border cursor-pointer transition-colors ${
@@ -197,15 +265,7 @@ const TeamSelection = () => {
         </div>
 
         {/* Actions */}
-        <div className="flex justify-between">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/onboarding")}
-            className="gap-2"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Back
-          </Button>
+        <div className="flex justify-end">
           <Button
             onClick={handleContinue}
             disabled={loading || favoriteTeams.length === 0}

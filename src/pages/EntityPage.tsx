@@ -24,6 +24,9 @@ interface Entity {
   primary_color: string | null;
   secondary_color: string | null;
   current_match: any;
+  next_match: any;
+  last_match: any;
+  upcoming_events: any;
   news_feed: any;
 }
 
@@ -67,7 +70,7 @@ const EntityPage = () => {
       toast.error("Entity not found");
       navigate("/fanbase");
     } else {
-      setEntity(data);
+      setEntity(data as Entity);
     }
     setLoading(false);
   };
@@ -318,7 +321,7 @@ const EntityPage = () => {
               )}
             </Card>
 
-            {/* Current Match */}
+            {/* Current/Live Match */}
             {entity.current_match && (
               <Card className="mt-6 p-6" style={{ 
                 background: `linear-gradient(135deg, ${primaryColor}10, ${secondaryColor}10)`,
@@ -326,10 +329,10 @@ const EntityPage = () => {
               }}>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold flex items-center gap-2 text-sm md:text-base">
-                    ⚽ {entity.current_match.status === 'live' ? '🔴 LIVE' : 'Upcoming Match'}
+                    {entity.category === 'football' || entity.category === 'basketball' ? '⚽' : '🎵'} {entity.current_match.status === 'live' ? '🔴 LIVE' : 'Current Event'}
                   </h3>
                   <Badge variant={entity.current_match.status === 'live' ? 'destructive' : 'secondary'}>
-                    {entity.current_match.league}
+                    {entity.current_match.league || entity.current_match.venue}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
@@ -352,6 +355,124 @@ const EntityPage = () => {
                     {entity.current_match.match_time}
                   </p>
                 )}
+              </Card>
+            )}
+
+            {/* Next Match/Event */}
+            {entity.next_match && (
+              <Card className="mt-6 p-6 border-2" style={{ borderColor: primaryColor }}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold flex items-center gap-2 text-sm md:text-base">
+                    📅 {entity.category === 'music' ? 'Next Concert' : 'Next Match'}
+                  </h3>
+                  <Badge variant="outline">
+                    {entity.next_match.league || entity.next_match.venue}
+                  </Badge>
+                </div>
+                {entity.category === 'music' ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Event:</span>
+                      <span className="font-semibold">{entity.next_match.event_name}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Venue:</span>
+                      <span className="font-semibold">{entity.next_match.venue}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Date:</span>
+                      <span className="font-semibold">{entity.next_match.date}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div className="text-center flex-1">
+                        <p className="font-bold text-sm md:text-base">{entity.next_match.home_team}</p>
+                      </div>
+                      <div className="text-muted-foreground px-2 md:px-4 text-sm">VS</div>
+                      <div className="text-center flex-1">
+                        <p className="font-bold text-sm md:text-base">{entity.next_match.away_team}</p>
+                      </div>
+                    </div>
+                    <p className="text-center text-sm text-muted-foreground mt-4">
+                      {entity.next_match.date}
+                    </p>
+                  </>
+                )}
+              </Card>
+            )}
+
+            {/* Last Match/Event */}
+            {entity.last_match && (
+              <Card className="mt-6 p-6 bg-muted/30">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold flex items-center gap-2 text-sm md:text-base">
+                    ⏮️ {entity.category === 'music' ? 'Last Performance' : 'Last Match'}
+                  </h3>
+                  <Badge variant="secondary">
+                    {entity.last_match.league || entity.last_match.venue}
+                  </Badge>
+                </div>
+                {entity.category === 'music' ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Event:</span>
+                      <span className="font-semibold">{entity.last_match.event_name}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Venue:</span>
+                      <span className="font-semibold">{entity.last_match.venue}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Date:</span>
+                      <span className="font-semibold">{entity.last_match.date}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div className="text-center flex-1">
+                        <p className="font-bold text-sm md:text-base">{entity.last_match.home_team}</p>
+                        <p className="text-xl md:text-2xl font-bold mt-2" style={{ color: primaryColor }}>
+                          {entity.last_match.home_score}
+                        </p>
+                      </div>
+                      <div className="text-muted-foreground px-2 md:px-4 text-sm">-</div>
+                      <div className="text-center flex-1">
+                        <p className="font-bold text-sm md:text-base">{entity.last_match.away_team}</p>
+                        <p className="text-xl md:text-2xl font-bold mt-2" style={{ color: secondaryColor }}>
+                          {entity.last_match.away_score}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-center text-xs md:text-sm text-muted-foreground mt-4">
+                      {entity.last_match.date}
+                    </p>
+                  </>
+                )}
+              </Card>
+            )}
+
+            {/* Upcoming Events */}
+            {entity.upcoming_events && entity.upcoming_events.length > 0 && (
+              <Card className="mt-6 p-6">
+                <h3 className="font-bold mb-4 flex items-center gap-2">
+                  🎫 Upcoming {entity.category === 'music' ? 'Events' : 'Fixtures'}
+                </h3>
+                <div className="space-y-3">
+                  {entity.upcoming_events.slice(0, 5).map((event: any, i: number) => (
+                    <div key={i} className="pb-3 border-b last:border-0 flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm">{event.title}</h4>
+                        <p className="text-xs text-muted-foreground mt-1">{event.date}</p>
+                      </div>
+                      {event.venue && (
+                        <Badge variant="outline" className="ml-2">{event.venue}</Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </Card>
             )}
 
