@@ -96,15 +96,15 @@ serve(async (req) => {
     if (footballApiKey) {
       console.log('⚽ Fetching soccer data...')
       try {
-        // Get major leagues with correct season (2024 for 2024-25 season)
+        // Get major leagues with correct season (2025 for 2025-26 season)
         const leagues = [
-          { id: 39, name: 'Premier League', season: 2024 },      // England
-          { id: 140, name: 'La Liga', season: 2024 },            // Spain
-          { id: 135, name: 'Serie A', season: 2024 },            // Italy
-          { id: 78, name: 'Bundesliga', season: 2024 },          // Germany
-          { id: 61, name: 'Ligue 1', season: 2024 },             // France
-          { id: 2, name: 'Champions League', season: 2024 },     // UEFA
-          { id: 3, name: 'Europa League', season: 2024 },        // UEFA
+          { id: 39, name: 'Premier League', season: 2025 },      // England
+          { id: 140, name: 'La Liga', season: 2025 },            // Spain
+          { id: 135, name: 'Serie A', season: 2025 },            // Italy
+          { id: 78, name: 'Bundesliga', season: 2025 },          // Germany
+          { id: 61, name: 'Ligue 1', season: 2025 },             // France
+          { id: 2, name: 'Champions League', season: 2025 },     // UEFA
+          { id: 3, name: 'Europa League', season: 2025 },        // UEFA
         ]
 
         const today = new Date()
