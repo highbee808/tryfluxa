@@ -389,15 +389,33 @@ const EntityPage = () => {
                     <p className="text-muted-foreground text-sm md:text-base mb-4 text-center sm:text-left">{entity.bio}</p>
                   )}
 
-                  {/* Stats */}
-                  {Object.keys(entity.stats).length > 0 && (
+                  {/* Stats - Only show user-friendly fields */}
+                  {entity.stats && (
                     <div className="flex flex-wrap justify-center sm:justify-start gap-3 md:gap-6 text-sm">
-                      {Object.entries(entity.stats).map(([key, value]) => (
-                        <div key={key} className="text-center sm:text-left">
-                          <span className="font-bold">{value as string}</span>
-                          <span className="text-muted-foreground ml-1">{key}</span>
+                      {entity.stats.league && (
+                        <div className="text-center sm:text-left">
+                          <span className="font-bold">{entity.stats.league}</span>
+                          <span className="text-muted-foreground ml-1">league</span>
                         </div>
-                      ))}
+                      )}
+                      {entity.stats.followers !== undefined && (
+                        <div className="text-center sm:text-left">
+                          <span className="font-bold">{entity.stats.followers}</span>
+                          <span className="text-muted-foreground ml-1">followers</span>
+                        </div>
+                      )}
+                      {entity.stats.injuries && Array.isArray(entity.stats.injuries) && entity.stats.injuries.length > 0 && (
+                        <div className="text-center sm:text-left">
+                          <span className="font-bold">{entity.stats.injuries.length}</span>
+                          <span className="text-muted-foreground ml-1">injuries</span>
+                        </div>
+                      )}
+                      {entity.stats.standings && (
+                        <div className="text-center sm:text-left">
+                          <span className="font-bold">{entity.stats.standings}</span>
+                          <span className="text-muted-foreground ml-1">standings</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
