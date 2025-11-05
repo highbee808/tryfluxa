@@ -410,10 +410,10 @@ const EntityPage = () => {
                           <span className="text-muted-foreground ml-1">injuries</span>
                         </div>
                       )}
-                      {entity.stats.standings && (
+                      {entity.stats.standings && typeof entity.stats.standings === 'object' && entity.stats.standings.position && (
                         <div className="text-center sm:text-left">
-                          <span className="font-bold">{entity.stats.standings}</span>
-                          <span className="text-muted-foreground ml-1">standings</span>
+                          <span className="font-bold">#{entity.stats.standings.position}</span>
+                          <span className="text-muted-foreground ml-1">position</span>
                         </div>
                       )}
                     </div>
