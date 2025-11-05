@@ -154,14 +154,20 @@ serve(async (req) => {
       })
 
       console.log('📨 Text-to-speech response:', ttsResponse.error ? 'ERROR' : 'SUCCESS')
+      console.log('📨 TTS response data:', ttsResponse.data ? JSON.stringify(ttsResponse.data) : 'No data')
       
       if (ttsResponse.error) {
         console.log('❌ Text-to-speech error:', JSON.stringify(ttsResponse.error))
-        throw new Error('Audio generation failed')
+        throw new Error(`Audio generation failed: ${ttsResponse.error.message || 'Unknown error'}`)
       }
 
-      if (!ttsResponse.data?.audioUrl) {
-        console.log('❌ Text-to-speech returned no audio URL')
+      if (!ttsResponse.data) {
+        console.log('❌ Text-to-speech returned no data')
+        throw new Error('Audio generation returned no data')
+      }
+
+      if (!ttsResponse.data.audioUrl) {
+        console.log('❌ Text-to-speech data:', JSON.stringify(ttsResponse.data))
         throw new Error('Audio generation returned no URL')
       }
 
