@@ -12,6 +12,8 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { toast } from "sonner";
 import { Loader2, Heart, ArrowLeft, Send, Clock, Flame } from "lucide-react";
 import { useAutoUpdateScores } from "@/hooks/useAutoUpdateScores";
+import { LiveMatchRoom } from "@/components/LiveMatchRoom";
+import { requestNotificationPermission, sendFluxaPushNotification } from "@/lib/notifications";
 
 interface Entity {
   id: string;
@@ -51,9 +53,15 @@ const EntityPage = () => {
   const [posting, setPosting] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [sortBy, setSortBy] = useState<'latest' | 'top'>('latest');
+  const [showLiveRoom, setShowLiveRoom] = useState(false);
 
   // Enable automatic score updates
   useAutoUpdateScores();
+
+  // Request notification permission on mount
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
 
   useEffect(() => {
     if (slug) {
@@ -81,10 +89,42 @@ const EntityPage = () => {
         },
         (payload) => {
           console.log('🔴 LIVE UPDATE received:', payload);
+          const oldMatch = entity.current_match;
+          const newMatch = payload.new.current_match;
+          
           setEntity(payload.new as Entity);
-          toast.success('🔴 Live update!', {
-            description: 'Match scores updated'
-          });
+          
+          // Show notification for live match updates
+          if (newMatch) {
+            // Check if it's a new live match or score changed
+            const isNewMatch = !oldMatch || oldMatch.match_id !== newMatch.match_id;
+            const scoreChanged = oldMatch && (
+              oldMatch.home_score !== newMatch.home_score ||
+              oldMatch.away_score !== newMatch.away_score
+            );
+
+            if (isNewMatch) {
+              toast.success(`🔴 LIVE MATCH STARTED!`, {
+                description: `${newMatch.home_team} vs ${newMatch.away_team}`
+              });
+              sendFluxaPushNotification(
+                `🔴 ${entity.name} is Live!`,
+                `${newMatch.home_team} vs ${newMatch.away_team} has started`
+              );
+            } else if (scoreChanged) {
+              toast.success(`⚽ GOAL! ${newMatch.home_score}-${newMatch.away_score}`, {
+                description: `${newMatch.home_team} vs ${newMatch.away_team}`
+              });
+              sendFluxaPushNotification(
+                `⚽ GOAL!`,
+                `${newMatch.home_team} ${newMatch.home_score}-${newMatch.away_score} ${newMatch.away_team}`
+              );
+            } else {
+              toast.success('🔴 Live update!', {
+                description: 'Match scores updated'
+              });
+            }
+          }
         }
       )
       .subscribe((status) => {
@@ -95,7 +135,7 @@ const EntityPage = () => {
       console.log('Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
-  }, [entity?.id]);
+  }, [entity]);
 
   const fetchEntity = async () => {
     setLoading(true);
@@ -360,12 +400,16 @@ const EntityPage = () => {
               )}
             </Card>
 
-            {/* Current/Live Match with Real-time Updates */}
+            {/* Current/Live Match with Real-time Updates - Clickable to open room */}
             {entity.current_match && (
-              <Card className="mt-6 p-6 relative overflow-hidden" style={{ 
-                background: `linear-gradient(135deg, ${primaryColor}10, ${secondaryColor}10)`,
-                borderColor: primaryColor
-              }}>
+              <Card 
+                className="mt-6 p-6 relative overflow-hidden cursor-pointer hover:shadow-lg transition-shadow" 
+                style={{ 
+                  background: `linear-gradient(135deg, ${primaryColor}10, ${secondaryColor}10)`,
+                  borderColor: primaryColor
+                }}
+                onClick={() => setShowLiveRoom(true)}
+              >
                 {entity.current_match.status === 'live' && (
                   <div className="absolute top-2 right-2 flex items-center gap-2">
                     <span className="relative flex h-3 w-3">
@@ -410,6 +454,9 @@ const EntityPage = () => {
                     </p>
                   </div>
                 )}
+                <div className="mt-4 pt-4 border-t text-center text-xs text-muted-foreground">
+                  👆 Tap to join the conversation
+                </div>
               </Card>
             )}
 
@@ -676,6 +723,16 @@ const EntityPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Live Match Room Modal */}
+      {entity?.current_match && (
+        <LiveMatchRoom
+          isOpen={showLiveRoom}
+          onClose={() => setShowLiveRoom(false)}
+          match={entity.current_match}
+          entityId={entity.id}
+        />
+      )}
     </div>
   );
 };
