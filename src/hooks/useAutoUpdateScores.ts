@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 
 export const useAutoUpdateScores = () => {
   useEffect(() => {
-    console.log('🔄 Setting up auto score updates and data sync...');
+    console.log('🔄 Setting up auto updates for sports and music data...');
 
     // Sync comprehensive sports data every hour
     const syncSportsData = async () => {
@@ -41,9 +41,62 @@ export const useAutoUpdateScores = () => {
       }
     };
 
-    // Initial sync and update
+    // Validate sports data with alternative APIs
+    const validateSportsData = async () => {
+      try {
+        console.log('🔍 Cross-validating sports data...');
+        const { data, error } = await supabase.functions.invoke('validate-sports-data');
+        
+        if (error) {
+          console.error('Error validating sports data:', error);
+          return;
+        }
+
+        console.log(`✅ Validated ${data?.validated || 0} teams`);
+      } catch (err) {
+        console.error('Failed to validate sports data:', err);
+      }
+    };
+
+    // Fetch artist data from Last.fm
+    const fetchArtistData = async () => {
+      try {
+        console.log('🎵 Fetching artist data...');
+        const { data, error } = await supabase.functions.invoke('fetch-artist-data');
+        
+        if (error) {
+          console.error('Error fetching artist data:', error);
+          return;
+        }
+
+        console.log(`✅ Updated ${data?.updated || 0} artists`);
+      } catch (err) {
+        console.error('Failed to fetch artist data:', err);
+      }
+    };
+
+    // Fetch music news
+    const fetchMusicNews = async () => {
+      try {
+        console.log('📰 Fetching music news...');
+        const { data, error } = await supabase.functions.invoke('fetch-music-news');
+        
+        if (error) {
+          console.error('Error fetching music news:', error);
+          return;
+        }
+
+        console.log(`✅ Updated news for ${data?.updated || 0} artists`);
+      } catch (err) {
+        console.error('Failed to fetch music news:', err);
+      }
+    };
+
+    // Initial sync and updates
     syncSportsData();
     updateScores();
+    fetchArtistData();
+    fetchMusicNews();
 
     // Sync sports data every hour
     const syncInterval = setInterval(syncSportsData, 60 * 60 * 1000);
@@ -51,10 +104,22 @@ export const useAutoUpdateScores = () => {
     // Update live scores every 2 minutes
     const updateInterval = setInterval(updateScores, 2 * 60 * 1000);
 
+    // Validate sports data every 3 hours
+    const validateInterval = setInterval(validateSportsData, 3 * 60 * 60 * 1000);
+
+    // Fetch artist data every 2 hours
+    const artistInterval = setInterval(fetchArtistData, 2 * 60 * 60 * 1000);
+
+    // Fetch music news every hour
+    const newsInterval = setInterval(fetchMusicNews, 60 * 60 * 1000);
+
     return () => {
-      console.log('Cleaning up sports data sync');
+      console.log('Cleaning up data sync intervals');
       clearInterval(syncInterval);
       clearInterval(updateInterval);
+      clearInterval(validateInterval);
+      clearInterval(artistInterval);
+      clearInterval(newsInterval);
     };
   }, []);
 };
