@@ -38,3 +38,6 @@ verify_jwt = true
 
 [functions.sync-fan-entities]
 verify_jwt = false
+
+[functions.update-live-scores]
+verify_jwt = false
