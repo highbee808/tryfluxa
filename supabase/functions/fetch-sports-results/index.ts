@@ -171,45 +171,91 @@ async function fetchSoccerFromAPIFootball(apiKey: string): Promise<MatchData[]> 
 async function fetchSoccerFromTheSportsDB(): Promise<MatchData[]> {
   const matches: MatchData[] = []
   
-  // TheSportsDB team IDs for major teams
-  const teamIds = [
-    '133604', // Barcelona
-    '133602', // Real Madrid
-    '133613', // Liverpool
-    '133613', // Manchester United
-    '133610', // Chelsea
+  // Major teams to fetch - search by name
+  const teams = [
+    'Barcelona',
+    'Real Madrid', 
+    'Liverpool',
+    'Manchester United',
+    'Chelsea',
+    'Arsenal',
+    'AC Milan',
+    'Inter Milan',
+    'Bayern Munich',
+    'Juventus',
   ]
 
-  for (const teamId of teamIds) {
+  for (const teamName of teams) {
     try {
-      const response = await fetch(
-        `https://www.thesportsdb.com/api/v1/json/3/eventsnext.php?id=${teamId}`
+      // First, search for the team to get its ID
+      const searchResponse = await fetch(
+        `https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(teamName)}`
       )
 
-      if (response.ok) {
-        const data = await response.json()
-        const events = data.events || []
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json()
+        const team = searchData.teams?.[0]
         
-        for (const event of events) {
-          if (event.strSport === 'Soccer') {
-            matches.push({
-              match_id: `thesportsdb-${event.idEvent}`,
-              league: event.strLeague || 'Soccer',
-              team_home: event.strHomeTeam,
-              team_away: event.strAwayTeam,
-              score_home: event.intHomeScore ? parseInt(event.intHomeScore) : null,
-              score_away: event.intAwayScore ? parseInt(event.intAwayScore) : null,
-              status: event.strStatus || 'NS',
-              match_date: event.strTimestamp || event.dateEvent,
-              venue: event.strVenue || null,
-              round: event.intRound ? `Round ${event.intRound}` : null,
-              referee: null,
-            })
+        if (team && team.idTeam) {
+          // Fetch next events for this team
+          const eventsResponse = await fetch(
+            `https://www.thesportsdb.com/api/v1/json/3/eventsnext.php?id=${team.idTeam}`
+          )
+
+          if (eventsResponse.ok) {
+            const eventsData = await eventsResponse.json()
+            const events = eventsData.events || []
+            
+            for (const event of events) {
+              if (event.strSport === 'Soccer') {
+                matches.push({
+                  match_id: `thesportsdb-${event.idEvent}`,
+                  league: event.strLeague || 'Soccer',
+                  team_home: event.strHomeTeam,
+                  team_away: event.strAwayTeam,
+                  score_home: event.intHomeScore ? parseInt(event.intHomeScore) : null,
+                  score_away: event.intAwayScore ? parseInt(event.intAwayScore) : null,
+                  status: event.strStatus || 'NS',
+                  match_date: event.strTimestamp || event.dateEvent,
+                  venue: event.strVenue || null,
+                  round: event.intRound ? `Round ${event.intRound}` : null,
+                  referee: null,
+                })
+              }
+            }
+          }
+
+          // Also fetch last events for completed matches
+          const lastEventsResponse = await fetch(
+            `https://www.thesportsdb.com/api/v1/json/3/eventslast.php?id=${team.idTeam}`
+          )
+
+          if (lastEventsResponse.ok) {
+            const lastEventsData = await lastEventsResponse.json()
+            const lastEvents = lastEventsData.results || []
+            
+            for (const event of lastEvents) {
+              if (event.strSport === 'Soccer') {
+                matches.push({
+                  match_id: `thesportsdb-${event.idEvent}`,
+                  league: event.strLeague || 'Soccer',
+                  team_home: event.strHomeTeam,
+                  team_away: event.strAwayTeam,
+                  score_home: event.intHomeScore ? parseInt(event.intHomeScore) : null,
+                  score_away: event.intAwayScore ? parseInt(event.intAwayScore) : null,
+                  status: event.strStatus || 'FT',
+                  match_date: event.strTimestamp || event.dateEvent,
+                  venue: event.strVenue || null,
+                  round: event.intRound ? `Round ${event.intRound}` : null,
+                  referee: null,
+                })
+              }
+            }
           }
         }
       }
     } catch (err) {
-      console.error(`TheSportsDB fetch error for team ${teamId}:`, err)
+      console.error(`TheSportsDB fetch error for team ${teamName}:`, err)
     }
     
     await new Promise(resolve => setTimeout(resolve, 1000))
