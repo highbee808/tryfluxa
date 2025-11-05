@@ -38,6 +38,62 @@ export type Database = {
         }
         Relationships: []
       }
+      data_monitor_log: {
+        Row: {
+          action_taken: string
+          after_data: Json | null
+          auto_fixed: boolean | null
+          before_data: Json | null
+          check_type: string
+          created_at: string
+          entity_id: string | null
+          entity_name: string | null
+          id: string
+          issue_description: string
+          issue_type: string
+          severity: string
+          timestamp: string
+        }
+        Insert: {
+          action_taken: string
+          after_data?: Json | null
+          auto_fixed?: boolean | null
+          before_data?: Json | null
+          check_type: string
+          created_at?: string
+          entity_id?: string | null
+          entity_name?: string | null
+          id?: string
+          issue_description: string
+          issue_type: string
+          severity: string
+          timestamp?: string
+        }
+        Update: {
+          action_taken?: string
+          after_data?: Json | null
+          auto_fixed?: boolean | null
+          before_data?: Json | null
+          check_type?: string
+          created_at?: string
+          entity_id?: string | null
+          entity_name?: string | null
+          id?: string
+          issue_description?: string
+          issue_type?: string
+          severity?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_monitor_log_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "fan_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fan_entities: {
         Row: {
           achievements: Json | null
