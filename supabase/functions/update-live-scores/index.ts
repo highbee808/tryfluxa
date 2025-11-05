@@ -6,6 +6,46 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Team code mapping: Full names -> API abbreviations
+const TEAM_CODE_MAP: Record<string, string> = {
+  // NBA Teams
+  'Dallas Mavericks': 'DAL',
+  'Phoenix Suns': 'PHO',
+  'Philadelphia 76ers': 'PHI',
+  'Milwaukee Bucks': 'MIL',
+  'Los Angeles Lakers': 'LAL',
+  'Boston Celtics': 'BOS',
+  'Golden State Warriors': 'GS',
+  'Miami Heat': 'MIA',
+  'Brooklyn Nets': 'BKN',
+  'Denver Nuggets': 'DEN',
+  'Memphis Grizzlies': 'MEM',
+  'Cleveland Cavaliers': 'CLE',
+  'New York Knicks': 'NYK',
+  'Sacramento Kings': 'SAC',
+  'LA Clippers': 'LAC',
+  'Minnesota Timberwolves': 'MIN',
+  'Oklahoma City Thunder': 'OKC',
+  'New Orleans Pelicans': 'NO',
+  'Indiana Pacers': 'IND',
+  'Atlanta Hawks': 'ATL',
+  'Chicago Bulls': 'CHI',
+  'Toronto Raptors': 'TOR',
+  'Houston Rockets': 'HOU',
+  'Utah Jazz': 'UTA',
+  'San Antonio Spurs': 'SA',
+  'Portland Trail Blazers': 'POR',
+  'Orlando Magic': 'ORL',
+  'Washington Wizards': 'WAS',
+  'Charlotte Hornets': 'CHA',
+  'Detroit Pistons': 'DET',
+  // Soccer teams (if needed)
+  'Manchester United': 'MUN',
+  'Liverpool': 'LIV',
+  'Chelsea': 'CHE',
+  'Arsenal': 'ARS',
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -43,15 +83,25 @@ serve(async (req) => {
         const sport = entity.stats?.sport || 'football'
         const league = entity.stats?.league || ''
         
+        // Use team code mapping to match API data
+        const searchName = TEAM_CODE_MAP[entity.name] || entity.name
+        const teamCode = TEAM_CODE_MAP[entity.name]
+        
+        console.log(`🔍 Searching for ${entity.name} using code: ${searchName}`)
+        
         // Fetch real match data from match_results table (populated by fetch-sports-results)
         const { data: matchResults } = await supabase
           .from('match_results')
           .select('*')
-          .or(`team_home.ilike.%${entity.name}%,team_away.ilike.%${entity.name}%`)
+          .or(`team_home.ilike.%${searchName}%,team_away.ilike.%${searchName}%`)
           .order('match_date', { ascending: true })
           .limit(10)
 
         console.log(`📋 Found ${matchResults?.length || 0} matches for ${entity.name}`)
+        
+        if (matchResults?.length === 0 && !teamCode) {
+          console.warn(`⚠️ No matches found for ${entity.name} - possible name mismatch (no team code mapping)`)
+        }
 
         // Filter matches to ensure they're from the correct sport/league
         const validMatches = matchResults?.filter(match => {
@@ -144,14 +194,18 @@ serve(async (req) => {
             : 'Away Stadium'
         }))
 
-        // Update entity with new match data
+        // Update entity with new match data and store team code
         const { error: updateError } = await supabase
           .from('fan_entities')
           .update({
             current_match: currentMatch,
             next_match: nextMatch,
             last_match: lastMatch,
-            upcoming_events: upcomingEvents
+            upcoming_events: upcomingEvents,
+            stats: {
+              ...entity.stats,
+              team_code: teamCode || entity.stats?.team_code
+            }
           })
           .eq('id', entity.id)
 

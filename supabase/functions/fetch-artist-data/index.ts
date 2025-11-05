@@ -42,21 +42,26 @@ serve(async (req) => {
 
     for (const entity of entities || []) {
       try {
+        // Use API name from stats if available, otherwise use entity name
+        const artistName = entity.stats?.api_name || entity.name
+        
+        console.log(`🎵 Fetching data for ${entity.name} using API name: ${artistName}`)
+        
         // Fetch artist info from Last.fm
-        const artistInfoUrl = `http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=${encodeURIComponent(entity.name)}&api_key=${LASTFM_API_KEY}&format=json`;
+        const artistInfoUrl = `http://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=${encodeURIComponent(artistName)}&api_key=${LASTFM_API_KEY}&format=json`;
         
         const infoResponse = await fetch(artistInfoUrl);
         const infoData = await infoResponse.json();
 
         if (infoData.error) {
-          console.log(`⚠️ Artist not found: ${entity.name}`);
+          console.warn(`⚠️ Artist not found: ${entity.name} (API name: ${artistName}) - possible name mismatch`);
           continue;
         }
 
         const artist = infoData.artist;
 
-        // Fetch top albums
-        const albumsUrl = `http://ws.audioscrobbler.com/2.0/?method=artist.gettopalbums&artist=${encodeURIComponent(entity.name)}&api_key=${LASTFM_API_KEY}&format=json&limit=3`;
+        // Fetch top albums using the same artist name
+        const albumsUrl = `http://ws.audioscrobbler.com/2.0/?method=artist.gettopalbums&artist=${encodeURIComponent(artistName)}&api_key=${LASTFM_API_KEY}&format=json&limit=3`;
         const albumsResponse = await fetch(albumsUrl);
         const albumsData = await albumsResponse.json();
 
