@@ -4,9 +4,26 @@ import { toast } from 'sonner';
 
 export const useAutoUpdateScores = () => {
   useEffect(() => {
-    console.log('🔴 Setting up auto score updates...');
+    console.log('🔄 Setting up auto score updates and data sync...');
 
-    // Update scores every 30 seconds
+    // Sync comprehensive sports data every hour
+    const syncSportsData = async () => {
+      try {
+        console.log('🔄 Syncing sports data from APIs...');
+        const { data, error } = await supabase.functions.invoke('sync-sports-data');
+        
+        if (error) {
+          console.error('Error syncing sports data:', error);
+          return;
+        }
+
+        console.log(`✅ Synced ${data?.totalMatches || 0} matches`);
+      } catch (err) {
+        console.error('Failed to sync sports data:', err);
+      }
+    };
+
+    // Update live scores frequently
     const updateScores = async () => {
       try {
         const { data, error } = await supabase.functions.invoke('update-live-scores');
@@ -17,22 +34,27 @@ export const useAutoUpdateScores = () => {
         }
 
         if (data?.updated > 0) {
-          console.log(`✅ Updated ${data.updated} live scores`);
+          console.log(`✅ Updated ${data.updated} team pages`);
         }
       } catch (err) {
         console.error('Failed to update scores:', err);
       }
     };
 
-    // Initial update
+    // Initial sync and update
+    syncSportsData();
     updateScores();
 
-    // Set up interval (every 30 seconds)
-    const interval = setInterval(updateScores, 30000);
+    // Sync sports data every hour
+    const syncInterval = setInterval(syncSportsData, 60 * 60 * 1000);
+
+    // Update live scores every 2 minutes
+    const updateInterval = setInterval(updateScores, 2 * 60 * 1000);
 
     return () => {
-      console.log('Cleaning up score updates');
-      clearInterval(interval);
+      console.log('Cleaning up sports data sync');
+      clearInterval(syncInterval);
+      clearInterval(updateInterval);
     };
   }, []);
 };

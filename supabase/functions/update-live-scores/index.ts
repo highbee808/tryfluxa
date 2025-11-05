@@ -41,97 +41,108 @@ serve(async (req) => {
     for (const entity of entities || []) {
       try {
         const sport = entity.stats?.sport || 'football'
-        let matchData = null
-
-        // Fetch real sports data based on sport type
-        if (sport === 'football' || sport === 'soccer') {
-          // Using SportsData.io Soccer API
-          try {
-            const response = await fetch(
-              `https://api.sportsdata.io/v3/soccer/scores/json/GamesByDate/${new Date().toISOString().split('T')[0]}?key=${sportsApiKey}`,
-              { headers: { 'Ocp-Apim-Subscription-Key': sportsApiKey } }
-            )
-            
-            if (response.ok) {
-              const games = await response.json()
-              matchData = games.find((g: any) => 
-                g.HomeTeamName?.includes(entity.name.split(' ')[0]) || 
-                g.AwayTeamName?.includes(entity.name.split(' ')[0])
-              )
-            }
-          } catch (apiErr) {
-            console.log(`API fetch failed for ${entity.name}, using fallback`)
-          }
-        } else if (sport === 'basketball') {
-          // Using SportsData.io NBA API
-          try {
-            const response = await fetch(
-              `https://api.sportsdata.io/v3/nba/scores/json/GamesByDate/${new Date().toISOString().split('T')[0]}?key=${sportsApiKey}`,
-              { headers: { 'Ocp-Apim-Subscription-Key': sportsApiKey } }
-            )
-            
-            if (response.ok) {
-              const games = await response.json()
-              matchData = games.find((g: any) => 
-                g.HomeTeam?.includes(entity.name.split(' ')[0]) || 
-                g.AwayTeam?.includes(entity.name.split(' ')[0])
-              )
-            }
-          } catch (apiErr) {
-            console.log(`API fetch failed for ${entity.name}, using fallback`)
-          }
-        }
-
-        // Determine if match is live based on API data or generate realistic schedule
-        const isLive = matchData?.Status === 'InProgress' || matchData?.Status === 'Halftime'
+        const league = entity.stats?.league || ''
         
-        const currentMatch = isLive && matchData ? {
+        // Fetch real match data from match_results table (populated by fetch-sports-results)
+        const { data: matchResults } = await supabase
+          .from('match_results')
+          .select('*')
+          .or(`team_home.ilike.%${entity.name}%,team_away.ilike.%${entity.name}%`)
+          .order('match_date', { ascending: true })
+          .limit(10)
+
+        console.log(`📋 Found ${matchResults?.length || 0} matches for ${entity.name}`)
+
+        // Filter matches to ensure they're from the correct sport/league
+        const validMatches = matchResults?.filter(match => {
+          const matchLeague = match.league || ''
+          // Validate league matches entity's league
+          if (league && !matchLeague.toLowerCase().includes(league.toLowerCase())) {
+            return false
+          }
+          
+          // Additional validation: ensure both teams exist and match is valid
+          if (!match.team_home || !match.team_away) return false
+          
+          // Check if entity name appears in either team
+          const entityNameLower = entity.name.toLowerCase()
+          const homeTeamLower = match.team_home.toLowerCase()
+          const awayTeamLower = match.team_away.toLowerCase()
+          
+          return homeTeamLower.includes(entityNameLower) || awayTeamLower.includes(awayTeamLower)
+        }) || []
+
+        // Find live match
+        const liveMatch = validMatches.find(m => 
+          m.status === 'InProgress' || m.status === 'Halftime'
+        )
+
+        // Find completed matches
+        const completedMatches = validMatches.filter(m => 
+          m.status === 'FullTime' || m.status === 'Finished'
+        ).sort((a, b) => new Date(b.match_date).getTime() - new Date(a.match_date).getTime())
+
+        // Find scheduled matches
+        const scheduledMatches = validMatches.filter(m => 
+          m.status === 'Scheduled' || m.status === 'Not Started'
+        ).sort((a, b) => new Date(a.match_date).getTime() - new Date(b.match_date).getTime())
+
+        const currentMatch = liveMatch ? {
           status: 'live',
-          league: matchData.Competition || entity.stats?.league || 'League',
-          home_team: matchData.HomeTeamName || matchData.HomeTeam || entity.name,
-          away_team: matchData.AwayTeamName || matchData.AwayTeam || getRandomOpponent(entity.name, sport),
-          home_score: matchData.HomeTeamScore || 0,
-          away_score: matchData.AwayTeamScore || 0,
-          match_time: matchData.CurrentPeriod ? `${matchData.CurrentPeriod}'` : "LIVE",
-          commentary: generateCommentary(entity.name, matchData.HomeTeamScore || 0, matchData.AwayTeamScore || 0),
-          match_id: matchData.GameID || `live-${entity.id}`
+          league: liveMatch.league,
+          home_team: liveMatch.team_home,
+          away_team: liveMatch.team_away,
+          home_score: liveMatch.score_home || 0,
+          away_score: liveMatch.score_away || 0,
+          match_time: "LIVE",
+          commentary: generateCommentary(
+            entity.name, 
+            liveMatch.score_home || 0, 
+            liveMatch.score_away || 0
+          ),
+          match_id: liveMatch.match_id
         } : null
 
-        // Get upcoming matches from API or generate realistic ones
-        const nextMatch = {
-          home_team: entity.name,
-          away_team: getRandomOpponent(entity.name, sport),
-          league: entity.stats?.league || 'League',
-          date: getNextMatchDate(),
-          venue: entity.stats?.stadium || 'Home Stadium'
-        }
+        const lastMatch = completedMatches[0] ? {
+          home_team: completedMatches[0].team_home,
+          away_team: completedMatches[0].team_away,
+          home_score: completedMatches[0].score_home,
+          away_score: completedMatches[0].score_away,
+          league: completedMatches[0].league,
+          date: new Date(completedMatches[0].match_date).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            year: 'numeric' 
+          })
+        } : null
 
-        const lastMatch = {
-          home_team: entity.name,
-          away_team: getRandomOpponent(entity.name, sport),
-          home_score: Math.floor(Math.random() * 4),
-          away_score: Math.floor(Math.random() * 4),
-          league: entity.stats?.league || 'League',
-          date: getLastMatchDate()
-        }
+        const nextMatch = scheduledMatches[0] ? {
+          home_team: scheduledMatches[0].team_home,
+          away_team: scheduledMatches[0].team_away,
+          league: scheduledMatches[0].league,
+          date: new Date(scheduledMatches[0].match_date).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          venue: entity.stats?.stadium || 'Stadium'
+        } : null
 
-        const upcomingEvents = [
-          {
-            title: `${entity.name} vs ${getRandomOpponent(entity.name, sport)}`,
-            date: getUpcomingDate(1),
-            venue: entity.stats?.stadium || 'Home Stadium'
-          },
-          {
-            title: `${getRandomOpponent(entity.name, sport)} vs ${entity.name}`,
-            date: getUpcomingDate(2),
-            venue: 'Away Stadium'
-          },
-          {
-            title: `${entity.name} vs ${getRandomOpponent(entity.name, sport)}`,
-            date: getUpcomingDate(3),
-            venue: entity.stats?.stadium || 'Home Stadium'
-          }
-        ]
+        const upcomingEvents = scheduledMatches.slice(0, 3).map(match => ({
+          title: `${match.team_home} vs ${match.team_away}`,
+          date: new Date(match.match_date).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          venue: match.team_home === entity.name 
+            ? (entity.stats?.stadium || 'Home Stadium')
+            : 'Away Stadium'
+        }))
 
         // Update entity with new match data
         const { error: updateError } = await supabase
@@ -186,23 +197,6 @@ serve(async (req) => {
 })
 
 // Helper functions
-function getRandomOpponent(currentTeam: string, sport: string): string {
-  const footballOpponents = [
-    'Liverpool', 'Arsenal', 'Chelsea', 'Manchester United', 'Manchester City',
-    'Barcelona', 'Real Madrid', 'Bayern Munich', 'PSG', 'Juventus',
-    'Inter Milan', 'Atletico Madrid', 'Napoli', 'Borussia Dortmund'
-  ]
-  
-  const basketballOpponents = [
-    'Lakers', 'Celtics', 'Warriors', 'Bulls', 'Heat', 'Nets',
-    'Bucks', 'Nuggets', 'Suns', 'Mavericks', '76ers', 'Clippers'
-  ]
-  
-  const opponents = sport === 'basketball' ? basketballOpponents : footballOpponents
-  const filtered = opponents.filter(team => team !== currentTeam)
-  
-  return filtered[Math.floor(Math.random() * filtered.length)]
-}
 
 async function sendMatchNotification(supabase: any, entityId: string, match: any) {
   try {
@@ -251,22 +245,3 @@ function generateCommentary(team: string, homeScore: number, awayScore: number):
   return commentaries[Math.floor(Math.random() * commentaries.length)]
 }
 
-function getNextMatchDate(): string {
-  const days = Math.floor(Math.random() * 7) + 1
-  const date = new Date()
-  date.setDate(date.getDate() + days)
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' - 8:00 PM'
-}
-
-function getLastMatchDate(): string {
-  const days = Math.floor(Math.random() * 7) + 1
-  const date = new Date()
-  date.setDate(date.getDate() - days)
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function getUpcomingDate(weeksAhead: number): string {
-  const date = new Date()
-  date.setDate(date.getDate() + (weeksAhead * 7))
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
