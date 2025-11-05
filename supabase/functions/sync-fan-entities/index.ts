@@ -371,10 +371,18 @@ serve(async (req) => {
   try {
     console.log('🔄 Syncing fan entities from match data...')
     
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    // Validate required environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('❌ Missing required environment variables')
+      throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured')
+    }
+    
+    console.log('✅ Environment variables loaded successfully')
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Get all matches including live/scheduled ones
     const { data: matches, error: matchError } = await supabase
@@ -384,8 +392,11 @@ serve(async (req) => {
       .limit(1000)
 
     if (matchError) {
+      console.error('❌ Error fetching matches:', matchError)
       throw matchError
     }
+    
+    console.log(`✅ Fetched ${matches?.length || 0} matches successfully`)
 
     // Extract unique teams and their current matches
     const teamsSet = new Set<string>()
