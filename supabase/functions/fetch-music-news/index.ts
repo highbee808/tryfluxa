@@ -37,37 +37,64 @@ serve(async (req) => {
       try {
         let articles: any[] = [];
 
-        // Try NewsAPI first
+        // Try NewsAPI first with exact name match
         if (NEWSAPI_KEY) {
-          const newsUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(entity.name + ' music')}&sortBy=publishedAt&pageSize=5&apiKey=${NEWSAPI_KEY}`;
+          // Use quoted search for exact match and require the artist name in title
+          const newsUrl = `https://newsapi.org/v2/everything?q="${encodeURIComponent(entity.name)}"&sortBy=publishedAt&pageSize=10&apiKey=${NEWSAPI_KEY}`;
           const newsResponse = await fetch(newsUrl);
           const newsData = await newsResponse.json();
           
           if (newsData.articles) {
-            articles = newsData.articles.slice(0, 5).map((article: any) => ({
-              title: article.title,
-              url: article.url,
-              image: article.urlToImage,
-              published: article.publishedAt,
-              source: article.source?.name || 'News'
-            }));
+            // Filter to only include articles where the entity name appears prominently in the title
+            articles = newsData.articles
+              .filter((article: any) => {
+                const title = article.title?.toLowerCase() || '';
+                const description = article.description?.toLowerCase() || '';
+                const entityNameLower = entity.name.toLowerCase();
+                
+                // Must have entity name in title or be prominently in description
+                return title.includes(entityNameLower) || 
+                       (description.includes(entityNameLower) && description.startsWith(entityNameLower));
+              })
+              .slice(0, 5)
+              .map((article: any) => ({
+                title: article.title,
+                url: article.url,
+                image: article.urlToImage,
+                published: article.publishedAt,
+                source: article.source?.name || 'News',
+                description: article.description
+              }));
           }
         }
 
         // Fallback to Mediastack if NewsAPI fails
         if (articles.length === 0 && MEDIASTACK_KEY) {
-          const mediastackUrl = `http://api.mediastack.com/v1/news?access_key=${MEDIASTACK_KEY}&keywords=${encodeURIComponent(entity.name)}&categories=entertainment&limit=5`;
+          const mediastackUrl = `http://api.mediastack.com/v1/news?access_key=${MEDIASTACK_KEY}&keywords=${encodeURIComponent(entity.name)}&categories=entertainment&limit=10`;
           const mediastackResponse = await fetch(mediastackUrl);
           const mediastackData = await mediastackResponse.json();
           
           if (mediastackData.data) {
-            articles = mediastackData.data.slice(0, 5).map((article: any) => ({
-              title: article.title,
-              url: article.url,
-              image: article.image,
-              published: article.published_at,
-              source: article.source || 'News'
-            }));
+            // Filter to only include articles about this specific artist
+            articles = mediastackData.data
+              .filter((article: any) => {
+                const title = article.title?.toLowerCase() || '';
+                const description = article.description?.toLowerCase() || '';
+                const entityNameLower = entity.name.toLowerCase();
+                
+                // Must have entity name in title or be prominently in description
+                return title.includes(entityNameLower) || 
+                       (description.includes(entityNameLower) && description.startsWith(entityNameLower));
+              })
+              .slice(0, 5)
+              .map((article: any) => ({
+                title: article.title,
+                url: article.url,
+                image: article.image,
+                published: article.published_at,
+                source: article.source || 'News',
+                description: article.description
+              }));
           }
         }
 

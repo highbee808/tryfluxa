@@ -145,14 +145,26 @@ serve(async (req) => {
 
             if (newsResponse.ok) {
               const newsData = await newsResponse.json()
-              news = newsData.slice(0, 10).map((item: any) => ({
-                title: item.Title,
-                content: item.Content,
-                url: item.Url,
-                source: item.Source,
-                published: item.Updated || item.TimeAgo,
-                image: item.OriginalSourceUrl,
-              }))
+              // Filter to only include news specifically about this team
+              news = newsData
+                .filter((item: any) => {
+                  const title = item.Title?.toLowerCase() || '';
+                  const content = item.Content?.toLowerCase() || '';
+                  const teamNameLower = teamName.toLowerCase();
+                  
+                  // Must have team name prominently in title or content starts with team name
+                  return title.includes(teamNameLower) || 
+                         (content.includes(teamNameLower) && content.substring(0, 100).includes(teamNameLower));
+                })
+                .slice(0, 10)
+                .map((item: any) => ({
+                  title: item.Title,
+                  content: item.Content,
+                  url: item.Url,
+                  source: item.Source,
+                  published: item.Updated || item.TimeAgo,
+                  image: item.OriginalSourceUrl,
+                }))
             }
           } catch (err) {
             console.error(`Failed to fetch news for ${teamName}:`, err)
