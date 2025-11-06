@@ -48,44 +48,17 @@ export const NewsCard = ({
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [loadingAudio, setLoadingAudio] = useState(false);
 
+  // Audio generation is now disabled for news cards to improve performance
+  // News items from entity feeds don't have narration audio
   useEffect(() => {
-    // Generate audio when card is mounted
-    const generateAudio = async () => {
-      if (audioUrl) return; // Already generated
-      
-      setLoadingAudio(true);
-      try {
-        const narrationText = `${title}. ${description || source}`;
-        
-        const { data, error } = await supabase.functions.invoke('text-to-speech', {
-          body: { 
-            text: narrationText,
-            voice: 'nova', // Fluxa's voice
-            speed: 1.0
-          }
-        });
-
-        if (error) throw error;
-        if (data?.audioUrl) {
-          setAudioUrl(data.audioUrl);
-        }
-      } catch (error) {
-        console.error('Failed to generate audio:', error);
-      } finally {
-        setLoadingAudio(false);
-      }
-    };
-
-    generateAudio();
-  }, [title, description, source, audioUrl]);
+    // Don't auto-generate audio for news items
+    // Audio is only available for generated gists
+    setAudioUrl(null);
+  }, []);
 
   const handlePlayClick = () => {
-    if (!audioUrl && !loadingAudio) {
-      toast.error("Audio is still being generated");
-      return;
-    }
-    if (!audioUrl) return;
-    onPlay(audioUrl);
+    // News items don't have audio - show info message
+    toast.info("Audio narration is only available for Fluxa-generated gists");
   };
 
   return (
@@ -125,13 +98,7 @@ export const NewsCard = ({
             }}
             disabled={loadingAudio}
           >
-            {loadingAudio ? (
-              <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            ) : isPlaying ? (
-              <Pause className="w-8 h-8 text-blue-600" />
-            ) : (
-              <Play className="w-8 h-8 text-blue-600 ml-1" />
-            )}
+            <Play className="w-8 h-8 text-blue-600 ml-1 opacity-50" />
           </button>
         </div>
 

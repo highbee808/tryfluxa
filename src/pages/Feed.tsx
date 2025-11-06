@@ -70,12 +70,35 @@ const Feed = () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         
+        // Get user's interests to filter content
+        let userTopics: string[] = [];
+        if (user) {
+          const { data: subniches } = await supabase
+            .from("user_subniches")
+            .select("main_topic, sub_niches")
+            .eq("user_id", user.id);
+          
+          if (subniches && subniches.length > 0) {
+            userTopics = [
+              ...subniches.map(s => s.main_topic),
+              ...subniches.flatMap(s => s.sub_niches || [])
+            ];
+          }
+        }
+
+        // Fetch gists - filter by user topics if available
         let query = supabase
           .from("gists")
           .select("*")
           .eq("status", "published")
           .order("published_at", { ascending: false })
-          .limit(20);
+          .limit(50);
+
+        if (userTopics.length > 0) {
+          query = query.or(
+            userTopics.map(topic => `topic_category.ilike.%${topic}%,topic.ilike.%${topic}%`).join(',')
+          );
+        }
 
         const { data, error } = await query;
 

@@ -77,49 +77,55 @@ serve(async (req) => {
     const trends = trendsData.trends || []
     console.log(`✅ Found ${trends.length} trending topics`)
 
-    // Step 2: Generate gists for each trending topic (limit to 5 per run)
+    // Step 2: Get diverse topics to generate gists about
+    const topicsToGenerate = [
+      { topic: "Latest Premier League Results", category: "Sports" },
+      { topic: "Top Music Releases This Week", category: "Music" },
+      { topic: "Breaking Entertainment News", category: "Entertainment" },
+      { topic: "Tech Industry Updates", category: "Technology" },
+      { topic: "Celebrity Fashion Trends", category: "Celebrity Gossip" }
+    ];
+
+    // Step 3: Generate gists for trending topics from scraper
     const generatedGists = []
-    const trendsToProcess = trends.slice(0, 5)
+    const trendsToProcess = trends.slice(0, 3) // Take 3 from scraper
     
-    for (const trend of trendsToProcess) {
+    // Combine scraper trends with predefined topics
+    const allTopics = [
+      ...trendsToProcess.map((t: any) => ({ topic: t.topic || t.title, category: t.category, source_url: t.url, published_at: t.published_at })),
+      ...topicsToGenerate.slice(0, 2) // Add 2 predefined topics
+    ];
+    
+    for (const topicData of allTopics) {
       try {
-        console.log(`🎨 Generating gist for: ${trend.topic}`)
+        console.log(`🎨 Generating gist for: ${topicData.topic}`)
         
-        // Generate gist content using Lovable AI
-        const gistResponse = await supabase.functions.invoke('generate-gist', {
-          body: { topic: trend.topic }
-        })
-
-        if (gistResponse.error) {
-          console.log(`⚠️ Failed to generate gist for ${trend.topic}:`, gistResponse.error)
-          continue
-        }
-
-        const gistData = gistResponse.data
-        
-        // Publish the gist with source URL and published date
+        // Directly call publish-gist which will handle generation and TTS
         const publishResponse = await supabase.functions.invoke('publish-gist', {
           body: {
-            topic: trend.topic,
-            topicCategory: trend.category,
-            imageUrl: gistData.ai_generated_image,
-            sourceUrl: trend.source_url,
-            newsPublishedAt: trend.published_at,
+            topic: topicData.topic,
+            topicCategory: topicData.category,
+            sourceUrl: topicData.source_url,
+            newsPublishedAt: topicData.published_at,
           }
         })
 
         if (!publishResponse.error && publishResponse.data) {
           generatedGists.push(publishResponse.data)
-          console.log(`✅ Published gist: ${gistData.headline}`)
+          console.log(`✅ Published gist: ${topicData.topic}`)
           
-          // Mark trend as processed in raw_trends table
-          await supabase
-            .from('raw_trends')
-            .update({ processed: true })
-            .eq('title', trend.topic)
+          // Mark trend as processed if it came from raw_trends
+          if (topicData.source_url && trendsToProcess.find((t: any) => t.topic === topicData.topic || t.title === topicData.topic)) {
+            await supabase
+              .from('raw_trends')
+              .update({ processed: true })
+              .eq('title', topicData.topic)
+          }
+        } else {
+          console.log(`⚠️ Failed to publish gist for ${topicData.topic}:`, publishResponse.error)
         }
       } catch (error) {
-        console.log(`❌ Error processing ${trend.topic}:`, error instanceof Error ? error.message : 'Unknown error')
+        console.log(`❌ Error processing ${topicData.topic}:`, error instanceof Error ? error.message : 'Unknown error')
       }
     }
 
