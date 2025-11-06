@@ -22,6 +22,7 @@ interface Gist {
   audio_url: string;
   image_url: string | null;
   topic: string;
+  topic_category: string | null;
   published_at?: string;
 }
 
@@ -53,6 +54,9 @@ const Feed = () => {
   const [currentPlayingNewsId, setCurrentPlayingNewsId] = useState<string | null>(null);
   const [isNewsPlaying, setIsNewsPlaying] = useState(false);
   const newsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [selectedTab, setSelectedTab] = useState<"all" | "foryou">("foryou");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [newGistCount, setNewGistCount] = useState(0);
   
   const fluxaMemory = useFluxaMemory();
 
@@ -65,42 +69,43 @@ const Feed = () => {
 
   const categories = ["All", "Technology", "Lifestyle", "Science", "Media", "Productivity"];
 
-  useEffect(() => {
-    const loadGists = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
+  const loadGists = async (showToast = false) => {
+    try {
+      if (showToast) setIsRefreshing(true);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Get user's interests to filter content
+      let userTopics: string[] = [];
+      if (user) {
+        const { data: subniches } = await supabase
+          .from("user_subniches")
+          .select("main_topic, sub_niches")
+          .eq("user_id", user.id);
         
-        // Get user's interests to filter content
-        let userTopics: string[] = [];
-        if (user) {
-          const { data: subniches } = await supabase
-            .from("user_subniches")
-            .select("main_topic, sub_niches")
-            .eq("user_id", user.id);
-          
-          if (subniches && subniches.length > 0) {
-            userTopics = [
-              ...subniches.map(s => s.main_topic),
-              ...subniches.flatMap(s => s.sub_niches || [])
-            ];
-          }
+        if (subniches && subniches.length > 0) {
+          userTopics = [
+            ...subniches.map(s => s.main_topic),
+            ...subniches.flatMap(s => s.sub_niches || [])
+          ];
         }
+      }
 
-        // Fetch gists - filter by user topics if available
-        let query = supabase
-          .from("gists")
-          .select("*")
-          .eq("status", "published")
-          .order("published_at", { ascending: false })
-          .limit(50);
+      // Fetch gists - filter by user topics if available
+      let query = supabase
+        .from("gists")
+        .select("*")
+        .eq("status", "published")
+        .order("published_at", { ascending: false })
+        .limit(50);
 
-        if (userTopics.length > 0) {
-          query = query.or(
-            userTopics.map(topic => `topic_category.ilike.%${topic}%,topic.ilike.%${topic}%`).join(',')
-          );
-        }
+      if (userTopics.length > 0 && selectedTab === "foryou") {
+        query = query.or(
+          userTopics.map(topic => `topic_category.ilike.%${topic}%,topic.ilike.%${topic}%`).join(',')
+        );
+      }
 
-        const { data, error } = await query;
+      const { data, error } = await query;
 
         if (error) throw error;
 
@@ -163,11 +168,39 @@ const Feed = () => {
         toast.error("Failed to load feed");
       } finally {
         setLoading(false);
+        if (showToast) {
+          setIsRefreshing(false);
+          toast.success("Feed refreshed!");
+        }
       }
     };
 
+  useEffect(() => {
     loadGists();
-  }, []);
+
+    // Set up realtime subscription for new gists
+    const channel = supabase
+      .channel('gists-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'gists',
+          filter: 'status=eq.published'
+        },
+        (payload) => {
+          console.log('New gist published:', payload);
+          setNewGistCount(prev => prev + 1);
+          toast.info('New content available! Click refresh to see it.');
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedTab]);
 
   const handlePlay = async (gistId: string, audioUrl: string) => {
     if (currentPlayingId === gistId && isPlaying) {
@@ -222,11 +255,12 @@ const Feed = () => {
 
   const filteredGists: Gist[] = selectedCategory === "All" 
     ? gists 
-    : gists.filter(g => g.topic === selectedCategory);
+    : gists.filter(g => g.topic_category?.toLowerCase().includes(selectedCategory.toLowerCase()) || 
+                        g.topic.toLowerCase().includes(selectedCategory.toLowerCase()));
 
   const filteredNews: NewsItem[] = selectedCategory === "All"
     ? newsItems
-    : newsItems.filter(n => n.category === selectedCategory);
+    : newsItems.filter(n => n.category.toLowerCase().includes(selectedCategory.toLowerCase()));
 
   // Combine and sort by time
   const combinedFeed = [
@@ -248,6 +282,58 @@ const Feed = () => {
       <NavigationBar />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Tabs */}
+        <div className="mb-6 flex items-center gap-4">
+          <div className="flex bg-card border border-border rounded-lg p-1">
+            <button
+              onClick={() => setSelectedTab("foryou")}
+              className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
+                selectedTab === "foryou"
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              For You
+            </button>
+            <button
+              onClick={() => setSelectedTab("all")}
+              className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
+                selectedTab === "all"
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              All
+            </button>
+          </div>
+          <Button
+            onClick={() => {
+              setNewGistCount(0);
+              loadGists(true);
+            }}
+            variant="outline"
+            className="ml-auto relative"
+            disabled={isRefreshing}
+          >
+            {isRefreshing ? (
+              <>
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <TrendingUp className="w-4 h-4 mr-2" />
+                Refresh
+                {newGistCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {newGistCount}
+                  </span>
+                )}
+              </>
+            )}
+          </Button>
+        </div>
+
         {/* Header Banner */}
         <div className="mb-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-8 md:p-12 text-white shadow-xl animate-fade-in relative overflow-hidden">
           <div className="flex items-center justify-between mb-4">
@@ -255,7 +341,9 @@ const Feed = () => {
               <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
                 <Headphones className="w-6 h-6" />
               </div>
-              <h1 className="text-3xl md:text-4xl font-bold">Your Personalized Feed</h1>
+              <h1 className="text-3xl md:text-4xl font-bold">
+                {selectedTab === "foryou" ? "Your Personalized Feed" : "All Content"}
+              </h1>
             </div>
             <div className="flex items-center gap-2">
               <div className="text-white [&_button]:text-white [&_button:hover]:bg-white/20">
@@ -264,7 +352,7 @@ const Feed = () => {
               {/* Play button - positioned in top right on mobile */}
               <button
                 onClick={() => {
-                  const firstGist = gists[0];
+                  const firstGist = filteredGists[0];
                   if (firstGist) handlePlay(firstGist.id, firstGist.audio_url);
                 }}
                 className="w-14 h-14 md:w-16 md:h-16 bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/40 transition-all hover:scale-105 border-2 border-white/50"
@@ -275,7 +363,9 @@ const Feed = () => {
             </div>
           </div>
           <p className="text-blue-100 text-lg">
-            Discover curated content tailored just for you. Click play to listen!
+            {selectedTab === "foryou" 
+              ? "Content curated based on your interests. Click play to listen!"
+              : "Explore all the latest gists and news. Click play to listen!"}
           </p>
         </div>
 
