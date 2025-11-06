@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { Loader2, Heart, ArrowLeft, Send, Clock, Flame, RefreshCw } from "lucide
 import { useAutoUpdateScores } from "@/hooks/useAutoUpdateScores";
 import { LiveMatchRoom } from "@/components/LiveMatchRoom";
 import { requestNotificationPermission, sendFluxaPushNotification } from "@/lib/notifications";
+import { NewsCard } from "@/components/NewsCard";
 
 interface Entity {
   id: string;
@@ -55,6 +56,11 @@ const EntityPage = () => {
   const [sortBy, setSortBy] = useState<'latest' | 'top'>('latest');
   const [showLiveRoom, setShowLiveRoom] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [currentPlayingNewsId, setCurrentPlayingNewsId] = useState<string | null>(null);
+  const [isNewsPlaying, setIsNewsPlaying] = useState(false);
+  const newsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [likedNews, setLikedNews] = useState<string[]>([]);
+  const [bookmarkedNews, setBookmarkedNews] = useState<string[]>([]);
 
   // Enable automatic score updates
   useAutoUpdateScores();
@@ -657,21 +663,97 @@ const EntityPage = () => {
               </Card>
             )}
 
-            {/* News Feed */}
+            {/* News Feed - Gist Card Style */}
             {entity.news_feed && entity.news_feed.length > 0 && (
-              <Card className="mt-6 p-6">
-                <h3 className="font-bold mb-4 flex items-center gap-2">
+              <div className="mt-6 space-y-6">
+                <h3 className="font-bold text-xl flex items-center gap-2 px-2">
                   📰 Latest News
                 </h3>
-                <div className="space-y-4">
-                  {entity.news_feed.slice(0, 5).map((news: any, i: number) => (
-                    <div key={i} className="pb-4 border-b last:border-0">
-                      <h4 className="font-semibold text-sm mb-1">{news.title}</h4>
-                      <p className="text-xs text-muted-foreground">{news.source} • {news.time}</p>
-                    </div>
-                  ))}
+                <div className="space-y-6">
+                  {entity.news_feed.slice(0, 5).map((news: any, i: number) => {
+                    const newsId = `news-${entity.id}-${i}`;
+                    return (
+                      <NewsCard
+                        key={newsId}
+                        id={newsId}
+                        title={news.title}
+                        source={news.source}
+                        time={news.time || '1h ago'}
+                        description={news.description || `Latest news about ${entity.name}`}
+                        url={news.url}
+                        imageUrl={news.image || entity.background_url || undefined}
+                        category={entity.category}
+                        entityName={entity.name}
+                        isPlaying={currentPlayingNewsId === newsId && isNewsPlaying}
+                        isLiked={likedNews.includes(newsId)}
+                        isBookmarked={bookmarkedNews.includes(newsId)}
+                        onPlay={async () => {
+                          if (currentPlayingNewsId === newsId && isNewsPlaying) {
+                            newsAudioRef.current?.pause();
+                            setIsNewsPlaying(false);
+                            setCurrentPlayingNewsId(null);
+                          } else {
+                            if (newsAudioRef.current) {
+                              newsAudioRef.current.pause();
+                            }
+                            
+                            try {
+                              const narrationText = `${news.title}. ${news.description || news.source}`;
+                              const { data, error } = await supabase.functions.invoke('text-to-speech', {
+                                body: { 
+                                  text: narrationText,
+                                  voice: 'nova',
+                                  speed: 1.0
+                                }
+                              });
+
+                              if (error) throw error;
+                              
+                              if (data?.url) {
+                                const audio = new Audio(data.url);
+                                newsAudioRef.current = audio;
+                                audio.play();
+                                setIsNewsPlaying(true);
+                                setCurrentPlayingNewsId(newsId);
+
+                                audio.onended = () => {
+                                  setIsNewsPlaying(false);
+                                  setCurrentPlayingNewsId(null);
+                                };
+                              }
+                            } catch (error) {
+                              console.error('Failed to play news audio:', error);
+                              toast.error('Failed to play audio');
+                            }
+                          }
+                        }}
+                        onLike={() => {
+                          setLikedNews(prev => 
+                            prev.includes(newsId) ? prev.filter(id => id !== newsId) : [...prev, newsId]
+                          );
+                        }}
+                        onComment={() => {
+                          toast.info('Open discussion coming soon!');
+                        }}
+                        onBookmark={() => {
+                          setBookmarkedNews(prev => 
+                            prev.includes(newsId) ? prev.filter(id => id !== newsId) : [...prev, newsId]
+                          );
+                          toast.success(bookmarkedNews.includes(newsId) ? 'Removed from bookmarks' : 'Bookmarked!');
+                        }}
+                        onShare={() => {
+                          if (news.url) {
+                            navigator.clipboard.writeText(news.url);
+                            toast.success('Link copied to clipboard!');
+                          } else {
+                            toast.success('Shared!');
+                          }
+                        }}
+                      />
+                    );
+                  })}
                 </div>
-              </Card>
+              </div>
             )}
 
             {/* Posts Section */}

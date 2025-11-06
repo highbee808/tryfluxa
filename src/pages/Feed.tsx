@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { FeedCard } from "@/components/FeedCard";
+import { NewsCard } from "@/components/NewsCard";
 import { NavigationBar } from "@/components/NavigationBar";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { useFluxaMemory } from "@/hooks/useFluxaMemory";
@@ -23,6 +24,19 @@ interface Gist {
   published_at?: string;
 }
 
+interface NewsItem {
+  id: string;
+  title: string;
+  source: string;
+  time: string;
+  description?: string;
+  url?: string;
+  image?: string;
+  category: string;
+  entityName: string;
+  entityId: string;
+}
+
 const Feed = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentPlayingId, setCurrentPlayingId] = useState<string | null>(null);
@@ -34,6 +48,10 @@ const Feed = () => {
   const [bookmarkedGists, setBookmarkedGists] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedPlatform, setSelectedPlatform] = useState("X");
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [currentPlayingNewsId, setCurrentPlayingNewsId] = useState<string | null>(null);
+  const [isNewsPlaying, setIsNewsPlaying] = useState(false);
+  const newsAudioRef = useRef<HTMLAudioElement | null>(null);
   
   const fluxaMemory = useFluxaMemory();
 
@@ -74,6 +92,45 @@ const Feed = () => {
             
             if (favorites) {
               setBookmarkedGists(favorites.map(f => f.gist_id));
+            }
+          }
+        }
+
+        // Load news from followed entities
+        if (user) {
+          const { data: follows } = await supabase
+            .from("fan_follows")
+            .select("entity_id")
+            .eq("user_id", user.id);
+
+          if (follows && follows.length > 0) {
+            const entityIds = follows.map(f => f.entity_id);
+            const { data: entities } = await supabase
+              .from("fan_entities")
+              .select("id, name, category, news_feed, background_url")
+              .in("id", entityIds);
+
+            if (entities) {
+              const allNews: NewsItem[] = [];
+              entities.forEach(entity => {
+                if (entity.news_feed && Array.isArray(entity.news_feed)) {
+                  entity.news_feed.slice(0, 3).forEach((news: any, idx: number) => {
+                    allNews.push({
+                      id: `news-${entity.id}-${idx}`,
+                      title: news.title,
+                      source: news.source,
+                      time: news.time || '1h ago',
+                      description: news.description || `Latest news about ${entity.name}`,
+                      url: news.url,
+                      image: news.image || entity.background_url,
+                      category: entity.category,
+                      entityName: entity.name,
+                      entityId: entity.id
+                    });
+                  });
+                }
+              });
+              setNewsItems(allNews);
             }
           }
         }
@@ -142,6 +199,16 @@ const Feed = () => {
   const filteredGists: Gist[] = selectedCategory === "All" 
     ? gists 
     : gists.filter(g => g.topic === selectedCategory);
+
+  const filteredNews: NewsItem[] = selectedCategory === "All"
+    ? newsItems
+    : newsItems.filter(n => n.category === selectedCategory);
+
+  // Combine and sort by time
+  const combinedFeed = [
+    ...filteredGists.map(g => ({ type: 'gist' as const, data: g })),
+    ...filteredNews.map(n => ({ type: 'news' as const, data: n }))
+  ];
 
   if (loading) {
     return (
@@ -273,38 +340,105 @@ const Feed = () => {
         <div className="grid lg:grid-cols-[1fr_320px] gap-8">
           {/* Main Feed */}
           <div className="space-y-6">
-            {filteredGists.length === 0 ? (
+            {combinedFeed.length === 0 ? (
               <Card className="p-12 text-center">
-                <p className="text-muted-foreground mb-4">No gists available yet</p>
+                <p className="text-muted-foreground mb-4">No content available yet</p>
                 <Button onClick={() => window.location.href = '/admin'}>
                   Go to Admin Panel
                 </Button>
               </Card>
             ) : (
-              filteredGists.map((gist) => (
-                <FeedCard
-                  key={gist.id}
-                  id={gist.id}
-                  imageUrl={gist.image_url || undefined}
-                  headline={gist.headline}
-                  context={gist.context}
-                  author="Fluxa"
-                  timeAgo="2h ago"
-                  category={gist.topic}
-                  readTime="5 min"
-                  likes={Math.floor(Math.random() * 1000)}
-                  comments={Math.floor(Math.random() * 200)}
-                  bookmarks={Math.floor(Math.random() * 300)}
-                  isPlaying={currentPlayingId === gist.id && isPlaying}
-                  isLiked={likedGists.includes(gist.id)}
-                  isBookmarked={bookmarkedGists.includes(gist.id)}
-                  onPlay={() => handlePlay(gist.id, gist.audio_url)}
-                  onLike={() => handleLike(gist.id)}
-                  onComment={() => handleTellMore(gist)}
-                  onBookmark={() => handleBookmark(gist.id)}
-                  onShare={handleShare}
-                />
-              ))
+              combinedFeed.map((item, idx) => 
+                item.type === 'gist' ? (
+                  <FeedCard
+                    key={`gist-${item.data.id}`}
+                    id={item.data.id}
+                    imageUrl={item.data.image_url || undefined}
+                    headline={item.data.headline}
+                    context={item.data.context}
+                    author="Fluxa"
+                    timeAgo="2h ago"
+                    category={item.data.topic}
+                    readTime="5 min"
+                    likes={Math.floor(Math.random() * 1000)}
+                    comments={Math.floor(Math.random() * 200)}
+                    bookmarks={Math.floor(Math.random() * 300)}
+                    isPlaying={currentPlayingId === item.data.id && isPlaying}
+                    isLiked={likedGists.includes(item.data.id)}
+                    isBookmarked={bookmarkedGists.includes(item.data.id)}
+                    onPlay={() => handlePlay(item.data.id, item.data.audio_url)}
+                    onLike={() => handleLike(item.data.id)}
+                    onComment={() => handleTellMore(item.data)}
+                    onBookmark={() => handleBookmark(item.data.id)}
+                    onShare={handleShare}
+                  />
+                ) : (
+                  <NewsCard
+                    key={`news-${item.data.id}`}
+                    id={item.data.id}
+                    title={item.data.title}
+                    source={item.data.source}
+                    time={item.data.time}
+                    description={item.data.description}
+                    url={item.data.url}
+                    imageUrl={item.data.image}
+                    category={item.data.category}
+                    entityName={item.data.entityName}
+                    isPlaying={currentPlayingNewsId === item.data.id && isNewsPlaying}
+                    isLiked={likedGists.includes(item.data.id)}
+                    isBookmarked={bookmarkedGists.includes(item.data.id)}
+                    onPlay={async () => {
+                      if (currentPlayingNewsId === item.data.id && isNewsPlaying) {
+                        newsAudioRef.current?.pause();
+                        setIsNewsPlaying(false);
+                        setCurrentPlayingNewsId(null);
+                      } else {
+                        if (newsAudioRef.current) {
+                          newsAudioRef.current.pause();
+                        }
+                        
+                        try {
+                          const narrationText = `${item.data.title}. ${item.data.description || item.data.source}`;
+                          const { data, error } = await supabase.functions.invoke('text-to-speech', {
+                            body: { 
+                              text: narrationText,
+                              voice: 'nova',
+                              speed: 1.0
+                            }
+                          });
+
+                          if (error) throw error;
+                          
+                          if (data?.url) {
+                            const audio = new Audio(data.url);
+                            newsAudioRef.current = audio;
+                            audio.play();
+                            setIsNewsPlaying(true);
+                            setCurrentPlayingNewsId(item.data.id);
+
+                            audio.onended = () => {
+                              setIsNewsPlaying(false);
+                              setCurrentPlayingNewsId(null);
+                            };
+                          }
+                        } catch (error) {
+                          console.error('Failed to play news audio:', error);
+                          toast.error('Failed to play audio');
+                        }
+                      }
+                    }}
+                    onLike={() => handleLike(item.data.id)}
+                    onComment={() => toast.info('Discussion coming soon!')}
+                    onBookmark={() => handleBookmark(item.data.id)}
+                    onShare={() => {
+                      if (item.data.url) {
+                        navigator.clipboard.writeText(item.data.url);
+                        toast.success('Link copied!');
+                      }
+                    }}
+                  />
+                )
+              )
             )}
           </div>
 
