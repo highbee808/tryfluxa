@@ -3,6 +3,7 @@ import { FeedCard } from "@/components/FeedCard";
 import { NewsCard } from "@/components/NewsCard";
 import { NavigationBar } from "@/components/NavigationBar";
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { NotificationCenter } from "@/components/NotificationCenter";
 import { useFluxaMemory } from "@/hooks/useFluxaMemory";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -233,17 +234,22 @@ const Feed = () => {
               </div>
               <h1 className="text-3xl md:text-4xl font-bold">Your Personalized Feed</h1>
             </div>
-            {/* Play button - positioned in top right on mobile */}
-            <button
-              onClick={() => {
-                const firstGist = gists[0];
-                if (firstGist) handlePlay(firstGist.id, firstGist.audio_url);
-              }}
-              className="w-14 h-14 md:w-16 md:h-16 bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/40 transition-all hover:scale-105 border-2 border-white/50"
-              aria-label="Play latest gist"
-            >
-              <Play className="w-7 h-7 md:w-8 md:h-8 fill-white text-white" />
-            </button>
+            <div className="flex items-center gap-2">
+              <div className="text-white [&_button]:text-white [&_button:hover]:bg-white/20">
+                <NotificationCenter />
+              </div>
+              {/* Play button - positioned in top right on mobile */}
+              <button
+                onClick={() => {
+                  const firstGist = gists[0];
+                  if (firstGist) handlePlay(firstGist.id, firstGist.audio_url);
+                }}
+                className="w-14 h-14 md:w-16 md:h-16 bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/40 transition-all hover:scale-105 border-2 border-white/50"
+                aria-label="Play latest gist"
+              >
+                <Play className="w-7 h-7 md:w-8 md:h-8 fill-white text-white" />
+              </button>
+            </div>
           </div>
           <p className="text-blue-100 text-lg">
             Discover curated content tailored just for you. Click play to listen!
@@ -387,7 +393,7 @@ const Feed = () => {
                     isPlaying={currentPlayingNewsId === item.data.id && isNewsPlaying}
                     isLiked={likedGists.includes(item.data.id)}
                     isBookmarked={bookmarkedGists.includes(item.data.id)}
-                    onPlay={async () => {
+                    onPlay={async (audioUrl?: string) => {
                       if (currentPlayingNewsId === item.data.id && isNewsPlaying) {
                         newsAudioRef.current?.pause();
                         setIsNewsPlaying(false);
@@ -397,33 +403,19 @@ const Feed = () => {
                           newsAudioRef.current.pause();
                         }
                         
-                        try {
-                          const narrationText = `${item.data.title}. ${item.data.description || item.data.source}`;
-                          const { data, error } = await supabase.functions.invoke('text-to-speech', {
-                            body: { 
-                              text: narrationText,
-                              voice: 'nova',
-                              speed: 1.0
-                            }
-                          });
+                        if (audioUrl) {
+                          const audio = new Audio(audioUrl);
+                          newsAudioRef.current = audio;
+                          audio.play();
+                          setIsNewsPlaying(true);
+                          setCurrentPlayingNewsId(item.data.id);
 
-                          if (error) throw error;
-                          
-                          if (data?.url) {
-                            const audio = new Audio(data.url);
-                            newsAudioRef.current = audio;
-                            audio.play();
-                            setIsNewsPlaying(true);
-                            setCurrentPlayingNewsId(item.data.id);
-
-                            audio.onended = () => {
-                              setIsNewsPlaying(false);
-                              setCurrentPlayingNewsId(null);
-                            };
-                          }
-                        } catch (error) {
-                          console.error('Failed to play news audio:', error);
-                          toast.error('Failed to play audio');
+                          audio.onended = () => {
+                            setIsNewsPlaying(false);
+                            setCurrentPlayingNewsId(null);
+                          };
+                        } else {
+                          toast.error('Audio not available');
                         }
                       }
                     }}

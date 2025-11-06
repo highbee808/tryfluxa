@@ -688,6 +688,66 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string | null
+          entity_id: string | null
+          entity_image: string | null
+          entity_name: string | null
+          gist_id: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          title: string
+          type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          entity_id?: string | null
+          entity_image?: string | null
+          entity_name?: string | null
+          gist_id?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          title: string
+          type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          entity_id?: string | null
+          entity_image?: string | null
+          entity_name?: string | null
+          gist_id?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          title?: string
+          type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "fan_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_gist_id_fkey"
+            columns: ["gist_id"]
+            isOneToOne: false
+            referencedRelation: "gists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       raw_trends: {
         Row: {
           category: string

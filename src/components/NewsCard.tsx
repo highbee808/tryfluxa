@@ -19,7 +19,7 @@ interface NewsCardProps {
   isPlaying: boolean;
   isLiked?: boolean;
   isBookmarked?: boolean;
-  onPlay: () => void;
+  onPlay: (audioUrl?: string) => void;
   onLike?: () => void;
   onComment?: () => void;
   onBookmark?: () => void;
@@ -66,8 +66,8 @@ export const NewsCard = ({
         });
 
         if (error) throw error;
-        if (data?.url) {
-          setAudioUrl(data.url);
+        if (data?.audioUrl) {
+          setAudioUrl(data.audioUrl);
         }
       } catch (error) {
         console.error('Failed to generate audio:', error);
@@ -84,7 +84,8 @@ export const NewsCard = ({
       toast.error("Audio is still being generated");
       return;
     }
-    onPlay();
+    if (!audioUrl) return;
+    onPlay(audioUrl);
   };
 
   return (
