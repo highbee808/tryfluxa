@@ -5,6 +5,8 @@ import { NewsCard } from "@/components/NewsCard";
 import { NavigationBar } from "@/components/NavigationBar";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { ShareDialog } from "@/components/ShareDialog";
+import { TrendingCarousel } from "@/components/TrendingCarousel";
 import { useFluxaMemory } from "@/hooks/useFluxaMemory";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -12,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Filter, Headphones, TrendingUp, Play, ChevronDown, Instagram, Facebook, MessageSquare } from "lucide-react";
+import { Search, Filter, Headphones, TrendingUp, Play, ChevronDown, Instagram, Facebook, MessageSquare, Sparkles, Bookmark } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { highlightText } from "@/lib/highlightText";
@@ -57,7 +59,7 @@ const Feed = () => {
   const [currentPlayingNewsId, setCurrentPlayingNewsId] = useState<string | null>(null);
   const [isNewsPlaying, setIsNewsPlaying] = useState(false);
   const newsAudioRef = useRef<HTMLAudioElement | null>(null);
-  const [selectedTab, setSelectedTab] = useState<"all" | "foryou">("foryou");
+  const [selectedTab, setSelectedTab] = useState<"all" | "foryou" | "bookmarks">("foryou");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [newGistCount, setNewGistCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
@@ -65,6 +67,9 @@ const Feed = () => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
   const [trendingGists, setTrendingGists] = useState<Gist[]>([]);
+  const [recommendedGists, setRecommendedGists] = useState<Gist[]>([]);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [selectedGist, setSelectedGist] = useState<Gist | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   
   const fluxaMemory = useFluxaMemory();
@@ -146,6 +151,41 @@ const Feed = () => {
           .limit(5);
         
         if (trending) setTrendingGists(trending);
+
+        // Load personalized recommendations based on user history
+        if (user) {
+          const { data: memory } = await supabase
+            .from("fluxa_memory")
+            .select("gist_history, favorite_topics")
+            .eq("user_id", user.id)
+            .single();
+
+          if (memory) {
+            // Get topics from history and favorites
+            const historyTopics = Array.isArray(memory.gist_history) 
+              ? memory.gist_history.map((h: any) => h.topic).filter(Boolean)
+              : [];
+            const favoriteTopics = memory.favorite_topics || [];
+            const allTopics = [...new Set([...historyTopics, ...favoriteTopics])];
+
+            if (allTopics.length > 0) {
+              const conditions = allTopics.flatMap(topic => [
+                `topic_category.ilike.%${topic}%`,
+                `topic.ilike.%${topic}%`
+              ]);
+
+              const { data: recommendations } = await supabase
+                .from("gists")
+                .select("*")
+                .eq("status", "published")
+                .or(conditions.join(','))
+                .order("published_at", { ascending: false })
+                .limit(6);
+
+              if (recommendations) setRecommendedGists(recommendations);
+            }
+          }
+        }
       }
 
       const { data: gistData, error: gistError } = await query;
@@ -304,13 +344,19 @@ const Feed = () => {
     });
   };
 
-  const handleShare = () => {
-    toast.success("Link copied to clipboard!");
+  const handleShare = (gist: Gist) => {
+    setSelectedGist(gist);
+    setShareDialogOpen(true);
   };
 
   // Search and filter gists
   const filteredGists: Gist[] = React.useMemo(() => {
     let filtered = gists;
+    
+    // Bookmarks tab - show only bookmarked gists
+    if (selectedTab === "bookmarks") {
+      filtered = filtered.filter(g => bookmarkedGists.includes(g.id));
+    }
     
     // Category filter
     if (selectedCategory !== "All") {
@@ -331,7 +377,7 @@ const Feed = () => {
     }
     
     return filtered;
-  }, [gists, selectedCategory, searchQuery]);
+  }, [gists, selectedCategory, searchQuery, selectedTab, bookmarkedGists]);
 
   const filteredNews: NewsItem[] = selectedCategory === "All"
     ? newsItems
@@ -380,6 +426,17 @@ const Feed = () => {
             >
               All
             </button>
+            <button
+              onClick={() => setSelectedTab("bookmarks")}
+              className={`px-6 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                selectedTab === "bookmarks"
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Bookmark className="w-4 h-4" />
+              Saved
+            </button>
           </div>
           <Button
             onClick={() => {
@@ -417,7 +474,11 @@ const Feed = () => {
                 <Headphones className="w-6 h-6" />
               </div>
               <h1 className="text-3xl md:text-4xl font-bold">
-                {selectedTab === "foryou" ? "Your Personalized Feed" : "All Content"}
+                {selectedTab === "foryou" 
+                  ? "Your Personalized Feed" 
+                  : selectedTab === "bookmarks"
+                  ? "Saved Gists"
+                  : "All Content"}
               </h1>
             </div>
             <div className="flex items-center gap-2">
@@ -440,6 +501,8 @@ const Feed = () => {
           <p className="text-blue-100 text-lg">
             {selectedTab === "foryou" 
               ? "Content curated based on your interests. Click play to listen!"
+              : selectedTab === "bookmarks"
+              ? "Your saved gists, available offline anytime!"
               : "Explore all the latest gists and news. Click play to listen!"}
           </p>
         </div>
@@ -524,23 +587,45 @@ const Feed = () => {
           ))}
         </div>
 
-        {/* Trending Section */}
-        {trendingGists.length > 0 && !searchQuery && (
+        {/* Trending Carousel */}
+        {trendingGists.length > 0 && !searchQuery && selectedTab !== "bookmarks" && (
+          <TrendingCarousel 
+            gists={trendingGists}
+            onPlay={handlePlay}
+            currentPlayingId={currentPlayingId}
+          />
+        )}
+
+        {/* Personalized Recommendations */}
+        {recommendedGists.length > 0 && !searchQuery && selectedTab === "foryou" && (
           <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-              <TrendingUp className="w-6 h-6 text-orange-500" />
-              Trending Now
-            </h2>
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="w-5 h-5 text-purple-500" />
+              <h2 className="text-xl font-bold">Recommended for You</h2>
+              <Badge variant="secondary" className="ml-auto">
+                Based on your history
+              </Badge>
+            </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {trendingGists.map((gist) => (
-                <Card key={gist.id} className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handlePlay(gist.id, gist.audio_url)}>
+              {recommendedGists.map((gist) => (
+                <Card 
+                  key={gist.id} 
+                  className="cursor-pointer hover:shadow-lg transition-all hover:scale-105" 
+                  onClick={() => handlePlay(gist.id, gist.audio_url)}
+                >
+                  {gist.image_url && (
+                    <img 
+                      src={gist.image_url} 
+                      alt={gist.headline}
+                      className="w-full h-40 object-cover"
+                    />
+                  )}
                   <CardContent className="p-4">
                     <h3 className="font-semibold line-clamp-2 mb-2">{gist.headline}</h3>
                     <p className="text-sm text-muted-foreground line-clamp-2">{gist.context}</p>
-                    <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                      <Play className="w-3 h-3" />
-                      {gist.play_count || 0} plays
-                    </div>
+                    <Badge variant="secondary" className="mt-2 text-xs">
+                      {gist.topic}
+                    </Badge>
                   </CardContent>
                 </Card>
               ))}
@@ -582,7 +667,7 @@ const Feed = () => {
                     onLike={() => handleLike(item.data.id)}
                     onComment={() => handleTellMore(item.data)}
                     onBookmark={() => handleBookmark(item.data.id)}
-                    onShare={handleShare}
+                    onShare={() => handleShare(item.data)}
                   />
                 ) : (
                   <NewsCard
@@ -709,6 +794,15 @@ const Feed = () => {
       </div>
 
       <BottomNavigation />
+
+      {/* Share Dialog */}
+      {selectedGist && (
+        <ShareDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          gist={selectedGist}
+        />
+      )}
     </div>
   );
 };
