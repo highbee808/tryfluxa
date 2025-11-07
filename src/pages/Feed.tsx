@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import React from "react";
 import { FeedCard } from "@/components/FeedCard";
 import { NewsCard } from "@/components/NewsCard";
 import { NavigationBar } from "@/components/NavigationBar";
@@ -14,6 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Search, Filter, Headphones, TrendingUp, Play, ChevronDown, Instagram, Facebook, MessageSquare } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { highlightText } from "@/lib/highlightText";
 
 interface Gist {
   id: string;
@@ -24,6 +26,7 @@ interface Gist {
   topic: string;
   topic_category: string | null;
   published_at?: string;
+  play_count?: number;
 }
 
 interface NewsItem {
@@ -57,6 +60,12 @@ const Feed = () => {
   const [selectedTab, setSelectedTab] = useState<"all" | "foryou">("foryou");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [newGistCount, setNewGistCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const [trendingGists, setTrendingGists] = useState<Gist[]>([]);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   
   const fluxaMemory = useFluxaMemory();
 
@@ -69,9 +78,10 @@ const Feed = () => {
 
   const categories = ["All", "Technology", "Lifestyle", "Science", "Media", "Productivity"];
 
-  const loadGists = async (showToast = false) => {
+  const loadGists = async (showToast = false, loadMore = false) => {
     try {
       if (showToast) setIsRefreshing(true);
+      if (loadMore) setIsLoadingMore(true);
       
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -91,16 +101,18 @@ const Feed = () => {
         }
       }
 
+      const pageSize = 20;
+      const offset = loadMore ? (page + 1) * pageSize : 0;
+
       // Fetch gists - filter by user topics if available
       let query = supabase
         .from("gists")
         .select("*")
         .eq("status", "published")
         .order("published_at", { ascending: false })
-        .limit(50);
+        .range(offset, offset + pageSize - 1);
 
       if (userTopics.length > 0 && selectedTab === "foryou") {
-        // Build filter conditions for each topic
         const conditions = userTopics.flatMap(topic => [
           `topic_category.ilike.%${topic}%`,
           `topic.ilike.%${topic}%`
@@ -110,21 +122,43 @@ const Feed = () => {
 
       const { data, error } = await query;
 
-        if (error) throw error;
+      if (error) throw error;
 
-        if (data) {
+      if (data) {
+        if (loadMore) {
+          setGists(prev => [...prev, ...data]);
+          setPage(prev => prev + 1);
+        } else {
           setGists(data);
+          setPage(0);
+        }
+        setHasMore(data.length === pageSize);
+      }
+
+      // Load trending gists (top by likes/plays in last 24 hours)
+      if (!loadMore) {
+        const { data: trending } = await supabase
+          .from("gists")
+          .select("*")
+          .eq("status", "published")
+          .gte("published_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .order("play_count", { ascending: false })
+          .limit(5);
+        
+        if (trending) setTrendingGists(trending);
+      }
+
+      const { data: gistData, error: gistError } = await query;
+
+        // Load user's bookmarked gists
+        if (user && !loadMore) {
+          const { data: favorites } = await supabase
+            .from("user_favorites")
+            .select("gist_id")
+            .eq("user_id", user.id);
           
-          // Load user's bookmarked gists
-          if (user) {
-            const { data: favorites } = await supabase
-              .from("user_favorites")
-              .select("gist_id")
-              .eq("user_id", user.id);
-            
-            if (favorites) {
-              setBookmarkedGists(favorites.map(f => f.gist_id));
-            }
+          if (favorites) {
+            setBookmarkedGists(favorites.map(f => f.gist_id));
           }
         }
 
@@ -171,6 +205,7 @@ const Feed = () => {
         toast.error("Failed to load feed");
       } finally {
         setLoading(false);
+        setIsLoadingMore(false);
         if (showToast) {
           setIsRefreshing(false);
           toast.success("Feed refreshed!");
@@ -200,10 +235,27 @@ const Feed = () => {
       )
       .subscribe();
 
+    // Set up intersection observer for infinite scroll
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading) {
+          loadGists(false, true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
     return () => {
       supabase.removeChannel(channel);
+      if (loadMoreRef.current) {
+        observer.unobserve(loadMoreRef.current);
+      }
     };
-  }, [selectedTab]);
+  }, [selectedTab, hasMore, isLoadingMore, loading]);
 
   const handlePlay = async (gistId: string, audioUrl: string) => {
     if (currentPlayingId === gistId && isPlaying) {
@@ -256,10 +308,30 @@ const Feed = () => {
     toast.success("Link copied to clipboard!");
   };
 
-  const filteredGists: Gist[] = selectedCategory === "All" 
-    ? gists 
-    : gists.filter(g => g.topic_category?.toLowerCase().includes(selectedCategory.toLowerCase()) || 
-                        g.topic.toLowerCase().includes(selectedCategory.toLowerCase()));
+  // Search and filter gists
+  const filteredGists: Gist[] = React.useMemo(() => {
+    let filtered = gists;
+    
+    // Category filter
+    if (selectedCategory !== "All") {
+      filtered = filtered.filter(g => 
+        g.topic_category?.toLowerCase().includes(selectedCategory.toLowerCase()) || 
+        g.topic.toLowerCase().includes(selectedCategory.toLowerCase())
+      );
+    }
+    
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(g =>
+        g.headline?.toLowerCase().includes(query) ||
+        g.context?.toLowerCase().includes(query) ||
+        g.topic?.toLowerCase().includes(query)
+      );
+    }
+    
+    return filtered;
+  }, [gists, selectedCategory, searchQuery]);
 
   const filteredNews: NewsItem[] = selectedCategory === "All"
     ? newsItems
@@ -377,16 +449,10 @@ const Feed = () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
-              placeholder="Paste a social media link to generate a gist..."
-              className="pl-10 pr-32 bg-card h-12 border-border"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const input = e.currentTarget.value;
-                  if (input.trim()) {
-                    toast.info(`Generating gist from ${selectedPlatform} link...`);
-                  }
-                }
-              }}
+              placeholder="Search gists by keyword..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 bg-card h-12 border-border"
             />
             <Popover>
               <PopoverTrigger asChild>
@@ -458,6 +524,30 @@ const Feed = () => {
           ))}
         </div>
 
+        {/* Trending Section */}
+        {trendingGists.length > 0 && !searchQuery && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+              <TrendingUp className="w-6 h-6 text-orange-500" />
+              Trending Now
+            </h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {trendingGists.map((gist) => (
+                <Card key={gist.id} className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handlePlay(gist.id, gist.audio_url)}>
+                  <CardContent className="p-4">
+                    <h3 className="font-semibold line-clamp-2 mb-2">{gist.headline}</h3>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{gist.context}</p>
+                    <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                      <Play className="w-3 h-3" />
+                      {gist.play_count || 0} plays
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Feed Grid */}
         <div className="grid lg:grid-cols-[1fr_320px] gap-8">
           {/* Main Feed */}
@@ -476,8 +566,8 @@ const Feed = () => {
                     key={`gist-${item.data.id}`}
                     id={item.data.id}
                     imageUrl={item.data.image_url || undefined}
-                    headline={item.data.headline}
-                    context={item.data.context}
+                    headline={searchQuery ? highlightText(item.data.headline, searchQuery) as any : item.data.headline}
+                    context={searchQuery ? highlightText(item.data.context, searchQuery) as any : item.data.context}
                     author="Fluxa"
                     timeAgo="2h ago"
                     category={item.data.topic}
@@ -548,6 +638,19 @@ const Feed = () => {
                 )
               )
             )}
+            
+            {/* Infinite Scroll Trigger */}
+            <div ref={loadMoreRef} className="flex justify-center py-8">
+              {isLoadingMore && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  Loading more gists...
+                </div>
+              )}
+              {!hasMore && gists.length > 0 && (
+                <p className="text-muted-foreground text-sm">You've reached the end!</p>
+              )}
+            </div>
           </div>
 
           {/* Sidebar */}
