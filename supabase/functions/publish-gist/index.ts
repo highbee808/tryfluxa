@@ -29,46 +29,25 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     console.log('📦 Request body:', JSON.stringify(body))
     
-    // Verify authentication
-    console.log('🔐 Checking authentication...')
+    // Optional authentication for internal calls
+    console.log('🔐 Checking authentication (optional for internal calls)...')
     const authHeader = req.headers.get('Authorization')
-    console.log('📋 Auth header present:', !!authHeader)
-    
-    if (!authHeader) {
-      console.log('❌ No authorization header')
-      return new Response(JSON.stringify({ success: false, error: 'Unauthorized - No authorization header', stage: 'auth' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
-
-    console.log('✅ Authorization header found')
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
+      authHeader ? { global: { headers: { Authorization: authHeader } } } : {}
     )
 
-    console.log('🔍 Verifying user...')
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
-    if (authError) {
-      console.log('❌ Auth error details:', JSON.stringify(authError))
-      return new Response(JSON.stringify({ success: false, error: `Auth failed: ${authError.message}`, stage: 'auth' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
+    if (authHeader) {
+      const { data: { user } } = await supabaseClient.auth.getUser()
+      if (user) {
+        console.log('✅ User authenticated:', user.id, 'Email:', user.email)
+      } else {
+        console.log('ℹ️ No user found, proceeding as internal call')
+      }
+    } else {
+      console.log('ℹ️ No auth header, proceeding as internal/automated call')
     }
-    
-    if (!user) {
-      console.log('❌ No user found in token')
-      return new Response(JSON.stringify({ success: false, error: 'No user found', stage: 'auth' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
-
-    console.log('✅ User authenticated:', user.id, 'Email:', user.email)
-    console.log('✅ Admin access verified for development mode')
 
     // Validate input
     console.log('📝 Validating input...')

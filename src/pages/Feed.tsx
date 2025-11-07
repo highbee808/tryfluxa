@@ -100,9 +100,12 @@ const Feed = () => {
         .limit(50);
 
       if (userTopics.length > 0 && selectedTab === "foryou") {
-        query = query.or(
-          userTopics.map(topic => `topic_category.ilike.%${topic}%,topic.ilike.%${topic}%`).join(',')
-        );
+        // Build filter conditions for each topic
+        const conditions = userTopics.flatMap(topic => [
+          `topic_category.ilike.%${topic}%`,
+          `topic.ilike.%${topic}%`
+        ]);
+        query = query.or(conditions.join(','));
       }
 
       const { data, error } = await query;
