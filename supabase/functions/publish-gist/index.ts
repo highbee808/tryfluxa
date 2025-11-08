@@ -29,25 +29,25 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     console.log('📦 Request body:', JSON.stringify(body))
     
-    // Optional authentication for internal calls
-    console.log('🔐 Checking authentication (optional for internal calls)...')
+    // Authentication is now required (verify_jwt = true in config.toml)
+    console.log('🔐 Authentication required and verified by JWT middleware')
     const authHeader = req.headers.get('Authorization')
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      authHeader ? { global: { headers: { Authorization: authHeader } } } : {}
+      { global: { headers: { Authorization: authHeader! } } }
     )
 
-    if (authHeader) {
-      const { data: { user } } = await supabaseClient.auth.getUser()
-      if (user) {
-        console.log('✅ User authenticated:', user.id, 'Email:', user.email)
-      } else {
-        console.log('ℹ️ No user found, proceeding as internal call')
-      }
-    } else {
-      console.log('ℹ️ No auth header, proceeding as internal/automated call')
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+    if (authError || !user) {
+      console.error('❌ Authentication failed:', authError?.message)
+      return new Response(
+        JSON.stringify({ success: false, error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
+    
+    console.log('✅ User authenticated:', user.id)
 
     // Validate input
     console.log('📝 Validating input...')
