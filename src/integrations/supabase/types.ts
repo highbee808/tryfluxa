@@ -277,7 +277,7 @@ export type Database = {
           post: string
           reactions: Json | null
           topic_name: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           audio_url?: string | null
@@ -287,7 +287,7 @@ export type Database = {
           post: string
           reactions?: Json | null
           topic_name: string
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           audio_url?: string | null
@@ -297,7 +297,7 @@ export type Database = {
           post?: string
           reactions?: Json | null
           topic_name?: string
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
