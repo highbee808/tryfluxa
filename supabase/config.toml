@@ -39,6 +39,9 @@ verify_jwt = false
 [functions.text-to-speech]
 verify_jwt = true
 
+[functions.upload-reactions]
+verify_jwt = false
+
 [functions.sync-fan-entities]
 verify_jwt = false
 

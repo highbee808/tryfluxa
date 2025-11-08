@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { BottomNavigation } from "@/components/BottomNavigation";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Users, Send, Hand, Mic, MicOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -369,6 +370,7 @@ const Room = () => {
           </div>
         </Card>
       </div>
+      <BottomNavigation />
     </div>
   );
 };

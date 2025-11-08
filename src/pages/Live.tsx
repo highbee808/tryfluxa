@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { BottomNavigation } from "@/components/BottomNavigation";
 import { useToast } from "@/hooks/use-toast";
 import { Users, Radio, Clock } from "lucide-react";
 import { motion } from "framer-motion";
@@ -163,6 +164,7 @@ const Live = () => {
           </div>
         )}
       </div>
+      <BottomNavigation />
     </div>
   );
 };

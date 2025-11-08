@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNavigation } from "@/components/BottomNavigation";
-import { Heart, ArrowLeft, Loader2 } from "lucide-react";
+import { NavigationBar } from "@/components/NavigationBar";
+import { ArrowLeft, MapPin, Calendar, Link as LinkIcon, Heart, Play, Volume2, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 
 interface Gist {
@@ -22,21 +24,24 @@ const Profile = () => {
   const [favorites, setFavorites] = useState<Gist[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [activeTab, setActiveTab] = useState("favorites");
 
   useEffect(() => {
-    loadFavorites();
+    loadProfile();
   }, []);
 
-  const loadFavorites = async () => {
+  const loadProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        toast.error("Please sign in to view favorites");
+        toast.error("Please sign in to view profile");
         navigate("/auth");
         return;
       }
 
       setUserId(user.id);
+      setUserEmail(user.email || "");
 
       // Get user's favorited gist IDs
       const { data: favData, error: favError } = await supabase
@@ -66,8 +71,8 @@ const Profile = () => {
 
       setFavorites(gists || []);
     } catch (error) {
-      console.error("Error loading favorites:", error);
-      toast.error("Failed to load favorites");
+      console.error("Error loading profile:", error);
+      toast.error("Failed to load profile");
     } finally {
       setLoading(false);
     }
@@ -98,87 +103,199 @@ const Profile = () => {
     audio.play();
   };
 
+  const username = userEmail.split("@")[0];
+
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <div className="container mx-auto px-4 py-6 max-w-4xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/feed")}
-            className="gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Feed
-          </Button>
-          <h1 className="text-2xl font-bold">My Favorites</h1>
-          <div className="w-20" /> {/* Spacer for alignment */}
+    <div className="min-h-screen bg-background">
+      <NavigationBar />
+      
+      {/* Profile Header - X.com Style */}
+      <div className="max-w-[600px] mx-auto border-x border-border min-h-screen pb-20 md:mt-16">
+        {/* Top Nav */}
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
+          <div className="flex items-center gap-8 px-4 h-[53px]">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/feed")}
+              className="rounded-full"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="font-bold text-xl">{username}</h1>
+              <p className="text-xs text-muted-foreground">{favorites.length} favorites</p>
+            </div>
+          </div>
         </div>
 
-        {/* Favorites List */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
-        ) : favorites.length === 0 ? (
-          <Card className="p-12 text-center">
-            <Heart className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-            <h2 className="text-xl font-semibold mb-2">No favorites yet</h2>
-            <p className="text-muted-foreground mb-4">
-              Start liking gists to see them here!
-            </p>
-            <Button onClick={() => navigate("/feed")}>
-              Explore Feed
+        {/* Cover Photo */}
+        <div className="h-[200px] bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500" />
+
+        {/* Profile Info */}
+        <div className="px-4">
+          {/* Avatar */}
+          <div className="flex justify-between items-start -mt-16 mb-4">
+            <div className="w-[133px] h-[133px] rounded-full border-4 border-background bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center text-white text-5xl font-bold">
+              {username.charAt(0).toUpperCase()}
+            </div>
+            <Button
+              variant="outline"
+              className="mt-3 rounded-full font-bold px-6"
+              onClick={() => navigate("/settings")}
+            >
+              Edit profile
             </Button>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {favorites.map((gist) => (
-              <Card
-                key={gist.id}
-                className="p-4 hover:shadow-lg transition-shadow"
-              >
-                <div className="flex items-start gap-4">
-                  {gist.image_url && (
-                    <img
-                      src={gist.image_url}
-                      alt={gist.topic}
-                      className="w-24 h-24 object-cover rounded-lg"
-                    />
-                  )}
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <span className="text-xs text-primary font-medium">
-                          {gist.topic_category}
-                        </span>
-                        <h3 className="font-semibold text-lg">
-                          {gist.headline}
-                        </h3>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleUnfavorite(gist.id)}
-                      >
-                        <Heart className="w-5 h-5 fill-primary text-primary" />
-                      </Button>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      {new Date(gist.published_at).toLocaleDateString()}
-                    </p>
-                    <Button
-                      size="sm"
-                      onClick={() => playGist(gist.audio_url)}
-                    >
-                      Play
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
           </div>
-        )}
+
+          {/* User Info */}
+          <div className="mb-4">
+            <h2 className="text-xl font-bold">{username}</h2>
+            <p className="text-muted-foreground text-sm">@{username}</p>
+            
+            <div className="flex flex-wrap gap-3 mt-3 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Calendar className="w-4 h-4" />
+                <span>Joined {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-4 mt-3 text-sm">
+              <button className="hover:underline">
+                <span className="font-bold text-foreground">{favorites.length}</span>{" "}
+                <span className="text-muted-foreground">Favorites</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="w-full justify-around h-[53px] rounded-none border-b border-border bg-transparent p-0">
+              <TabsTrigger
+                value="favorites"
+                className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-semibold"
+              >
+                Favorites
+              </TabsTrigger>
+              <TabsTrigger
+                value="activity"
+                className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent font-semibold"
+              >
+                Activity
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="favorites" className="mt-0">
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : favorites.length === 0 ? (
+                <div className="py-16 text-center px-8">
+                  <Heart className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-2xl font-bold mb-2">No favorites yet</h3>
+                  <p className="text-muted-foreground mb-6">
+                    Tap the heart on any gist to save it here
+                  </p>
+                  <Button onClick={() => navigate("/feed")}>
+                    Explore Feed
+                  </Button>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {favorites.map((gist) => (
+                    <article
+                      key={gist.id}
+                      className="p-4 hover:bg-accent/50 transition-colors cursor-pointer"
+                    >
+                      <div className="flex gap-3">
+                        {/* Avatar */}
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                          F
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between mb-1">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-bold hover:underline truncate">Fluxa</span>
+                              <span className="text-muted-foreground truncate">@fluxa</span>
+                              <span className="text-muted-foreground">·</span>
+                              <span className="text-muted-foreground text-sm">
+                                {new Date(gist.published_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="rounded-full -mt-1 -mr-2"
+                            >
+                              <MoreHorizontal className="w-5 h-5" />
+                            </Button>
+                          </div>
+
+                          <div className="mb-3">
+                            <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
+                              {gist.topic_category}
+                            </span>
+                            <h3 className="font-bold text-base mt-2">{gist.headline}</h3>
+                            <p className="text-sm text-muted-foreground mt-1">{gist.topic}</p>
+                          </div>
+
+                          {gist.image_url && (
+                            <div className="rounded-2xl overflow-hidden border border-border mb-3">
+                              <img
+                                src={gist.image_url}
+                                alt={gist.topic}
+                                className="w-full h-auto"
+                              />
+                            </div>
+                          )}
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center justify-between max-w-md mt-3">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+                              onClick={() => playGist(gist.audio_url)}
+                            >
+                              <Play className="w-4 h-4 mr-2" />
+                              Play
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="rounded-full text-muted-foreground hover:text-green-600 hover:bg-green-600/10"
+                            >
+                              <Volume2 className="w-4 h-4 mr-2" />
+                              Listen
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="rounded-full text-primary hover:bg-primary/10"
+                              onClick={() => handleUnfavorite(gist.id)}
+                            >
+                              <Heart className="w-4 h-4 mr-2 fill-primary" />
+                              Liked
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="activity" className="mt-0">
+              <div className="py-16 text-center px-8">
+                <p className="text-muted-foreground">No activity yet</p>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
 
       <BottomNavigation />
