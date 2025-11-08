@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
+import "https://deno.land/x/xhr@0.1.0/mod.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -51,9 +52,9 @@ serve(async (req) => {
     console.log('📏 Topic length:', topic.length, 'chars')
     
     // Check API key
-    const apiKey = Deno.env.get('LOVABLE_API_KEY')
+    const apiKey = Deno.env.get('OPENAI_API_KEY')
     if (!apiKey) {
-      console.error('[CONFIG] Missing required API key')
+      console.error('[CONFIG] Missing OPENAI_API_KEY')
       throw new Error('Service configuration error')
     }
 
@@ -70,16 +71,16 @@ serve(async (req) => {
     })
     console.log('📅 Current date:', currentDate, '/', currentTime)
 
-    // Use Lovable AI with GPT-5 for more current and accurate news
-    console.log('🤖 Calling Lovable AI (GPT-5)...')
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Use OpenAI gpt-4o-mini for more current and accurate news
+    console.log('🤖 Calling OpenAI API (gpt-4o-mini)...')
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-5-mini',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -161,48 +162,41 @@ Rules:
       throw new Error('AI returned invalid JSON')
     }
 
-    // Generate image using Lovable AI for all topics
+    // Generate image using OpenAI DALL-E for all topics
     let generatedImageUrl = null
     console.log('🧠 Fluxa is creating a custom image for topic...')
     try {
-      const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
-      if (!lovableApiKey) {
-        console.log('⚠️ LOVABLE_API_KEY not found, falling back to stock images')
-      } else {
-        const imagePrompt = `High-quality realistic ${isCelebrity ? 'portrait style' : 'editorial style'} image of ${content.image_keyword || topic}, cinematic lighting, magazine cover aesthetic, professional photography, vibrant colors`
-        console.log('🎨 Image prompt:', imagePrompt)
-        
-        const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${lovableApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'google/gemini-2.5-flash-image-preview',
-            messages: [
-              {
-                role: 'user',
-                content: imagePrompt
-              }
-            ],
-            modalities: ['image', 'text']
-          }),
-        })
+      const imagePrompt = `High-quality realistic ${isCelebrity ? 'portrait style' : 'editorial style'} image of ${content.image_keyword || topic}, cinematic lighting, magazine cover aesthetic, professional photography, vibrant colors`
+      console.log('🎨 Image prompt:', imagePrompt)
+      
+      const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'dall-e-3',
+          prompt: imagePrompt,
+          n: 1,
+          size: '1024x1024',
+          quality: 'standard',
+          response_format: 'url'
+        }),
+      })
 
-        if (imageResponse.ok) {
-          const imageData = await imageResponse.json()
-          const base64Image = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url
-          if (base64Image) {
-            generatedImageUrl = base64Image
-            console.log('🧠 Fluxa created a custom image (base64 length:', base64Image.length, ')')
-          } else {
-            console.log('⚠️ No image data in response')
-          }
+      if (imageResponse.ok) {
+        const imageData = await imageResponse.json()
+        const imageUrl = imageData.data?.[0]?.url
+        if (imageUrl) {
+          generatedImageUrl = imageUrl
+          console.log('🧠 Fluxa created a custom image:', imageUrl)
         } else {
-          const error = await imageResponse.text()
-          console.log('⚠️ Fluxa image generation failed:', imageResponse.status, error)
+          console.log('⚠️ No image URL in response')
         }
+      } else {
+        const error = await imageResponse.text()
+        console.log('⚠️ Fluxa image generation failed:', imageResponse.status, error)
       }
     } catch (error) {
       console.log('⚠️ Error generating custom image:', error instanceof Error ? error.message : 'Unknown error')

@@ -74,13 +74,11 @@ serve(async (req) => {
     // Check environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
     
     const missingVars = []
     if (!supabaseUrl) missingVars.push('SUPABASE_URL')
     if (!serviceRoleKey) missingVars.push('SERVICE_ROLE_KEY')
-    if (!lovableApiKey) missingVars.push('LOVABLE_API_KEY')
     if (!openaiApiKey) missingVars.push('OPENAI_API_KEY')
     
     if (missingVars.length > 0) {

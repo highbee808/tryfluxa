@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1'
+import "https://deno.land/x/xhr@0.1.0/mod.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -53,10 +54,10 @@ serve(async (req) => {
       )
     }
 
-    // Check for Lovable API key
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')
-    if (!lovableApiKey) {
-      console.error('LOVABLE_API_KEY not configured')
+    // Check for OpenAI API key
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+    if (!openaiApiKey) {
+      console.error('OPENAI_API_KEY not configured')
       throw new Error('Service configuration error')
     }
 
@@ -92,16 +93,16 @@ serve(async (req) => {
         ).join('\n')
     }
 
-    // Call Lovable AI for response
-    console.log('🤖 Calling Lovable AI...')
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Call OpenAI gpt-4o-mini for response
+    console.log('🤖 Calling OpenAI API...')
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -126,11 +127,11 @@ Keep your responses short, snappy, and engaging. You're here to gossip and have 
       }),
     })
 
-    console.log('📨 Lovable AI response status:', response.status)
+    console.log('📨 OpenAI response status:', response.status)
     
     if (!response.ok) {
       const error = await response.text()
-      console.log('❌ Lovable AI error:', response.status, error)
+      console.log('❌ OpenAI error:', response.status, error)
       
       if (response.status === 429) {
         return new Response(
@@ -152,7 +153,7 @@ Keep your responses short, snappy, and engaging. You're here to gossip and have 
       throw new Error(`Failed to get response from Fluxa`)
     }
 
-    console.log('✅ Lovable AI responded successfully')
+    console.log('✅ OpenAI responded successfully')
     const data = await response.json()
     
     const reply = data.choices[0].message.content
