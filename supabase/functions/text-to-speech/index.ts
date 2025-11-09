@@ -5,214 +5,151 @@ import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Input validation schema
+// Validation schema
 const ttsSchema = z.object({
   text: z.string().min(1, "Text is required").max(5000, "Text too long (max 5000 characters)"),
   voice: z.enum(["shimmer", "alloy", "echo", "fable", "onyx", "nova"]).default("shimmer"),
   speed: z.number().min(0.25).max(4.0).default(0.94),
+  personality: z.enum(["friendly", "teasing", "calm", "excited"]).optional(),
 });
 
-// 🧠 Enhanced Emotion Detector with reaction sound selection
-function detectEmotion(text: string): { emotion: string; reactionSound: string | null } {
+// Simple emotion detector (expandable)
+function detectEmotion(text: string) {
   const t = text.toLowerCase();
-  
-  // Laughing/Humor detection
-  if (t.includes("😂") || t.includes("🤣") || t.includes("haha") || t.includes("lol") || 
-      t.includes("hilarious") || t.includes("funny") || t.includes("joke")) {
-    return { 
-      emotion: "laughing", 
-      reactionSound: "/audio/reactions/laugh/burstlaugh.mp3" 
-    };
-  }
-  
-  // Light giggle/playful
-  if (t.includes("😊") || t.includes("😄") || t.includes("hehe") || 
-      t.includes("tease") || t.includes("playful")) {
-    return { 
-      emotion: "playful", 
-      reactionSound: "/audio/reactions/laugh/giggle.mp3" 
-    };
-  }
-  
-  // Sarcasm/shade
-  if (t.includes("😏") || t.includes("🙄") || t.includes("shade") || 
-      t.includes("sarcastic") || t.includes("seriously?") || t.includes("really?")) {
-    return { 
-      emotion: "sarcastic", 
-      reactionSound: "/audio/reactions/laugh/snicker.mp3" 
-    };
-  }
-  
-  // Warm/affectionate
-  if (t.includes("❤️") || t.includes("💕") || t.includes("love") || 
-      t.includes("sweet") || t.includes("adorable") || t.includes("aww")) {
-    return { 
-      emotion: "warm", 
-      reactionSound: null // Will add warm sounds later
-    };
-  }
-  
-  // Shocked/surprised
-  if (t.includes("😱") || t.includes("😮") || t.includes("omg") || 
-      t.includes("shocked") || t.includes("can't believe") || t.includes("what?!")) {
-    return { 
-      emotion: "shocked", 
-      reactionSound: null // Will add gasp sounds later
-    };
-  }
-  
-  // Sad/sympathetic
-  if (t.includes("😭") || t.includes("😢") || t.includes("sad") || 
-      t.includes("sorry") || t.includes("unfortunate")) {
-    return { 
-      emotion: "sympathetic", 
-      reactionSound: null // Will add sigh sounds later
-    };
-  }
-  
-  // Friendly chuckle (default positive)
-  if (t.includes("😀") || t.includes("nice") || t.includes("good")) {
-    return { 
-      emotion: "friendly", 
-      reactionSound: "/audio/reactions/laugh/softlaugh.mp3" 
-    };
-  }
-  
-  return { emotion: "neutral", reactionSound: null };
+  if (t.includes("😂") || /(\b(haha|lol|lmao|rofl)\b)/i.test(t)) return "laugh";
+  if (t.includes("😭") || /(\b(sad|unfortunate|lost|sorry)\b)/i.test(t)) return "sigh";
+  if (t.includes("😱") || /(\b(wow|omg|what a)\b)/i.test(t)) return "gasp";
+  if (t.includes("😏") || /(\b(tease|smh|smirk)\b)/i.test(t)) return "tease";
+  if (t.includes("🤔") || /(\b(hmm|hmmm|thinking)\b)/i.test(t)) return "hum";
+  if (t.includes("❤️") || /(\b(love|heart)\b)/i.test(t)) return "warm";
+  return "neutral";
+}
+
+// Reaction library mapping (bucket paths)
+const REACTION_BUCKET = "fluxa-reactions";
+const REACTION_PATHS: Record<string, string[]> = {
+  laugh: [
+    "reactions/laugh/giggle.mp3",
+    "reactions/laugh/softlaugh.mp3",
+    "reactions/laugh/burstlaugh.mp3",
+    "reactions/laugh/snicker.mp3",
+  ],
+  sigh: ["reactions/sigh/sigh-soft.mp3", "reactions/sigh/sigh-heavy.mp3"],
+  gasp: ["reactions/gasp/gasp-short.mp3", "reactions/gasp/gasp-wow.mp3"],
+  hum: ["reactions/hum/hum-calm.mp3", "reactions/hum/hum-think.mp3"],
+  tease: ["reactions/tease/tease-chuckle.mp3", "reactions/tease/tease-smirk.mp3"],
+  warm: ["reactions/warm/warm-1.mp3"],
+};
+
+function pickReactionPath(emotion: string) {
+  const set = REACTION_PATHS[emotion] ?? [];
+  if (set.length === 0) return null;
+  return set[Math.floor(Math.random() * set.length)];
 }
 
 serve(async (req) => {
-  console.log("🚀 text-to-speech started");
+  console.log("🚀 Fluxa TTS v2.0 started");
 
-  if (req.method === "OPTIONS") {
-    console.log("✅ OPTIONS request handled");
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    console.log("🎤 text-to-speech started");
-
-    // Validate input
-    console.log("📥 Parsing request body...");
     const body = await req.json();
-    console.log("📦 Request body keys:", Object.keys(body));
-    console.log("📦 Text length:", body.text?.length || 0, "characters");
+    const validated = ttsSchema.parse(body);
+    const { text, voice, speed, personality } = validated;
 
-    console.log("📝 Validating input with Zod...");
-    let validated;
-    try {
-      validated = ttsSchema.parse(body);
-    } catch (validationError: any) {
-      console.log("❌ Validation failed:", validationError.message);
-      return new Response(JSON.stringify({ success: false, error: `Validation failed: ${validationError.message}` }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const supabase = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
 
-    const { text, voice, speed } = validated;
-    console.log("✅ Input validated successfully");
-    console.log("🎙️ Voice:", voice, "| Speed:", speed);
-    console.log("🗣️ Text preview (first 100 chars):", text.substring(0, 100));
+    const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_KEY) throw new Error("Missing OPENAI_API_KEY");
 
-    // Check API key
-    const apiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!apiKey) {
-      console.error("[CONFIG] Missing required API key");
-      throw new Error("Service configuration error");
-    }
+    // Detect emotion and personality tag (fallback to optional personality)
+    const emotion = detectEmotion(text);
+    const personalityTag = personality ?? (emotion === "laugh" ? "teasing" : "friendly");
+    console.log("🎭 emotion:", emotion, "personality:", personalityTag);
 
-    // 🧠 Detect emotion from text and get reaction sound
-    const { emotion, reactionSound } = detectEmotion(text);
-    console.log(`🎭 Detected emotion: ${emotion}`);
-    console.log(`🎵 Reaction sound: ${reactionSound || 'none'}`);
+    // Build emotional markup for TTS
+    const emotionalMarkup = `<tone emotion="${emotion}" personality="${personalityTag}">${text}</tone>`;
 
-    // 🎨 Add tone markup to make Fluxa sound alive
-    const emotionalPrompt = `
-    <tone emotion="${emotion}">
-      ${text}
-    </tone>
-    `;
-
-    // Generate speech from text using OpenAI
-    console.log("🎙️ Fluxa is recording her voice with emotion...");
-    const response = await fetch("https://api.openai.com/v1/audio/speech", {
+    // Call OpenAI TTS
+    console.log("🎙️ Requesting OpenAI TTS...");
+    const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${Deno.env.get("OPENAI_API_KEY")}`,
+        Authorization: `Bearer ${OPENAI_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: "gpt-4o-mini-tts",
-        input: emotionalPrompt,
-        voice: voice,
-        speed: speed,
+        input: emotionalMarkup,
+        voice,
+        speed,
         response_format: "mp3",
       }),
     });
 
-    console.log("📨 OpenAI response status:", response.status);
-
-    if (!response.ok) {
-      console.error("[TTS] Speech generation failed:", response.status);
-      throw new Error("Speech generation failed");
+    console.log("📨 OpenAI TTS status:", ttsRes.status);
+    if (!ttsRes.ok) {
+      const textErr = await ttsRes.text().catch(() => "");
+      console.error("[TTS] OpenAI error:", textErr);
+      throw new Error("OpenAI TTS failed");
     }
 
-    console.log("✅ Fluxa finished recording!");
+    const arrayBuffer = await ttsRes.arrayBuffer();
+    const audioBytes = new Uint8Array(arrayBuffer);
 
-    // Get audio buffer
-    console.log("📦 Converting response to audio buffer...");
-    const arrayBuffer = await response.arrayBuffer();
-    const audioBuffer = new Uint8Array(arrayBuffer);
-    console.log("✅ Audio buffer created");
-    console.log("📊 Buffer size:", audioBuffer.length, "bytes", "(", (audioBuffer.length / 1024).toFixed(2), "KB)");
+    // Upload generated voice to storage (gist-audio bucket)
+    const gistBucket = "gist-audio";
+    const voiceFile = `fluxa-voice-${Date.now()}.mp3`;
+    console.log("☁️ Upload voice to bucket:", gistBucket, voiceFile);
 
-    // Upload to Supabase Storage
-    console.log("☁️ Uploading to Supabase Storage...");
-    const supabase = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
-
-    const fileName = `gist-${Date.now()}.mp3`;
-    console.log("📁 Generated filename:", fileName);
-
-    console.log("☁️ Uploading to Supabase Storage bucket: gist-audio...");
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from("gist-audio")
-      .upload(fileName, audioBuffer, {
-        contentType: "audio/mpeg",
-        upsert: false,
-      });
+      .from(gistBucket)
+      .upload(voiceFile, audioBytes, { contentType: "audio/mpeg", upsert: false });
 
     if (uploadError) {
-      console.log("❌ Storage upload error:", uploadError.message);
-      console.log("❌ Upload error details:", JSON.stringify(uploadError));
-      throw new Error("Failed to save audio file");
+      console.error("[UPLOAD] voice upload error:", uploadError);
+      throw new Error("Failed to upload generated voice");
     }
 
-    console.log("✅ File uploaded successfully to storage");
-    console.log("📂 Storage path:", uploadData.path);
-
-    // Get public URL
-    console.log("🔗 Generating public URL...");
     const {
-      data: { publicUrl },
-    } = supabase.storage.from("gist-audio").getPublicUrl(fileName);
+      data: { publicUrl: audioUrl },
+    } = (await supabase.storage.from(gistBucket).getPublicUrl(voiceFile)) as any;
 
-    console.log("✅ Public URL generated:", publicUrl);
-    console.log("🎉 text-to-speech complete!");
+    console.log("✅ voiceUrl:", audioUrl);
 
-    return new Response(JSON.stringify({ 
-      audioUrl: publicUrl,
+    // Pick a reaction file (if available) and get its public URL
+    let reactionUrl: string | null = null;
+    const reactionPath = pickReactionPath(emotion);
+    if (reactionPath) {
+      try {
+        const {
+          data: { publicUrl },
+        } = (await supabase.storage.from(REACTION_BUCKET).getPublicUrl(reactionPath)) as any;
+        reactionUrl = publicUrl ?? null;
+        console.log("🔊 reactionUrl:", reactionUrl);
+      } catch (err) {
+        console.warn("⚠️ Could not fetch reaction URL for", reactionPath, err);
+        reactionUrl = null;
+      }
+    }
+
+    // Response schema
+    const payload = {
+      audioUrl,
+      reactionUrl,
       emotion,
-      reactionSound 
-    }), {
+      personalityTag,
+    };
+
+    return new Response(JSON.stringify(payload), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error) {
-    console.error("[ERROR] text-to-speech failed:", error);
-
-    return new Response(JSON.stringify({ error: "Failed to process request" }), {
+  } catch (err) {
+    console.error("[ERROR] TTS v2.0 failed:", err);
+    return new Response(JSON.stringify({ error: "Failed to process TTS request" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
