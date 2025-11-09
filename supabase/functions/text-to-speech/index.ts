@@ -14,14 +14,73 @@ const ttsSchema = z.object({
   speed: z.number().min(0.25).max(4.0).default(0.94),
 });
 
-// 🧠 Simple Emotion Detector (optional, can expand later)
-function detectEmotion(text: string) {
+// 🧠 Enhanced Emotion Detector with reaction sound selection
+function detectEmotion(text: string): { emotion: string; reactionSound: string | null } {
   const t = text.toLowerCase();
-  if (t.includes("😂") || t.includes("haha") || t.includes("lol")) return "laughing";
-  if (t.includes("❤️") || t.includes("love")) return "warm";
-  if (t.includes("😏") || t.includes("tease")) return "playful";
-  if (t.includes("😭") || t.includes("sad")) return "sympathetic";
-  return "neutral";
+  
+  // Laughing/Humor detection
+  if (t.includes("😂") || t.includes("🤣") || t.includes("haha") || t.includes("lol") || 
+      t.includes("hilarious") || t.includes("funny") || t.includes("joke")) {
+    return { 
+      emotion: "laughing", 
+      reactionSound: "/audio/reactions/laugh/burstlaugh.mp3" 
+    };
+  }
+  
+  // Light giggle/playful
+  if (t.includes("😊") || t.includes("😄") || t.includes("hehe") || 
+      t.includes("tease") || t.includes("playful")) {
+    return { 
+      emotion: "playful", 
+      reactionSound: "/audio/reactions/laugh/giggle.mp3" 
+    };
+  }
+  
+  // Sarcasm/shade
+  if (t.includes("😏") || t.includes("🙄") || t.includes("shade") || 
+      t.includes("sarcastic") || t.includes("seriously?") || t.includes("really?")) {
+    return { 
+      emotion: "sarcastic", 
+      reactionSound: "/audio/reactions/laugh/snicker.mp3" 
+    };
+  }
+  
+  // Warm/affectionate
+  if (t.includes("❤️") || t.includes("💕") || t.includes("love") || 
+      t.includes("sweet") || t.includes("adorable") || t.includes("aww")) {
+    return { 
+      emotion: "warm", 
+      reactionSound: null // Will add warm sounds later
+    };
+  }
+  
+  // Shocked/surprised
+  if (t.includes("😱") || t.includes("😮") || t.includes("omg") || 
+      t.includes("shocked") || t.includes("can't believe") || t.includes("what?!")) {
+    return { 
+      emotion: "shocked", 
+      reactionSound: null // Will add gasp sounds later
+    };
+  }
+  
+  // Sad/sympathetic
+  if (t.includes("😭") || t.includes("😢") || t.includes("sad") || 
+      t.includes("sorry") || t.includes("unfortunate")) {
+    return { 
+      emotion: "sympathetic", 
+      reactionSound: null // Will add sigh sounds later
+    };
+  }
+  
+  // Friendly chuckle (default positive)
+  if (t.includes("😀") || t.includes("nice") || t.includes("good")) {
+    return { 
+      emotion: "friendly", 
+      reactionSound: "/audio/reactions/laugh/softlaugh.mp3" 
+    };
+  }
+  
+  return { emotion: "neutral", reactionSound: null };
 }
 
 serve(async (req) => {
@@ -65,9 +124,10 @@ serve(async (req) => {
       throw new Error("Service configuration error");
     }
 
-    // 🧠 Detect emotion from text
-    const emotion = detectEmotion(text);
+    // 🧠 Detect emotion from text and get reaction sound
+    const { emotion, reactionSound } = detectEmotion(text);
     console.log(`🎭 Detected emotion: ${emotion}`);
+    console.log(`🎵 Reaction sound: ${reactionSound || 'none'}`);
 
     // 🎨 Add tone markup to make Fluxa sound alive
     const emotionalPrompt = `
@@ -142,7 +202,11 @@ serve(async (req) => {
     console.log("✅ Public URL generated:", publicUrl);
     console.log("🎉 text-to-speech complete!");
 
-    return new Response(JSON.stringify({ audioUrl: publicUrl }), {
+    return new Response(JSON.stringify({ 
+      audioUrl: publicUrl,
+      emotion,
+      reactionSound 
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

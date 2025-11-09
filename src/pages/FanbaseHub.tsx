@@ -137,12 +137,24 @@ const FanbaseHub = () => {
     >
       <div className="flex items-center gap-4">
         {entity.logo_url ? (
-          <img src={entity.logo_url} alt={entity.name} className="w-16 h-16 rounded-full object-cover" />
-        ) : (
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-2xl font-bold">
-            {entity.name.charAt(0)}
-          </div>
-        )}
+          <img 
+            src={entity.logo_url} 
+            alt={entity.name} 
+            className="w-16 h-16 rounded-full object-cover bg-muted"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              const fallback = target.nextElementSibling as HTMLElement;
+              if (fallback) fallback.style.display = 'flex';
+            }}
+          />
+        ) : null}
+        <div 
+          className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-2xl font-bold"
+          style={{ display: entity.logo_url ? 'none' : 'flex' }}
+        >
+          {entity.name.charAt(0)}
+        </div>
         
         <div className="flex-1">
           <h3 className="font-bold text-lg">

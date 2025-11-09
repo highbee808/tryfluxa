@@ -346,16 +346,24 @@ const EntityPage = () => {
                   <img 
                     src={entity.logo_url} 
                     alt={entity.name} 
-                    className="w-20 h-20 md:w-28 md:h-28 rounded-full object-contain bg-white p-3 border-4 border-background shadow-2xl ring-2 ring-primary/20 mx-auto sm:mx-0" 
+                    className="w-20 h-20 md:w-28 md:h-28 rounded-full object-contain bg-white p-3 border-4 border-background shadow-2xl ring-2 ring-primary/20 mx-auto sm:mx-0"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const fallback = target.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
                   />
-                ) : (
-                  <div 
-                    className="w-20 h-20 md:w-28 md:h-28 rounded-full flex items-center justify-center text-3xl font-bold border-4 border-background shadow-2xl ring-2 ring-primary/20 mx-auto sm:mx-0"
-                    style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
-                  >
-                    {entity.name.charAt(0)}
-                  </div>
-                )}
+                ) : null}
+                <div 
+                  className="w-20 h-20 md:w-28 md:h-28 rounded-full flex items-center justify-center text-3xl font-bold border-4 border-background shadow-2xl ring-2 ring-primary/20 mx-auto sm:mx-0"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})`,
+                    display: entity.logo_url ? 'none' : 'flex'
+                  }}
+                >
+                  {entity.name.charAt(0)}
+                </div>
 
                 <div className="flex-1 w-full">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
