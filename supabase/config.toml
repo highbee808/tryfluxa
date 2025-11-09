@@ -1,5 +1,8 @@
 project_id = "zikzuwomznlpgvrftcpf"
 
+[functions.voice-to-fluxa]
+verify_jwt = false
+
 [functions.fluxa-chat]
 verify_jwt = true
 

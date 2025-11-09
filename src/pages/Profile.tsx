@@ -6,7 +6,10 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { NavigationBar } from "@/components/NavigationBar";
-import { ArrowLeft, MapPin, Calendar, Link as LinkIcon, Heart, Play, Volume2, MoreHorizontal } from "lucide-react";
+import { ProfileEditModal } from "@/components/ProfileEditModal";
+import { FollowButton } from "@/components/FollowButton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ArrowLeft, MapPin, Calendar, Link as LinkIcon, Heart, Play, Volume2, MoreHorizontal, Settings } from "lucide-react";
 import { toast } from "sonner";
 
 interface Gist {
@@ -26,6 +29,10 @@ const Profile = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>("");
   const [activeTab, setActiveTab] = useState("favorites");
+  const [profile, setProfile] = useState<any>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
 
   useEffect(() => {
     loadProfile();
@@ -42,6 +49,29 @@ const Profile = () => {
 
       setUserId(user.id);
       setUserEmail(user.email || "");
+
+      // Load profile
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      setProfile(profileData);
+
+      // Load follower/following counts
+      const { count: followers } = await supabase
+        .from("user_follows")
+        .select("*", { count: "exact", head: true })
+        .eq("following_id", user.id);
+
+      const { count: following } = await supabase
+        .from("user_follows")
+        .select("*", { count: "exact", head: true })
+        .eq("follower_id", user.id);
+
+      setFollowerCount(followers || 0);
+      setFollowingCount(following || 0);
 
       // Get user's favorited gist IDs
       const { data: favData, error: favError } = await supabase
@@ -136,22 +166,30 @@ const Profile = () => {
         <div className="px-4">
           {/* Avatar */}
           <div className="flex justify-between items-start -mt-16 mb-4">
-            <div className="w-[133px] h-[133px] rounded-full border-4 border-background bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center text-white text-5xl font-bold">
-              {username.charAt(0).toUpperCase()}
-            </div>
+            <Avatar className="w-[133px] h-[133px] border-4 border-background">
+              <AvatarImage src={profile?.avatar_url || ""} alt="Profile" />
+              <AvatarFallback className="text-5xl bg-gradient-to-br from-blue-400 to-purple-600 text-white">
+                {(profile?.display_name || username).charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
             <Button
               variant="outline"
               className="mt-3 rounded-full font-bold px-6"
-              onClick={() => navigate("/settings")}
+              onClick={() => setEditModalOpen(true)}
             >
+              <Settings className="w-4 h-4 mr-2" />
               Edit profile
             </Button>
           </div>
 
           {/* User Info */}
           <div className="mb-4">
-            <h2 className="text-xl font-bold">{username}</h2>
+            <h2 className="text-xl font-bold">{profile?.display_name || username}</h2>
             <p className="text-muted-foreground text-sm">@{username}</p>
+            
+            {profile?.bio && (
+              <p className="text-foreground/90 mt-3">{profile.bio}</p>
+            )}
             
             <div className="flex flex-wrap gap-3 mt-3 text-sm text-muted-foreground">
               <div className="flex items-center gap-1">
@@ -162,8 +200,12 @@ const Profile = () => {
 
             <div className="flex gap-4 mt-3 text-sm">
               <button className="hover:underline">
-                <span className="font-bold text-foreground">{favorites.length}</span>{" "}
-                <span className="text-muted-foreground">Favorites</span>
+                <span className="font-bold text-foreground">{followingCount}</span>{" "}
+                <span className="text-muted-foreground">Following</span>
+              </button>
+              <button className="hover:underline">
+                <span className="font-bold text-foreground">{followerCount}</span>{" "}
+                <span className="text-muted-foreground">Followers</span>
               </button>
             </div>
           </div>
@@ -297,6 +339,13 @@ const Profile = () => {
           </Tabs>
         </div>
       </div>
+
+      <ProfileEditModal
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        profile={profile}
+        onUpdate={loadProfile}
+      />
 
       <BottomNavigation />
     </div>
