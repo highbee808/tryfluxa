@@ -7,9 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { NavigationBar } from "@/components/NavigationBar";
 import { ProfileEditModal } from "@/components/ProfileEditModal";
+import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { FollowButton } from "@/components/FollowButton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, MapPin, Calendar, Link as LinkIcon, Heart, Play, Volume2, MoreHorizontal, Settings } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Link as LinkIcon, Heart, Play, Volume2, MoreHorizontal, Settings, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface Gist {
@@ -31,6 +32,7 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState("favorites");
   const [profile, setProfile] = useState<any>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
 
@@ -179,6 +181,15 @@ const Profile = () => {
             >
               <Settings className="w-4 h-4 mr-2" />
               Edit profile
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Account
             </Button>
           </div>
 
@@ -345,6 +356,12 @@ const Profile = () => {
         onOpenChange={setEditModalOpen}
         profile={profile}
         onUpdate={loadProfile}
+      />
+
+      <DeleteAccountDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        userEmail={userEmail}
       />
 
       <BottomNavigation />

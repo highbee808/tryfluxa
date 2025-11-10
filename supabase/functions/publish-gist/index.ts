@@ -29,25 +29,35 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}))
     console.log('📦 Request body:', JSON.stringify(body))
     
-    // Authentication is now required (verify_jwt = true in config.toml)
-    console.log('🔐 Authentication required and verified by JWT middleware')
+    // Allow both JWT auth and service role key for automated gist generation
+    console.log('🔐 Checking authentication...')
     const authHeader = req.headers.get('Authorization')
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader! } } }
-    )
-
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
-    if (authError || !user) {
-      console.error('❌ Authentication failed:', authError?.message)
-      return new Response(
-        JSON.stringify({ success: false, error: 'Authentication required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
     
-    console.log('✅ User authenticated:', user.id)
+    // Check if using service role key (for auto-generation)
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const isServiceRole = authHeader?.includes(serviceKey || 'never-match')
+    
+    if (isServiceRole) {
+      console.log('✅ Service role authentication detected (auto-generation)')
+    } else {
+      // Validate JWT for user-initiated requests
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader! } } }
+      )
+
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
+      if (authError || !user) {
+        console.error('❌ Authentication failed:', authError?.message)
+        return new Response(
+          JSON.stringify({ success: false, error: 'Authentication required' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      
+      console.log('✅ User authenticated:', user.id)
+    }
 
     // Validate input
     console.log('📝 Validating input...')
@@ -73,12 +83,10 @@ serve(async (req) => {
 
     // Check environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
     
     const missingVars = []
     if (!supabaseUrl) missingVars.push('SUPABASE_URL')
-    if (!serviceRoleKey) missingVars.push('SERVICE_ROLE_KEY')
     if (!openaiApiKey) missingVars.push('OPENAI_API_KEY')
     
     if (missingVars.length > 0) {
@@ -89,7 +97,8 @@ serve(async (req) => {
       )
     }
 
-    const supabase = createClient(supabaseUrl ?? '', serviceRoleKey ?? '')
+    // Use service role key for database operations
+    const supabase = createClient(supabaseUrl ?? '', serviceKey ?? '')
 
     let gistId: string | null = null
 

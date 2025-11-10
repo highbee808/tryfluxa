@@ -48,9 +48,17 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
-  // Allow cron jobs without signature validation (pg_cron doesn't send signatures)
-  // In production, you'd verify the request comes from your Supabase project
-  console.log('🤖 Auto-gist generation triggered');
+  // Validate HMAC signature for scheduled functions (SECURITY FIX)
+  const isValid = await validateCronSignature(req)
+  if (!isValid) {
+    console.error('❌ Invalid or missing HMAC signature')
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized - Invalid signature' }),
+      { status: 401, headers: corsHeaders }
+    )
+  }
+
+  console.log('🤖 Auto-gist generation triggered with valid HMAC signature');
 
   try {
     console.log('🤖 Auto-gist generation started at', new Date().toISOString())

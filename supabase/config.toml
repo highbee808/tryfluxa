@@ -3,6 +3,9 @@ project_id = "zikzuwomznlpgvrftcpf"
 [functions.voice-to-fluxa]
 verify_jwt = false
 
+[functions.delete-account]
+verify_jwt = true
+
 [functions.fluxa-chat]
 verify_jwt = true
 
