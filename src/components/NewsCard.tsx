@@ -143,11 +143,11 @@ export const NewsCard = ({
 
             <button
               onClick={onBookmark}
-              className="flex items-center gap-2 text-muted-foreground hover:text-purple-500 transition-colors group"
+              className="flex items-center gap-2 text-muted-foreground hover:text-coral-active transition-colors group"
             >
               <Bookmark
                 className={`w-5 h-5 transition-all ${
-                  isBookmarked ? "fill-purple-500 text-purple-500 scale-110" : "group-hover:scale-110"
+                  isBookmarked ? "fill-coral-active text-coral-active scale-110" : "group-hover:scale-110"
                 }`}
               />
               <span className="text-sm font-medium">{Math.floor(Math.random() * 200)}</span>

@@ -8,9 +8,10 @@ import { BottomNavigation } from "@/components/BottomNavigation";
 import { NavigationBar } from "@/components/NavigationBar";
 import { ProfileEditModal } from "@/components/ProfileEditModal";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
+import { VoiceChatModal } from "@/components/VoiceChatModal";
 import { FollowButton } from "@/components/FollowButton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, MapPin, Calendar, Link as LinkIcon, Heart, Play, Volume2, MoreHorizontal, Settings, Trash2 } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Link as LinkIcon, Heart, Play, Volume2, MoreHorizontal, Settings, Trash2, Mic } from "lucide-react";
 import { toast } from "sonner";
 
 interface Gist {
@@ -33,6 +34,7 @@ const Profile = () => {
   const [profile, setProfile] = useState<any>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [voiceChatOpen, setVoiceChatOpen] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
 
@@ -174,18 +176,30 @@ const Profile = () => {
                 {(profile?.display_name || username).charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <Button
-              variant="outline"
-              className="mt-3 rounded-full font-bold px-6"
-              onClick={() => setEditModalOpen(true)}
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Edit profile
-            </Button>
+            <div className="flex gap-2 mt-3">
+              <Button
+                variant="outline"
+                className="rounded-full font-bold px-4"
+                onClick={() => setVoiceChatOpen(true)}
+              >
+                <Mic className="w-4 h-4 mr-2" />
+                Voice Chat
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-full font-bold px-4"
+                onClick={() => setEditModalOpen(true)}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Edit
+              </Button>
+            </div>
+          </div>
+          <div className="px-4 mb-4">
             <Button
               variant="ghost"
               size="sm"
-              className="mt-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={() => setDeleteDialogOpen(true)}
             >
               <Trash2 className="w-4 h-4 mr-2" />
@@ -362,6 +376,11 @@ const Profile = () => {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         userEmail={userEmail}
+      />
+
+      <VoiceChatModal
+        open={voiceChatOpen}
+        onOpenChange={setVoiceChatOpen}
       />
 
       <BottomNavigation />
