@@ -41,6 +41,17 @@ export const ProfileEditModal = ({ open, onOpenChange, profile, onUpdate }: Prof
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!file.type.startsWith('image/') || !allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Only JPEG, PNG, WebP, and GIF images are allowed",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validate file size (5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast({
@@ -57,16 +68,19 @@ export const ProfileEditModal = ({ open, onOpenChange, profile, onUpdate }: Prof
       if (!user) throw new Error("Not authenticated");
 
       const fileExt = file.name.split(".").pop();
-      const fileName = `avatar-${user.id}-${Date.now()}.${fileExt}`;
+      const fileName = `${user.id}/avatar-${Date.now()}.${fileExt}`;
 
       const { data, error } = await supabase.storage
-        .from("gist-audio")
-        .upload(fileName, file, { upsert: true });
+        .from("avatars")
+        .upload(fileName, file, { 
+          upsert: true,
+          contentType: file.type
+        });
 
       if (error) throw error;
 
       const { data: { publicUrl } } = supabase.storage
-        .from("gist-audio")
+        .from("avatars")
         .getPublicUrl(fileName);
 
       setAvatarUrl(publicUrl);
