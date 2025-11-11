@@ -688,6 +688,30 @@ export type Database = {
         }
         Relationships: []
       }
+      news_cache: {
+        Row: {
+          cached_at: string
+          created_at: string
+          entity: string
+          id: string
+          news_data: Json
+        }
+        Insert: {
+          cached_at?: string
+          created_at?: string
+          entity: string
+          id?: string
+          news_data: Json
+        }
+        Update: {
+          cached_at?: string
+          created_at?: string
+          entity?: string
+          id?: string
+          news_data?: Json
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string | null

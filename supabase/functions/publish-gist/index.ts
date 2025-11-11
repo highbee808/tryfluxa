@@ -167,13 +167,13 @@ serve(async (req) => {
       console.log('🔗 Audio URL:', ttsResponse.data.audioUrl)
       const { audioUrl } = ttsResponse.data
 
-      // Step 3: Get image URL (AI-generated for celebrities, Unsplash for others)
+      // Step 3: Get image URL (AI-generated with local placeholder fallback)
       console.log('🖼️ Step 3/4: Preparing image URL...')
-      let finalImageUrl
+      let finalImageUrl = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800' // Default placeholder
       
       if (ai_generated_image) {
         // Download and re-upload Fluxa-generated image to our storage
-        console.log('📤 Downloading and uploading Fluxa custom image to storage...')
+        console.log('📤 Downloading and uploading AI-generated image to storage...')
         try {
           // Download the image from OpenAI URL
           const imageResponse = await fetch(ai_generated_image)
@@ -197,7 +197,7 @@ serve(async (req) => {
           
           if (uploadError) {
             console.log('⚠️ Failed to upload AI image to storage:', uploadError.message)
-            // Use the OpenAI URL directly as fallback
+            // Keep using placeholder
             finalImageUrl = ai_generated_image
             console.log('🖼️ Using OpenAI URL directly:', ai_generated_image)
           } else {
@@ -220,10 +220,9 @@ serve(async (req) => {
         finalImageUrl = imageUrl
         console.log('📌 Using provided image URL')
       } else {
-        // Fallback to Unsplash for non-celebrities
-        const keyword = image_keyword || 'trending news'
-        finalImageUrl = `https://source.unsplash.com/800x600/?${encodeURIComponent(keyword)}`
-        console.log('🖼️ Stock image fetched for topic:', keyword)
+        // Use local placeholder - no Unsplash fallback
+        finalImageUrl = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800'
+        console.log('📌 No AI image available, using placeholder')
       }
       
       console.log('✅ Final image URL:', finalImageUrl)

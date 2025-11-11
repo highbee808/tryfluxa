@@ -411,7 +411,7 @@ const Feed = () => {
               className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
                 selectedTab === "foryou"
                   ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:text-coral-active"
               }`}
             >
               For You
@@ -421,7 +421,7 @@ const Feed = () => {
               className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
                 selectedTab === "all"
                   ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:text-coral-active"
               }`}
             >
               All
@@ -431,7 +431,7 @@ const Feed = () => {
               className={`px-6 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
                 selectedTab === "bookmarks"
                   ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:text-coral-active"
               }`}
             >
               <Bookmark className="w-4 h-4" />
@@ -578,7 +578,7 @@ const Feed = () => {
               onClick={() => setSelectedCategory(category)}
               className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 ${
                 selectedCategory === category
-                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700"
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-pink-700"
                   : "bg-card text-foreground hover:bg-accent border border-border"
               }`}
             >

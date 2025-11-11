@@ -11,6 +11,15 @@ schedule = "* * * * *"
 [functions.voice-to-fluxa]
 verify_jwt = false
 
+[functions.voice-to-fluxa-with-limit]
+verify_jwt = false
+
+[functions.news-cache]
+verify_jwt = false
+
+[functions.ai-news-summary]
+verify_jwt = true
+
 [functions.delete-account]
 verify_jwt = true
 
