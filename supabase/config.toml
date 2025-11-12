@@ -20,6 +20,9 @@ verify_jwt = false
 [functions.ai-news-summary]
 verify_jwt = true
 
+[functions.ai-resilient-summary]
+verify_jwt = false
+
 [functions.delete-account]
 verify_jwt = true
 

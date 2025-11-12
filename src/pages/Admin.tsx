@@ -25,6 +25,9 @@ const Admin = () => {
   const [fluxaLines, setFluxaLines] = useState<any[]>([]);
   const [isLoadingLines, setIsLoadingLines] = useState(false);
   const [isSportsTesting, setIsSportsTesting] = useState(false);
+  const [costSettings, setCostSettings] = useState<any>(null);
+  const [newMonthlyLimit, setNewMonthlyLimit] = useState<string>("");
+  const [apiUsage, setApiUsage] = useState<any[]>([]);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -51,6 +54,8 @@ const Admin = () => {
         }
 
         setIsAdmin(true);
+        fetchCostSettings();
+        fetchApiUsage();
       } catch (error) {
         if (import.meta.env.DEV) {
           console.error("Auth check error:", error);
@@ -113,6 +118,48 @@ const Admin = () => {
     await supabase.auth.signOut();
     toast.success("Logged out successfully");
     navigate("/auth");
+  };
+
+  const fetchCostSettings = async () => {
+    const { data } = await supabase
+      .from("cost_alert_settings")
+      .select("*")
+      .single();
+    
+    if (data) {
+      setCostSettings(data);
+      setNewMonthlyLimit(data.monthly_limit.toString());
+    }
+  };
+
+  const fetchApiUsage = async () => {
+    const { data } = await supabase
+      .from("api_usage_logs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    
+    setApiUsage(data || []);
+  };
+
+  const updateMonthlyLimit = async () => {
+    const limit = parseFloat(newMonthlyLimit);
+    if (isNaN(limit) || limit <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("cost_alert_settings")
+      .update({ monthly_limit: limit })
+      .eq("id", costSettings.id);
+
+    if (error) {
+      toast.error("Failed to update limit");
+    } else {
+      toast.success("Monthly limit updated");
+      fetchCostSettings();
+    }
   };
 
   const handleGenerate = async () => {
@@ -321,9 +368,11 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="gists" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="gists">Gist Generation</TabsTrigger>
             <TabsTrigger value="sports">⚽ Sports Banter</TabsTrigger>
+            <TabsTrigger value="costs">💰 Costs</TabsTrigger>
+            <TabsTrigger value="analytics">📊 Analytics</TabsTrigger>
             <TabsTrigger value="personality">
               <Sparkles className="mr-2 h-4 w-4" />
               Personality
@@ -516,6 +565,83 @@ const Admin = () => {
                   This will fetch today's match results and generate personalized commentary for users based on their favorite and rival teams.
                 </div>
               </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="costs" className="space-y-8">
+            <Card className="p-6 space-y-4 bg-card/95 backdrop-blur border-primary/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-semibold">💰 Cost Management</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Monitor and control AI API costs across the platform
+                  </p>
+                </div>
+              </div>
+
+              {costSettings && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card className="p-4 bg-muted/50">
+                      <p className="text-sm text-muted-foreground mb-1">Current Month</p>
+                      <p className="text-2xl font-bold">${costSettings.current_month_cost.toFixed(2)}</p>
+                    </Card>
+                    <Card className="p-4 bg-muted/50">
+                      <p className="text-sm text-muted-foreground mb-1">Monthly Limit</p>
+                      <p className="text-2xl font-bold">${costSettings.monthly_limit.toFixed(2)}</p>
+                    </Card>
+                    <Card className="p-4 bg-muted/50">
+                      <p className="text-sm text-muted-foreground mb-1">Usage</p>
+                      <p className="text-2xl font-bold">
+                        {((costSettings.current_month_cost / costSettings.monthly_limit) * 100).toFixed(0)}%
+                      </p>
+                    </Card>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium" htmlFor="monthly-limit">Update Monthly Limit</label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="monthly-limit"
+                        type="number"
+                        step="0.01"
+                        value={newMonthlyLimit}
+                        onChange={(e) => setNewMonthlyLimit(e.target.value)}
+                        placeholder="50.00"
+                      />
+                      <Button onClick={updateMonthlyLimit}>Update</Button>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <h3 className="font-bold mb-3">Recent API Usage</h3>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {apiUsage.map((log) => (
+                        <div key={log.id} className="flex justify-between items-center p-2 rounded bg-muted/30 text-sm">
+                          <span>{log.provider} - {log.endpoint}</span>
+                          <span className="text-muted-foreground">${log.estimated_cost.toFixed(4)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-8">
+            <Card className="p-6 space-y-4 bg-card/95 backdrop-blur border-primary/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-semibold">📊 Gist Analytics</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    View detailed performance metrics and engagement data
+                  </p>
+                </div>
+              </div>
+              <Button onClick={() => navigate("/admin/analytics")} size="lg" className="w-full">
+                View Detailed Analytics Dashboard
+              </Button>
             </Card>
           </TabsContent>
 

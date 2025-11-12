@@ -16,8 +16,9 @@ import LiveRoom from "./pages/LiveRoom";
 import Universe from "./pages/Universe";
 import Room from "./pages/Room";
 import Profile from "./pages/Profile";
-import AdminSponsors from "./pages/AdminSponsors";
 import AdminHealth from "./pages/AdminHealth";
+import AdminSponsors from "./pages/AdminSponsors";
+import Analytics from "./pages/Analytics";
 import SportsHub from "./pages/SportsHub";
 import Fanbase from "./pages/Fanbase";
 import FanbaseHub from "./pages/FanbaseHub";
@@ -52,6 +53,7 @@ const App = () => (
           <Route path="/fanbase/:slug" element={<EntityPage />} />
           <Route path="/admin/sponsors" element={<AdminSponsors />} />
           <Route path="/admin/health" element={<AdminHealth />} />
+          <Route path="/admin/analytics" element={<Analytics />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

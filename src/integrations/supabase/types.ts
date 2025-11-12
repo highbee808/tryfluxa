@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_provider_config: {
+        Row: {
+          cost_per_1k_tokens: number
+          created_at: string
+          fallback_provider: string | null
+          id: string
+          is_active: boolean
+          priority: number
+          provider_name: string
+          rate_limit: number
+          updated_at: string
+        }
+        Insert: {
+          cost_per_1k_tokens?: number
+          created_at?: string
+          fallback_provider?: string | null
+          id?: string
+          is_active?: boolean
+          priority?: number
+          provider_name: string
+          rate_limit?: number
+          updated_at?: string
+        }
+        Update: {
+          cost_per_1k_tokens?: number
+          created_at?: string
+          fallback_provider?: string | null
+          id?: string
+          is_active?: boolean
+          priority?: number
+          provider_name?: string
+          rate_limit?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      api_usage_logs: {
+        Row: {
+          created_at: string
+          endpoint: string
+          estimated_cost: number
+          id: string
+          provider: string
+          tokens_used: number
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          endpoint: string
+          estimated_cost?: number
+          id?: string
+          provider: string
+          tokens_used?: number
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          estimated_cost?: number
+          id?: string
+          provider?: string
+          tokens_used?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           content: string
@@ -35,6 +101,36 @@ export type Database = {
           created_at?: string
           id?: string
           role?: string
+        }
+        Relationships: []
+      }
+      cost_alert_settings: {
+        Row: {
+          alert_threshold: number
+          created_at: string
+          current_month_cost: number
+          id: string
+          last_reset: string
+          monthly_limit: number
+          updated_at: string
+        }
+        Insert: {
+          alert_threshold?: number
+          created_at?: string
+          current_month_cost?: number
+          id?: string
+          last_reset?: string
+          monthly_limit?: number
+          updated_at?: string
+        }
+        Update: {
+          alert_threshold?: number
+          created_at?: string
+          current_month_cost?: number
+          id?: string
+          last_reset?: string
+          monthly_limit?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -368,6 +464,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      fluxa_brain: {
+        Row: {
+          avg_read_time: number
+          created_at: string
+          engagement_score: number
+          id: string
+          preferred_tone: string
+          reading_speed: string
+          topics_read: Json
+          total_reads: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avg_read_time?: number
+          created_at?: string
+          engagement_score?: number
+          id?: string
+          preferred_tone?: string
+          reading_speed?: string
+          topics_read?: Json
+          total_reads?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avg_read_time?: number
+          created_at?: string
+          engagement_score?: number
+          id?: string
+          preferred_tone?: string
+          reading_speed?: string
+          topics_read?: Json
+          total_reads?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       fluxa_health_log: {
         Row: {

@@ -15,6 +15,7 @@ import { useAutoUpdateScores } from "@/hooks/useAutoUpdateScores";
 import { LiveMatchRoom } from "@/components/LiveMatchRoom";
 import { requestNotificationPermission, sendFluxaPushNotification } from "@/lib/notifications";
 import { NewsCard } from "@/components/NewsCard";
+import { useFluxaBrain } from "@/hooks/useFluxaBrain";
 
 interface Entity {
   id: string;
@@ -61,6 +62,9 @@ const EntityPage = () => {
   const newsAudioRef = useRef<HTMLAudioElement | null>(null);
   const [likedNews, setLikedNews] = useState<string[]>([]);
   const [bookmarkedNews, setBookmarkedNews] = useState<string[]>([]);
+  const [cachedNews, setCachedNews] = useState<any[]>([]);
+  const [loadingNews, setLoadingNews] = useState(false);
+  const { brainData, trackReading, adjustSummaryForTone } = useFluxaBrain();
 
   // Enable automatic score updates
   useAutoUpdateScores();
@@ -75,8 +79,46 @@ const EntityPage = () => {
       fetchEntity();
       fetchPosts();
       checkFollowStatus();
+      fetchCachedNews();
     }
   }, [slug]);
+
+  const fetchCachedNews = async () => {
+    if (!entity?.name) return;
+    
+    setLoadingNews(true);
+    try {
+      // Check cache first
+      const { data: cacheData } = await supabase.functions.invoke('news-cache', {
+        body: { entity: entity.name, action: 'get' }
+      });
+
+      if (cacheData?.cached && cacheData?.news?.length > 0) {
+        // Apply tone adjustment based on Fluxa Brain
+        const adjustedNews = cacheData.news.map((article: any) => ({
+          ...article,
+          ai_summary: brainData ? adjustSummaryForTone(article.ai_summary || article.description, brainData.preferred_tone as 'concise' | 'casual' | 'analytical') : article.ai_summary
+        }));
+        setCachedNews(adjustedNews);
+      } else {
+        // Fetch fresh with AI summaries
+        const { data: summaryData } = await supabase.functions.invoke('ai-resilient-summary', {
+          body: { 
+            articles: entity.news_feed || [],
+            userId: (await supabase.auth.getUser()).data.user?.id,
+            tone: (brainData?.preferred_tone as 'concise' | 'casual' | 'analytical') || 'casual'
+          }
+        });
+
+        if (summaryData?.summaries) {
+          setCachedNews(summaryData.summaries);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching news:", error);
+    }
+    setLoadingNews(false);
+  };
 
   // Set up realtime subscription for live updates
   useEffect(() => {
