@@ -73,3 +73,9 @@ verify_jwt = false
 
 [functions.update-live-scores]
 verify_jwt = false
+
+[functions.process-deeper-summaries]
+verify_jwt = false
+
+[functions.evaluate-summary-quality]
+verify_jwt = false
