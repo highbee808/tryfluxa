@@ -1,7 +1,8 @@
-import { Heart, MessageCircle, Bookmark, Share2, Play, Pause, Clock } from "lucide-react";
+import { Heart, MessageCircle, Bookmark, Share2, Play, Pause, Clock, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 
 interface FeedCardProps {
   id: string;
@@ -16,6 +17,7 @@ interface FeedCardProps {
   likes?: number;
   comments?: number;
   bookmarks?: number;
+  credibilityScore?: number;
   isPlaying: boolean;
   isLiked?: boolean;
   isBookmarked?: boolean;
@@ -24,6 +26,8 @@ interface FeedCardProps {
   onComment?: () => void;
   onBookmark?: () => void;
   onShare?: () => void;
+  onDeeperSummary?: () => void;
+  deeperSummaryRequested?: boolean;
 }
 
 export const FeedCard = ({
@@ -38,6 +42,7 @@ export const FeedCard = ({
   likes = 0,
   comments = 0,
   bookmarks = 0,
+  credibilityScore = 75,
   isPlaying,
   isLiked,
   isBookmarked,
@@ -46,7 +51,14 @@ export const FeedCard = ({
   onComment,
   onBookmark,
   onShare,
+  onDeeperSummary,
+  deeperSummaryRequested,
 }: FeedCardProps) => {
+  const getCredibilityColor = (score: number) => {
+    if (score >= 80) return "text-green-500";
+    if (score >= 60) return "text-yellow-500";
+    return "text-red-500";
+  };
   return (
     <Card className="overflow-hidden border shadow-sm hover:shadow-md transition-all duration-300 bg-card">
       <CardContent className="p-0">
@@ -67,9 +79,17 @@ export const FeedCard = ({
               <p className="text-xs text-muted-foreground">{timeAgo}</p>
             </div>
           </div>
-          <Badge variant="outline" className="text-xs capitalize">
-            {author}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs capitalize">
+              {author}
+            </Badge>
+            <Badge 
+              variant="secondary" 
+              className={`text-xs ${getCredibilityColor(credibilityScore)}`}
+            >
+              {credibilityScore}% verified
+            </Badge>
+          </div>
         </div>
 
         {/* Image with Play Button */}
@@ -112,45 +132,62 @@ export const FeedCard = ({
           </p>
 
           {/* Actions */}
-          <div className="flex items-center gap-6 pt-4 border-t border-border">
-            <button
-              onClick={onLike}
-              className="flex items-center gap-2 text-muted-foreground hover:text-red-500 transition-colors group"
-            >
-              <Heart
-                className={`w-5 h-5 transition-all ${
-                  isLiked ? "fill-red-500 text-red-500 scale-110" : "group-hover:scale-110"
-                }`}
-              />
-              <span className="text-sm font-medium">{likes}</span>
-            </button>
+          <div className="space-y-3 pt-4 border-t border-border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                <button
+                  onClick={onLike}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-red-500 transition-colors group"
+                >
+                  <Heart
+                    className={`w-5 h-5 transition-all ${
+                      isLiked ? "fill-red-500 text-red-500 scale-110" : "group-hover:scale-110"
+                    }`}
+                  />
+                  <span className="text-sm font-medium">{likes}</span>
+                </button>
 
-            <button
-              onClick={onComment}
-              className="flex items-center gap-2 text-muted-foreground hover:text-blue-500 transition-colors group"
-            >
-              <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-all" />
-              <span className="text-sm font-medium">{comments}</span>
-            </button>
+                <button
+                  onClick={onComment}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-blue-500 transition-colors group"
+                >
+                  <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-all" />
+                  <span className="text-sm font-medium">{comments}</span>
+                </button>
 
-            <button
-              onClick={onBookmark}
-              className="flex items-center gap-2 text-muted-foreground hover:text-coral-active transition-colors group"
-            >
-              <Bookmark
-                className={`w-5 h-5 transition-all ${
-                  isBookmarked ? "fill-coral-active text-coral-active scale-110" : "group-hover:scale-110"
-                }`}
-              />
-              <span className="text-sm font-medium">{bookmarks}</span>
-            </button>
+                <button
+                  onClick={onBookmark}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-coral-active transition-colors group"
+                >
+                  <Bookmark
+                    className={`w-5 h-5 transition-all ${
+                      isBookmarked ? "fill-coral-active text-coral-active scale-110" : "group-hover:scale-110"
+                    }`}
+                  />
+                  <span className="text-sm font-medium">{bookmarks}</span>
+                </button>
 
-            <button
-              onClick={onShare}
-              className="flex items-center gap-2 text-muted-foreground hover:text-green-500 transition-colors ml-auto group"
-            >
-              <Share2 className="w-5 h-5 group-hover:scale-110 transition-all" />
-            </button>
+                <button
+                  onClick={onShare}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-green-500 transition-colors group"
+                >
+                  <Share2 className="w-5 h-5 group-hover:scale-110 transition-all" />
+                </button>
+              </div>
+
+              {onDeeperSummary && (
+                <Button
+                  size="sm"
+                  variant={deeperSummaryRequested ? "secondary" : "outline"}
+                  onClick={onDeeperSummary}
+                  disabled={deeperSummaryRequested}
+                  className="gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  {deeperSummaryRequested ? "Requested" : "Deeper Analysis"}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>
