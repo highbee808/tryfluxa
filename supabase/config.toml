@@ -9,10 +9,10 @@ function = "auto-generate-gists"
 schedule = "* * * * *"
 
 [functions.voice-to-fluxa]
-verify_jwt = false
+verify_jwt = true
 
 [functions.voice-to-fluxa-with-limit]
-verify_jwt = false
+verify_jwt = true
 
 [functions.news-cache]
 verify_jwt = false
@@ -21,7 +21,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.ai-resilient-summary]
-verify_jwt = false
+verify_jwt = true
 
 [functions.delete-account]
 verify_jwt = true

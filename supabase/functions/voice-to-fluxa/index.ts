@@ -16,6 +16,29 @@ serve(async (req) => {
   }
 
   try {
+    // Authenticate user
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_KEY) throw new Error("Missing OPENAI_API_KEY");
 
@@ -27,9 +50,23 @@ serve(async (req) => {
       throw new Error("No audio file provided");
     }
 
-    // Check file size (60MB limit)
-    if (audioFile.size > 60 * 1024 * 1024) {
-      throw new Error("File size exceeds 60MB limit");
+    // Validate file type
+    const ALLOWED_AUDIO_TYPES = [
+      'audio/mpeg',
+      'audio/mp3',
+      'audio/wav',
+      'audio/webm',
+      'audio/ogg',
+      'audio/m4a'
+    ];
+    
+    if (!ALLOWED_AUDIO_TYPES.includes(audioFile.type)) {
+      throw new Error('Invalid file type. Only audio files allowed.');
+    }
+
+    // Check file size (10MB limit)
+    if (audioFile.size > 10 * 1024 * 1024) {
+      throw new Error("File size exceeds 10MB limit");
     }
 
     console.log("📁 Audio file received:", audioFile.name, audioFile.size, "bytes");
