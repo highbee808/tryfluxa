@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import React from "react";
-import { FeedCard } from "@/components/FeedCard";
+import { FeedCardWithSocial } from "@/components/FeedCardWithSocial";
 import { NewsCard } from "@/components/NewsCard";
 import { NavigationBar } from "@/components/NavigationBar";
 import { BottomNavigation } from "@/components/BottomNavigation";
@@ -647,7 +647,7 @@ const Feed = () => {
             ) : (
               combinedFeed.map((item, idx) => 
                 item.type === 'gist' ? (
-                  <FeedCard
+                  <FeedCardWithSocial
                     key={`gist-${item.data.id}`}
                     id={item.data.id}
                     imageUrl={item.data.image_url || undefined}
@@ -657,16 +657,10 @@ const Feed = () => {
                     timeAgo="2h ago"
                     category={item.data.topic}
                     readTime="5 min"
-                    likes={Math.floor(Math.random() * 1000)}
                     comments={Math.floor(Math.random() * 200)}
-                    bookmarks={Math.floor(Math.random() * 300)}
                     isPlaying={currentPlayingId === item.data.id && isPlaying}
-                    isLiked={likedGists.includes(item.data.id)}
-                    isBookmarked={bookmarkedGists.includes(item.data.id)}
                     onPlay={() => handlePlay(item.data.id, item.data.audio_url)}
-                    onLike={() => handleLike(item.data.id)}
                     onComment={() => handleTellMore(item.data)}
-                    onBookmark={() => handleBookmark(item.data.id)}
                     onShare={() => handleShare(item.data)}
                   />
                 ) : (

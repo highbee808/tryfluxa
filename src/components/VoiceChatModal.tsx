@@ -1,5 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
+import { useVoiceChatHistory } from "@/hooks/useVoiceChatHistory";
+import { Clock, MessageCircle } from "lucide-react";
 
 interface VoiceChatModalProps {
   open: boolean;
@@ -12,15 +17,17 @@ const VoiceChatModal = ({ open, onOpenChange }: VoiceChatModalProps) => {
   const [fluxaReply, setFluxaReply] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
-  const [fluxaMood, setFluxaMood] = useState("neutral");
+  const [showHistory, setShowHistory] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
+  const playbackAnalyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
-  // 🎙️ Start Recording
+  const { history, loading: historyLoading } = useVoiceChatHistory();
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -29,223 +36,170 @@ const VoiceChatModal = ({ open, onOpenChange }: VoiceChatModalProps) => {
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
-      // Mic visualization setup
-      audioContextRef.current = new AudioContext();
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      analyserRef.current = audioContextRef.current.createAnalyser();
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      analyserRef.current = audioContext.createAnalyser();
       source.connect(analyserRef.current);
       analyserRef.current.fftSize = 256;
 
-      mediaRecorder.ondataavailable = (event) => {
-        audioChunksRef.current.push(event.data);
-      };
-
+      mediaRecorder.ondataavailable = (event) => audioChunksRef.current.push(event.data);
       mediaRecorder.onstop = async () => {
         const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         await sendToFluxa(blob);
-        stopMicVisualizer();
+        setAudioLevel(0);
       };
 
       mediaRecorder.start();
       setIsRecording(true);
       visualizeMic();
     } catch (err) {
-      console.error("Error starting recording:", err);
+      console.error("Error:", err);
     }
   };
 
-  // 🛑 Stop Recording
   const stopRecording = () => {
-    if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
+    mediaRecorderRef.current?.stop();
     setIsRecording(false);
-    if (micStreamRef.current) micStreamRef.current.getTracks().forEach((t) => t.stop());
+    micStreamRef.current?.getTracks().forEach(t => t.stop());
   };
 
-  // 📡 Send to Fluxa (Realtime Streaming)
   const sendToFluxa = async (audioBlob: Blob) => {
     setIsLoading(true);
     try {
       const formData = new FormData();
       formData.append("file", audioBlob, "speech.webm");
-
-      const response = await fetch("/functions/v1/voice-to-fluxa-stream", {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/voice-to-fluxa-stream`, {
         method: "POST",
+        headers: { Authorization: `Bearer ${session?.access_token}` },
         body: formData,
       });
 
-      if (!response.body) throw new Error("No response stream");
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
       let partialText = "";
 
-      while (true) {
+      while (reader) {
         const { value, done } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-
         try {
-          const json = JSON.parse(chunk);
+          const json = JSON.parse(decoder.decode(value));
           if (json.event === "partial") {
             partialText += json.text;
             setFluxaReply(partialText);
           } else if (json.event === "done") {
             setFluxaReply(json.text);
-            playFluxaReply(json.audioUrl, json.text);
+            playAudio(json.audioUrl);
           }
-        } catch {
-          console.warn("Non-JSON chunk:", chunk);
-        }
+        } catch {}
       }
     } catch (err) {
-      console.error("Streaming error:", err);
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 🎧 Play Fluxa’s reply with emotional reaction
-  const playFluxaReply = async (audioUrl: string, text: string) => {
-    const emotion = detectEmotion(text);
-    setFluxaMood(emotion);
-
-    const audio = new Audio(audioUrl);
-    audio.onplay = () => setIsSpeaking(true);
-    audio.onended = () => {
-      setIsSpeaking(false);
-      maybePlayReaction(emotion);
-    };
-    await audio.play();
+  const playAudio = (url: string) => {
+    const audio = new Audio(url);
+    audio.onplay = () => { setIsSpeaking(true); visualizePlayback(audio); };
+    audio.onended = () => { setIsSpeaking(false); setAudioLevel(0); };
+    audio.play();
   };
 
-  // 🧠 Detect emotion in reply
-  const detectEmotion = (text: string): string => {
-    const lower = text.toLowerCase();
-    if (lower.includes("haha") || lower.includes("funny")) return "laugh";
-    if (lower.includes("oh no") || lower.includes("sorry")) return "sad";
-    if (lower.includes("yay") || lower.includes("great")) return "happy";
-    if (lower.includes("wow") || lower.includes("omg")) return "surprised";
-    return "neutral";
-  };
-
-  // 😂 Optional reaction sound
-  const maybePlayReaction = (emotion: string) => {
-    const reactions: Record<string, string[]> = {
-      laugh: [
-        "/audio/reactions/laugh/giggle.mp3",
-        "/audio/reactions/laugh/softlaugh.mp3",
-        "/audio/reactions/laugh/burstlaugh.mp3",
-        "/audio/reactions/laugh/snicker.mp3",
-      ],
-      happy: ["/audio/reactions/hum/softhum.mp3"],
-      sad: ["/audio/reactions/sigh/softsigh.mp3"],
-      surprised: ["/audio/reactions/gasp/lightgasp.mp3"],
-    };
-
-    const options = reactions[emotion];
-    if (options && options.length > 0) {
-      const file = options[Math.floor(Math.random() * options.length)];
-      const audio = new Audio(file);
-      audio.play();
-    }
-  };
-
-  // 🎚️ Mic Visualization
   const visualizeMic = () => {
-    const analyser = analyserRef.current;
-    if (!analyser) return;
-
-    const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
     const update = () => {
-      if (!isRecording) return;
-      analyser.getByteFrequencyData(dataArray);
-      const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-      setAudioLevel(avg / 255);
+      if (!isRecording || !analyserRef.current) return;
+      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+      analyserRef.current.getByteFrequencyData(dataArray);
+      setAudioLevel(dataArray.reduce((a, b) => a + b, 0) / dataArray.length / 255);
       requestAnimationFrame(update);
     };
-
     update();
   };
 
-  const stopMicVisualizer = () => setAudioLevel(0);
-
-  // 🔊 Waveform Animation
-  const renderWaveform = () => {
-    const bars = 12;
-    return (
-      <div className="flex gap-[3px] justify-center mt-2">
-        {Array.from({ length: bars }).map((_, i) => {
-          const height = audioLevel * 50 * Math.abs(Math.sin(i + Date.now() / 200)) + 4;
-          return (
-            <div
-              key={i}
-              style={{
-                height: `${height}px`,
-                width: "5px",
-                borderRadius: "4px",
-                background:
-                  fluxaMood === "laugh"
-                    ? "rgba(255,180,80,0.8)"
-                    : isRecording
-                      ? "rgba(255,75,75,0.8)"
-                      : "rgba(150,100,255,0.8)",
-                transition: "height 0.1s ease",
-              }}
-            />
-          );
-        })}
-      </div>
-    );
+  const visualizePlayback = (audio: HTMLAudioElement) => {
+    const ctx = new AudioContext();
+    const source = ctx.createMediaElementSource(audio);
+    playbackAnalyserRef.current = ctx.createAnalyser();
+    source.connect(playbackAnalyserRef.current).connect(ctx.destination);
+    
+    const update = () => {
+      if (!isSpeaking) return;
+      const dataArray = new Uint8Array(playbackAnalyserRef.current!.frequencyBinCount);
+      playbackAnalyserRef.current!.getByteFrequencyData(dataArray);
+      setAudioLevel(dataArray.reduce((a, b) => a + b, 0) / dataArray.length / 255);
+      animationFrameRef.current = requestAnimationFrame(update);
+    };
+    update();
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Talk to Fluxa 🎧</DialogTitle>
+          <div className="flex justify-between items-center">
+            <DialogTitle>Talk to Fluxa 🎧</DialogTitle>
+            <Button variant="ghost" size="sm" onClick={() => setShowHistory(!showHistory)}>
+              <MessageCircle className="h-4 w-4 mr-2" />
+              {showHistory ? 'Hide' : 'Show'} History
+            </Button>
+          </div>
         </DialogHeader>
-        <div className="flex flex-col items-center gap-6 text-center">
-      
 
-      {/* Glowing orb indicator */}
-      <div
-        className={`mt-4 h-20 w-20 rounded-full flex items-center justify-center transition-all duration-300 ${
-          isRecording
-            ? "bg-red-500/60 animate-pulse"
-            : isSpeaking
-              ? "bg-gradient-to-r from-purple-500 to-pink-500 shadow-[0_0_25px_rgba(200,100,255,0.8)] animate-pulse"
-              : "bg-muted"
-        }`}
-      >
-        <span className="text-white text-2xl">{isRecording ? "🎙️" : isSpeaking ? "🦋" : "🎧"}</span>
-      </div>
+        {showHistory ? (
+          <ScrollArea className="h-96">
+            {historyLoading ? <p className="text-center py-8">Loading...</p> : 
+             history.length === 0 ? <p className="text-center py-8">No history yet</p> :
+             history.map(msg => (
+              <div key={msg.id} className="mb-4 p-3 bg-muted/50 rounded-lg">
+                <p className="text-xs text-muted-foreground mb-2">
+                  <Clock className="inline h-3 w-3 mr-1" />
+                  {new Date(msg.created_at).toLocaleString()}
+                </p>
+                <div className="space-y-2">
+                  <div><strong>You:</strong> {msg.user_message}</div>
+                  <div><strong>Fluxa:</strong> {msg.fluxa_reply}</div>
+                  {msg.audio_url && <audio controls src={msg.audio_url} className="w-full mt-2" />}
+                </div>
+              </div>
+            ))}
+          </ScrollArea>
+        ) : (
+          <div className="flex flex-col items-center gap-6 py-4">
+            <div className={`h-20 w-20 rounded-full flex items-center justify-center ${
+              isRecording ? "bg-red-500/60 animate-pulse" : 
+              isSpeaking ? "bg-gradient-to-r from-purple-500 to-pink-500 animate-pulse" : "bg-muted"
+            }`}>
+              <span className="text-2xl">{isRecording ? "🎙️" : isSpeaking ? "🦋" : "🎧"}</span>
+            </div>
 
-      {renderWaveform()}
+            <div className="flex gap-1">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} style={{
+                  height: `${audioLevel * 50 * Math.abs(Math.sin(i)) + 4}px`,
+                  width: "5px",
+                  borderRadius: "4px",
+                  background: isRecording ? "rgba(255,75,75,0.8)" : "rgba(150,100,255,0.8)",
+                }} />
+              ))}
+            </div>
 
-      {/* Button */}
-      <button
-        onClick={isRecording ? stopRecording : startRecording}
-        className={`px-8 py-3 rounded-2xl font-semibold mt-4 transition-all duration-300 ${
-          isRecording
-            ? "bg-red-500 hover:bg-red-600 text-white"
-            : "bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:scale-105 shadow-lg"
-        }`}
-      >
-        {isRecording ? "Stop Recording" : "Start Talking"}
-      </button>
+            <Button onClick={isRecording ? stopRecording : startRecording} 
+              className={isRecording ? "bg-red-500" : ""}>
+              {isRecording ? "Stop" : "Start Talking"}
+            </Button>
 
-      {/* Response Text */}
-      <div className="mt-4 w-full max-w-md">
-        {isLoading && <p className="text-sm text-muted-foreground">Fluxa is thinking...</p>}
-        {fluxaReply && (
-          <div className="mt-4 p-4 bg-muted rounded-xl shadow-inner text-left">
-            <p className="font-semibold text-foreground mb-1">Fluxa says:</p>
-            <p className="text-muted-foreground">{fluxaReply}</p>
+            {isLoading && <p className="text-sm text-muted-foreground">Fluxa is thinking...</p>}
+            {fluxaReply && (
+              <div className="p-4 bg-muted rounded-xl w-full">
+                <p className="font-semibold mb-1">Fluxa says:</p>
+                <p className="text-sm">{fluxaReply}</p>
+              </div>
+            )}
           </div>
         )}
-        </div>
-      </div>
       </DialogContent>
     </Dialog>
   );
