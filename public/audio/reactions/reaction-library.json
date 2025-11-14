@@ -1,72 +1,13 @@
 {
-  "bucket": "gist-audio",
-  "basePath": "reactions/",
-  "folderStructure": {
-    "laugh": {
-      "files": [
-        {
-          "filename": "giggle.mp3",
-          "path": "reactions/laugh/giggle.mp3",
-          "description": "Light teasing laugh",
-          "emotion": "laugh",
-          "intensity": "light",
-          "useCase": "Playful gossip, lighthearted moments"
-        },
-        {
-          "filename": "softlaugh.mp3",
-          "path": "reactions/laugh/softlaugh.mp3",
-          "description": "Friendly chuckle",
-          "emotion": "laugh",
-          "intensity": "soft",
-          "useCase": "Amused reactions, warm humor"
-        },
-        {
-          "filename": "burstlaugh.mp3",
-          "path": "reactions/laugh/burstlaugh.mp3",
-          "description": "Full laugh",
-          "emotion": "laugh",
-          "intensity": "burst",
-          "useCase": "Hilarious moments, shocking revelations"
-        },
-        {
-          "filename": "snicker.mp3",
-          "path": "reactions/laugh/snicker.mp3",
-          "description": "Sarcastic laugh",
-          "emotion": "laugh",
-          "intensity": "sarcastic",
-          "useCase": "Shade, sarcasm, knowing smirks"
-        }
-      ]
-    },
-    "sigh": {
-      "files": [],
-      "description": "Disappointed, exasperated reactions",
-      "placeholder": true
-    },
-    "gasp": {
-      "files": [],
-      "description": "Shocked, surprised reactions",
-      "placeholder": true
-    },
-    "hum": {
-      "files": [],
-      "description": "Thoughtful, pondering moments",
-      "placeholder": true
-    },
-    "tease": {
-      "files": [],
-      "description": "Playful teasing sounds",
-      "placeholder": true
-    },
-    "warm": {
-      "files": [],
-      "description": "Affectionate, caring reactions",
-      "placeholder": true
-    }
-  },
-  "instructions": {
-    "upload": "Files are stored in public/audio/reactions/ locally. To upload to Supabase Storage bucket 'gist-audio', use the Supabase Dashboard or call the upload-reactions edge function.",
-    "usage": "These reaction sounds can be dynamically inserted into Fluxa's narration based on emotion detection in the text-to-speech function.",
-    "integration": "Reference these files in supabase/functions/text-to-speech/index.ts to add personality to Fluxa's voice."
-  }
+  "laugh": [
+    "/audio/reactions/laugh/giggle.mp3",
+    "/audio/reactions/laugh/softlaugh.mp3",
+    "/audio/reactions/laugh/burstlaugh.mp3",
+    "/audio/reactions/laugh/snicker.mp3"
+  ],
+  "sigh": ["/audio/reactions/sigh/softsigh.mp3"],
+  "gasp": ["/audio/reactions/gasp/lightgasp.mp3"],
+  "hum": ["/audio/reactions/hum/softhum.mp3"],
+  "tease": ["/audio/reactions/tease/playfultease.mp3"],
+  "warm": ["/audio/reactions/warm/comforthum.mp3"]
 }
