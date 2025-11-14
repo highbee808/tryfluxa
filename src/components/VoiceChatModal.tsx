@@ -1,197 +1,241 @@
-import { useState, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { Mic, MicOff, Loader2, Volume2 } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
 
-interface VoiceChatModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
+const VoiceChatModal = () => {
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [fluxaReply, setFluxaReply] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [fluxaMood, setFluxaMood] = useState("neutral");
 
-export const VoiceChatModal = ({ open, onOpenChange }: VoiceChatModalProps) => {
-  const { toast } = useToast();
-  const [recording, setRecording] = useState(false);
-  const [processing, setProcessing] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [transcript, setTranscript] = useState("");
-  const [reply, setReply] = useState("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
 
+  // 🎙️ Start Recording
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream;
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
+      audioChunksRef.current = [];
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data);
-        }
+      // Mic visualization setup
+      audioContextRef.current = new AudioContext();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      source.connect(analyserRef.current);
+      analyserRef.current.fftSize = 256;
+
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(chunksRef.current, { type: "audio/webm" });
-        await processAudio(audioBlob);
-        stream.getTracks().forEach((track) => track.stop());
+        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        await sendToFluxa(blob);
+        stopMicVisualizer();
       };
 
       mediaRecorder.start();
-      setRecording(true);
-      
-      toast({
-        title: "Recording...",
-        description: "Speak now! Click stop when done.",
-      });
-    } catch (error) {
-      console.error("Recording error:", error);
-      toast({
-        title: "Microphone access denied",
-        description: "Please enable microphone access to use voice chat",
-        variant: "destructive",
-      });
+      setIsRecording(true);
+      visualizeMic();
+    } catch (err) {
+      console.error("Error starting recording:", err);
     }
   };
 
+  // 🛑 Stop Recording
   const stopRecording = () => {
-    if (mediaRecorderRef.current && recording) {
-      mediaRecorderRef.current.stop();
-      setRecording(false);
-    }
+    if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
+    setIsRecording(false);
+    if (micStreamRef.current) micStreamRef.current.getTracks().forEach((t) => t.stop());
   };
 
-  const processAudio = async (audioBlob: Blob) => {
-    setProcessing(true);
+  // 📡 Send to Fluxa (Realtime Streaming)
+  const sendToFluxa = async (audioBlob: Blob) => {
+    setIsLoading(true);
     try {
       const formData = new FormData();
-      formData.append("file", audioBlob, "recording.webm");
+      formData.append("file", audioBlob, "speech.webm");
 
-      const { data, error } = await supabase.functions.invoke("voice-to-fluxa", {
+      const response = await fetch("/functions/v1/voice-to-fluxa-stream", {
+        method: "POST",
         body: formData,
       });
 
-      if (error) throw error;
+      if (!response.body) throw new Error("No response stream");
 
-      setTranscript(data.userSpeech);
-      setReply(data.fluxaReply);
-      setAudioUrl(data.audioUrl);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let partialText = "";
 
-      // Auto-play Fluxa's response
-      const audio = new Audio(data.audioUrl);
-      audio.play();
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
 
-      toast({
-        title: "Response received",
-        description: "Fluxa has replied!",
-      });
-    } catch (error) {
-      console.error("Processing error:", error);
-      toast({
-        title: "Processing failed",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
-      });
+        try {
+          const json = JSON.parse(chunk);
+          if (json.event === "partial") {
+            partialText += json.text;
+            setFluxaReply(partialText);
+          } else if (json.event === "done") {
+            setFluxaReply(json.text);
+            playFluxaReply(json.audioUrl, json.text);
+          }
+        } catch {
+          console.warn("Non-JSON chunk:", chunk);
+        }
+      }
+    } catch (err) {
+      console.error("Streaming error:", err);
     } finally {
-      setProcessing(false);
+      setIsLoading(false);
     }
   };
 
-  const playResponse = () => {
-    if (audioUrl) {
-      const audio = new Audio(audioUrl);
+  // 🎧 Play Fluxa’s reply with emotional reaction
+  const playFluxaReply = async (audioUrl: string, text: string) => {
+    const emotion = detectEmotion(text);
+    setFluxaMood(emotion);
+
+    const audio = new Audio(audioUrl);
+    audio.onplay = () => setIsSpeaking(true);
+    audio.onended = () => {
+      setIsSpeaking(false);
+      maybePlayReaction(emotion);
+    };
+    await audio.play();
+  };
+
+  // 🧠 Detect emotion in reply
+  const detectEmotion = (text: string): string => {
+    const lower = text.toLowerCase();
+    if (lower.includes("haha") || lower.includes("funny")) return "laugh";
+    if (lower.includes("oh no") || lower.includes("sorry")) return "sad";
+    if (lower.includes("yay") || lower.includes("great")) return "happy";
+    if (lower.includes("wow") || lower.includes("omg")) return "surprised";
+    return "neutral";
+  };
+
+  // 😂 Optional reaction sound
+  const maybePlayReaction = (emotion: string) => {
+    const reactions: Record<string, string[]> = {
+      laugh: [
+        "/audio/reactions/laugh/giggle.mp3",
+        "/audio/reactions/laugh/softlaugh.mp3",
+        "/audio/reactions/laugh/burstlaugh.mp3",
+        "/audio/reactions/laugh/snicker.mp3",
+      ],
+      happy: ["/audio/reactions/hum/softhum.mp3"],
+      sad: ["/audio/reactions/sigh/softsigh.mp3"],
+      surprised: ["/audio/reactions/gasp/lightgasp.mp3"],
+    };
+
+    const options = reactions[emotion];
+    if (options && options.length > 0) {
+      const file = options[Math.floor(Math.random() * options.length)];
+      const audio = new Audio(file);
       audio.play();
     }
   };
 
-  const handleClose = () => {
-    setRecording(false);
-    setProcessing(false);
-    setAudioUrl(null);
-    setTranscript("");
-    setReply("");
-    if (mediaRecorderRef.current && recording) {
-      mediaRecorderRef.current.stop();
-    }
-    onOpenChange(false);
+  // 🎚️ Mic Visualization
+  const visualizeMic = () => {
+    const analyser = analyserRef.current;
+    if (!analyser) return;
+
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+    const update = () => {
+      if (!isRecording) return;
+      analyser.getByteFrequencyData(dataArray);
+      const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+      setAudioLevel(avg / 255);
+      requestAnimationFrame(update);
+    };
+
+    update();
+  };
+
+  const stopMicVisualizer = () => setAudioLevel(0);
+
+  // 🔊 Waveform Animation
+  const renderWaveform = () => {
+    const bars = 12;
+    return (
+      <div className="flex gap-[3px] justify-center mt-2">
+        {Array.from({ length: bars }).map((_, i) => {
+          const height = audioLevel * 50 * Math.abs(Math.sin(i + Date.now() / 200)) + 4;
+          return (
+            <div
+              key={i}
+              style={{
+                height: `${height}px`,
+                width: "5px",
+                borderRadius: "4px",
+                background:
+                  fluxaMood === "laugh"
+                    ? "rgba(255,180,80,0.8)"
+                    : isRecording
+                      ? "rgba(255,75,75,0.8)"
+                      : "rgba(150,100,255,0.8)",
+                transition: "height 0.1s ease",
+              }}
+            />
+          );
+        })}
+      </div>
+    );
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Talk to Fluxa</DialogTitle>
-        </DialogHeader>
+    <div className="flex flex-col items-center gap-6 mt-8 text-center">
+      <h2 className="text-3xl font-bold text-foreground">Talk to Fluxa 🎧</h2>
 
-        <div className="space-y-4 py-4">
-          {/* Recording Controls */}
-          <div className="flex flex-col items-center gap-4">
-            {!recording && !processing && (
-              <Button
-                size="lg"
-                className="w-24 h-24 rounded-full"
-                onClick={startRecording}
-              >
-                <Mic className="h-8 w-8" />
-              </Button>
-            )}
+      {/* Glowing orb indicator */}
+      <div
+        className={`mt-4 h-20 w-20 rounded-full flex items-center justify-center transition-all duration-300 ${
+          isRecording
+            ? "bg-red-500/60 animate-pulse"
+            : isSpeaking
+              ? "bg-gradient-to-r from-purple-500 to-pink-500 shadow-[0_0_25px_rgba(200,100,255,0.8)] animate-pulse"
+              : "bg-muted"
+        }`}
+      >
+        <span className="text-white text-2xl">{isRecording ? "🎙️" : isSpeaking ? "🦋" : "🎧"}</span>
+      </div>
 
-            {recording && (
-              <Button
-                size="lg"
-                variant="destructive"
-                className="w-24 h-24 rounded-full animate-pulse"
-                onClick={stopRecording}
-              >
-                <MicOff className="h-8 w-8" />
-              </Button>
-            )}
+      {renderWaveform()}
 
-            {processing && (
-              <div className="flex flex-col items-center gap-2">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground">Processing your message...</p>
-              </div>
-            )}
+      {/* Button */}
+      <button
+        onClick={isRecording ? stopRecording : startRecording}
+        className={`px-8 py-3 rounded-2xl font-semibold mt-4 transition-all duration-300 ${
+          isRecording
+            ? "bg-red-500 hover:bg-red-600 text-white"
+            : "bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:scale-105 shadow-lg"
+        }`}
+      >
+        {isRecording ? "Stop Recording" : "Start Talking"}
+      </button>
+
+      {/* Response Text */}
+      <div className="mt-4 w-full max-w-md">
+        {isLoading && <p className="text-sm text-muted-foreground">Fluxa is thinking...</p>}
+        {fluxaReply && (
+          <div className="mt-4 p-4 bg-muted rounded-xl shadow-inner text-left">
+            <p className="font-semibold text-foreground mb-1">Fluxa says:</p>
+            <p className="text-muted-foreground">{fluxaReply}</p>
           </div>
-
-          {/* Transcript Display */}
-          {transcript && (
-            <div className="bg-muted p-4 rounded-lg">
-              <p className="text-sm font-semibold mb-1">You said:</p>
-              <p className="text-sm">{transcript}</p>
-            </div>
-          )}
-
-          {/* Fluxa's Reply */}
-          {reply && (
-            <div className="bg-primary/10 p-4 rounded-lg">
-              <p className="text-sm font-semibold mb-1 text-primary">Fluxa replied:</p>
-              <p className="text-sm">{reply}</p>
-              {audioUrl && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-2"
-                  onClick={playResponse}
-                >
-                  <Volume2 className="h-4 w-4 mr-2" />
-                  Play Again
-                </Button>
-              )}
-            </div>
-          )}
-
-          {/* Instructions */}
-          {!transcript && !recording && !processing && (
-            <p className="text-sm text-muted-foreground text-center">
-              Click the microphone to start a voice conversation with Fluxa
-            </p>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+        )}
+      </div>
+    </div>
   );
 };
+
+export default VoiceChatModal;
