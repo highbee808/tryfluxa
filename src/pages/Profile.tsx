@@ -8,7 +8,7 @@ import { BottomNavigation } from "@/components/BottomNavigation";
 import { NavigationBar } from "@/components/NavigationBar";
 import { ProfileEditModal } from "@/components/ProfileEditModal";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
-import { VoiceChatModal } from "@/components/VoiceChatModal";
+import VoiceChatModal from "@/components/VoiceChatModal";
 import { FollowButton } from "@/components/FollowButton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, MapPin, Calendar, Link as LinkIcon, Heart, Play, Volume2, MoreHorizontal, Settings, Trash2, Mic } from "lucide-react";

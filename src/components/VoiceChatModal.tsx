@@ -1,6 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-const VoiceChatModal = () => {
+interface VoiceChatModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+const VoiceChatModal = ({ open, onOpenChange }: VoiceChatModalProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [fluxaReply, setFluxaReply] = useState("");
@@ -194,8 +200,13 @@ const VoiceChatModal = () => {
   };
 
   return (
-    <div className="flex flex-col items-center gap-6 mt-8 text-center">
-      <h2 className="text-3xl font-bold text-foreground">Talk to Fluxa 🎧</h2>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Talk to Fluxa 🎧</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col items-center gap-6 text-center">
+      
 
       {/* Glowing orb indicator */}
       <div
@@ -233,8 +244,10 @@ const VoiceChatModal = () => {
             <p className="text-muted-foreground">{fluxaReply}</p>
           </div>
         )}
+        </div>
       </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
