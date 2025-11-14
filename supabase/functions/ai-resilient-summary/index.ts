@@ -13,10 +13,81 @@ serve(async (req) => {
   }
 
   try {
+    // Authenticate user
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { articles, userId, tone = 'casual' } = await req.json();
 
+    // Validate tone parameter
+    const ALLOWED_TONES = ['concise', 'casual', 'analytical'];
+    if (!ALLOWED_TONES.includes(tone)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid tone. Must be one of: concise, casual, analytical' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate articles array
     if (!articles || !Array.isArray(articles)) {
       throw new Error("No articles provided");
+    }
+
+    if (articles.length > 10) {
+      return new Response(
+        JSON.stringify({ error: 'Too many articles. Maximum 10 allowed.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate each article
+    for (const article of articles) {
+      if (!article.title || typeof article.title !== 'string') {
+        return new Response(
+          JSON.stringify({ error: 'Each article must have a title' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (article.title.length > 200) {
+        return new Response(
+          JSON.stringify({ error: 'Article title too long. Maximum 200 characters.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (article.content && article.content.length > 5000) {
+        return new Response(
+          JSON.stringify({ error: 'Article content too long. Maximum 5000 characters.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (article.description && article.description.length > 1000) {
+        return new Response(
+          JSON.stringify({ error: 'Article description too long. Maximum 1000 characters.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     const supabase = createClient(
