@@ -80,6 +80,48 @@ export type Database = {
         }
         Relationships: []
       }
+      article_likes: {
+        Row: {
+          article_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          article_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      article_saves: {
+        Row: {
+          article_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          article_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          article_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_messages: {
         Row: {
           content: string
@@ -189,6 +231,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      deeper_summary_requests: {
+        Row: {
+          article_id: string
+          created_at: string
+          id: string
+          processed_at: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          article_id: string
+          created_at?: string
+          id?: string
+          processed_at?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          article_id?: string
+          created_at?: string
+          id?: string
+          processed_at?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       fan_entities: {
         Row: {
@@ -1405,19 +1474,39 @@ export type Database = {
         }
         Relationships: []
       }
-    }
-    Views: {
-      user_activity_feed: {
+      voice_chat_history: {
         Row: {
-          activity_type: string | null
-          created_at: string | null
-          item_id: string | null
-          item_image: string | null
-          item_title: string | null
-          user_id: string | null
+          audio_url: string
+          created_at: string
+          emotion: string
+          fluxa_reply: string
+          id: string
+          user_id: string
+          user_message: string
+        }
+        Insert: {
+          audio_url: string
+          created_at?: string
+          emotion: string
+          fluxa_reply: string
+          id?: string
+          user_id: string
+          user_message: string
+        }
+        Update: {
+          audio_url?: string
+          created_at?: string
+          emotion?: string
+          fluxa_reply?: string
+          id?: string
+          user_id?: string
+          user_message?: string
         }
         Relationships: []
       }
+    }
+    Views: {
+      [_ in never]: never
     }
     Functions: {
       get_favorite_category: { Args: { user_uuid: string }; Returns: string }
