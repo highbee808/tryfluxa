@@ -8,6 +8,21 @@ name = "auto-generate-gists-every-minute"
 function = "auto-generate-gists"
 schedule = "* * * * *"
 
+[[edge_runtime.cron]]
+name = "fetch-sports-results-hourly"
+function = "fetch-sports-results"
+schedule = "0 * * * *"
+
+[[edge_runtime.cron]]
+name = "update-live-scores-every-5-min"
+function = "update-live-scores"
+schedule = "*/5 * * * *"
+
+[[edge_runtime.cron]]
+name = "process-deeper-summaries-hourly"
+function = "process-deeper-summaries"
+schedule = "0 * * * *"
+
 [functions.voice-to-fluxa]
 verify_jwt = true
 
@@ -81,4 +96,4 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.evaluate-summary-quality]
-verify_jwt = false
+verify_jwt = true

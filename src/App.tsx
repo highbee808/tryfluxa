@@ -23,6 +23,7 @@ import SportsHub from "./pages/SportsHub";
 import Fanbase from "./pages/Fanbase";
 import FanbaseHub from "./pages/FanbaseHub";
 import EntityPage from "./pages/EntityPage";
+import PostDetail from "./pages/PostDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +52,7 @@ const App = () => (
           <Route path="/fanbase" element={<Fanbase />} />
           <Route path="/fanbase-hub" element={<FanbaseHub />} />
           <Route path="/fanbase/:slug" element={<EntityPage />} />
+          <Route path="/post/:postId" element={<PostDetail />} />
           <Route path="/admin/sponsors" element={<AdminSponsors />} />
           <Route path="/admin/health" element={<AdminHealth />} />
           <Route path="/admin/analytics" element={<Analytics />} />
