@@ -86,6 +86,9 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          is_reported: boolean
+          likes_count: number
+          parent_id: string | null
           updated_at: string
           user_id: string
         }
@@ -94,6 +97,9 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          is_reported?: boolean
+          likes_count?: number
+          parent_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -102,6 +108,9 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          is_reported?: boolean
+          likes_count?: number
+          parent_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -111,6 +120,13 @@ export type Database = {
             columns: ["article_id"]
             isOneToOne: false
             referencedRelation: "gists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "article_comments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "article_comments"
             referencedColumns: ["id"]
           },
         ]
@@ -180,6 +196,35 @@ export type Database = {
           role?: string
         }
         Relationships: []
+      }
+      comment_likes: {
+        Row: {
+          comment_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_likes_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "article_comments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cost_alert_settings: {
         Row: {
@@ -1010,6 +1055,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      post_analytics: {
+        Row: {
+          comments: number
+          created_at: string
+          id: string
+          likes: number
+          plays: number
+          post_id: string
+          shares: number
+          updated_at: string
+          views: number
+        }
+        Insert: {
+          comments?: number
+          created_at?: string
+          id?: string
+          likes?: number
+          plays?: number
+          post_id: string
+          shares?: number
+          updated_at?: string
+          views?: number
+        }
+        Update: {
+          comments?: number
+          created_at?: string
+          id?: string
+          likes?: number
+          plays?: number
+          post_id?: string
+          shares?: number
+          updated_at?: string
+          views?: number
+        }
+        Relationships: []
       }
       profiles: {
         Row: {

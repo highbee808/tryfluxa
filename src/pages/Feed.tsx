@@ -29,6 +29,13 @@ interface Gist {
   topic_category: string | null;
   published_at?: string;
   play_count?: number;
+  analytics?: {
+    views: number;
+    likes: number;
+    comments: number;
+    shares: number;
+    plays: number;
+  };
 }
 
 interface NewsItem {
@@ -130,11 +137,33 @@ const Feed = () => {
       if (error) throw error;
 
       if (data) {
+        // Fetch analytics for all gists
+        const gistIds = data.map(g => g.id);
+        const { data: analyticsData } = await supabase
+          .from("post_analytics")
+          .select("*")
+          .in("post_id", gistIds);
+
+        const analyticsMap = new Map(
+          analyticsData?.map(a => [a.post_id, a]) || []
+        );
+
+        const gistsWithAnalytics = data.map(gist => ({
+          ...gist,
+          analytics: analyticsMap.get(gist.id) || {
+            views: 0,
+            likes: 0,
+            comments: 0,
+            shares: 0,
+            plays: 0
+          }
+        }));
+
         if (loadMore) {
-          setGists(prev => [...prev, ...data]);
+          setGists(prev => [...prev, ...gistsWithAnalytics]);
           setPage(prev => prev + 1);
         } else {
-          setGists(data);
+          setGists(gistsWithAnalytics);
           setPage(0);
         }
         setHasMore(data.length === pageSize);
@@ -657,7 +686,10 @@ const Feed = () => {
                     timeAgo="2h ago"
                     category={item.data.topic}
                     readTime="5 min"
-                    comments={Math.floor(Math.random() * 200)}
+                    comments={item.data.analytics?.comments || 0}
+                    views={item.data.analytics?.views || 0}
+                    plays={item.data.analytics?.plays || 0}
+                    shares={item.data.analytics?.shares || 0}
                     isPlaying={currentPlayingId === item.data.id && isPlaying}
                     onPlay={() => handlePlay(item.data.id, item.data.audio_url)}
                     onComment={() => handleTellMore(item.data)}
