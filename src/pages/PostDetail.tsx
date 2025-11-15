@@ -8,8 +8,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Heart, MessageCircle, Bookmark, Share2, Play, Pause, ArrowLeft, Send } from "lucide-react";
+import { Heart, MessageCircle, Bookmark, Share2, Play, Pause, ArrowLeft, Send, Reply, ThumbsUp, Flag } from "lucide-react";
 import { toast } from "sonner";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { cn } from "@/lib/utils";
 
 interface Gist {
   id: string;
@@ -29,10 +31,21 @@ interface Comment {
   user_id: string;
   content: string;
   created_at: string;
+  parent_id: string | null;
+  likes_count: number;
   profiles: {
     display_name: string;
     avatar_url: string | null;
   };
+  replies?: Comment[];
+}
+
+interface Analytics {
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  plays: number;
 }
 
 export default function PostDetail() {
@@ -48,11 +61,57 @@ export default function PostDetail() {
   const [likesCount, setLikesCount] = useState(0);
   const [commentsCount, setCommentsCount] = useState(0);
   const [bookmarksCount, setBookmarksCount] = useState(0);
+  const [analytics, setAnalytics] = useState<Analytics>({ views: 0, likes: 0, comments: 0, shares: 0, plays: 0 });
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [commentLikes, setCommentLikes] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadPost();
     loadComments();
     loadUserInteractions();
+    loadAnalytics();
+    trackView();
+
+    // Setup realtime subscription for comments
+    const channel = supabase
+      .channel(`post-${postId}-comments`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'article_comments',
+          filter: `article_id=eq.${postId}`
+        },
+        () => {
+          loadComments();
+        }
+      )
+      .subscribe();
+
+    // Setup realtime subscription for analytics
+    const analyticsChannel = supabase
+      .channel(`post-${postId}-analytics`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'post_analytics',
+          filter: `post_id=eq.${postId}`
+        },
+        (payload) => {
+          if (payload.new) {
+            setAnalytics(payload.new as Analytics);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      supabase.removeChannel(analyticsChannel);
+    };
   }, [postId]);
 
   const loadPost = async () => {
@@ -74,8 +133,58 @@ export default function PostDetail() {
     }
   };
 
+  const loadAnalytics = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("post_analytics")
+        .select("*")
+        .eq("post_id", postId)
+        .single();
+
+      if (data) {
+        setAnalytics(data);
+        setCommentsCount(data.comments);
+        setLikesCount(data.likes);
+      }
+    } catch (error) {
+      console.error("Error loading analytics:", error);
+    }
+  };
+
+  const trackView = async () => {
+    try {
+      await supabase.functions.invoke('track-post-event', {
+        body: { postId, event: 'view' }
+      });
+    } catch (error) {
+      console.error("Error tracking view:", error);
+    }
+  };
+
+  const trackPlay = async () => {
+    try {
+      await supabase.functions.invoke('track-post-event', {
+        body: { postId, event: 'play' }
+      });
+    } catch (error) {
+      console.error("Error tracking play:", error);
+    }
+  };
+
+  const trackShare = async () => {
+    try {
+      await supabase.functions.invoke('track-post-event', {
+        body: { postId, event: 'share' }
+      });
+    } catch (error) {
+      console.error("Error tracking share:", error);
+    }
+  };
+
   const loadComments = async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+
       const { data: commentsData, error } = await supabase
         .from("article_comments")
         .select("*")
@@ -96,19 +205,45 @@ export default function PostDetail() {
           profilesData?.map(p => [p.user_id, p]) || []
         );
 
-        const commentsWithProfiles = commentsData.map(comment => ({
+        // Load user's comment likes
+        if (user) {
+          const commentIds = commentsData.map(c => c.id);
+          const { data: likesData } = await supabase
+            .from("comment_likes")
+            .select("comment_id")
+            .eq("user_id", user.id)
+            .in("comment_id", commentIds);
+
+          setCommentLikes(new Set(likesData?.map(l => l.comment_id) || []));
+        }
+
+        const commentsWithProfiles: Comment[] = commentsData.map(comment => ({
           ...comment,
           profiles: profilesMap.get(comment.user_id) || {
             display_name: "Anonymous",
             avatar_url: null,
           },
+          replies: []
         }));
 
-        setComments(commentsWithProfiles);
-        setCommentsCount(commentsWithProfiles.length);
+        // Build threaded comment structure
+        const topLevelComments = commentsWithProfiles.filter(c => !c.parent_id);
+        const repliesMap = new Map<string, Comment[]>();
+        
+        commentsWithProfiles.filter(c => c.parent_id).forEach(reply => {
+          if (!repliesMap.has(reply.parent_id!)) {
+            repliesMap.set(reply.parent_id!, []);
+          }
+          repliesMap.get(reply.parent_id!)!.push(reply);
+        });
+
+        topLevelComments.forEach(comment => {
+          comment.replies = repliesMap.get(comment.id) || [];
+        });
+
+        setComments(topLevelComments);
       } else {
         setComments([]);
-        setCommentsCount(0);
       }
     } catch (error) {
       console.error("Error loading comments:", error);
@@ -142,7 +277,7 @@ export default function PostDetail() {
     }
   };
 
-  const handlePostComment = async () => {
+  const handlePostComment = async (parentId: string | null = null) => {
     if (!newComment.trim()) return;
 
     try {
@@ -158,16 +293,71 @@ export default function PostDetail() {
           article_id: postId,
           user_id: user.id,
           content: newComment.trim(),
+          parent_id: parentId,
         });
 
       if (error) throw error;
 
       setNewComment("");
-      loadComments();
-      toast.success("Comment posted!");
+      setReplyingTo(null);
+      toast.success(parentId ? "Reply posted!" : "Comment posted!");
     } catch (error) {
       console.error("Error posting comment:", error);
       toast.error("Failed to post comment");
+    }
+  };
+
+  const handleLikeComment = async (commentId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please sign in to like comments");
+        return;
+      }
+
+      const isLiked = commentLikes.has(commentId);
+
+      if (isLiked) {
+        await supabase
+          .from("comment_likes")
+          .delete()
+          .eq("comment_id", commentId)
+          .eq("user_id", user.id);
+        
+        setCommentLikes(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(commentId);
+          return newSet;
+        });
+      } else {
+        await supabase
+          .from("comment_likes")
+          .insert({ comment_id: commentId, user_id: user.id });
+        
+        setCommentLikes(prev => new Set(prev).add(commentId));
+      }
+    } catch (error) {
+      console.error("Error liking comment:", error);
+    }
+  };
+
+  const handleReportComment = async (commentId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please sign in to report");
+        return;
+      }
+
+      await supabase
+        .from("article_comments")
+        .update({ is_reported: true })
+        .eq("id", commentId);
+
+      toast.success("Comment reported. Our team will review it.");
+    } catch (error) {
+      console.error("Error reporting comment:", error);
+      toast.error("Failed to report comment");
     }
   };
 
@@ -304,7 +494,10 @@ export default function PostDetail() {
               {/* Actions */}
               <div className="flex items-center gap-6 pt-4 border-t border-border">
                 <button
-                  onClick={() => setIsPlaying(!isPlaying)}
+                  onClick={() => {
+                    setIsPlaying(!isPlaying);
+                    if (!isPlaying) trackPlay();
+                  }}
                   className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group"
                 >
                   {isPlaying ? (
@@ -312,7 +505,7 @@ export default function PostDetail() {
                   ) : (
                     <Play className="w-5 h-5 group-hover:scale-110 transition-all" />
                   )}
-                  <span className="text-sm font-medium">{gist.play_count || 0}</span>
+                  <span className="text-sm font-medium">{analytics.plays}</span>
                 </button>
 
                 <button
@@ -324,12 +517,12 @@ export default function PostDetail() {
                       isLiked ? "fill-red-500 text-red-500 scale-110" : "group-hover:scale-110"
                     }`}
                   />
-                  <span className="text-sm font-medium">{likesCount}</span>
+                  <span className="text-sm font-medium">{analytics.likes}</span>
                 </button>
 
                 <button className="flex items-center gap-2 text-muted-foreground hover:text-blue-500 transition-colors group">
                   <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-all" />
-                  <span className="text-sm font-medium">{commentsCount}</span>
+                  <span className="text-sm font-medium">{analytics.comments}</span>
                 </button>
 
                 <button
@@ -344,55 +537,175 @@ export default function PostDetail() {
                   <span className="text-sm font-medium">{bookmarksCount}</span>
                 </button>
 
-                <button className="flex items-center gap-2 text-muted-foreground hover:text-green-500 transition-colors ml-auto group">
+                <button 
+                  onClick={trackShare}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-green-500 transition-colors ml-auto group"
+                >
                   <Share2 className="w-5 h-5 group-hover:scale-110 transition-all" />
+                  <span className="text-sm font-medium">{analytics.shares}</span>
                 </button>
               </div>
             </div>
 
             {/* Comments Section */}
             <div className="p-6 pt-0">
-              <h3 className="text-lg font-semibold mb-4">Comments ({commentsCount})</h3>
+              <h3 className="text-lg font-semibold mb-4">
+                Comments ({analytics.comments})
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {analytics.views} views
+                </Badge>
+              </h3>
               
               {/* Comment Input */}
               <div className="flex gap-2 mb-6">
                 <Textarea
-                  placeholder="Add a comment..."
+                  placeholder={replyingTo ? "Write a reply..." : "Add a comment..."}
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   className="min-h-[80px]"
                 />
-                <Button
-                  onClick={handlePostComment}
-                  disabled={!newComment.trim()}
-                  size="icon"
-                >
-                  <Send className="w-4 h-4" />
-                </Button>
+                <div className="flex flex-col gap-2">
+                  {replyingTo && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setReplyingTo(null);
+                        setNewComment("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => handlePostComment(replyingTo)}
+                    disabled={!newComment.trim()}
+                    size="icon"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
 
               {/* Comments List */}
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {comments.map((comment) => (
-                  <div key={comment.id} className="flex gap-3">
-                    <Avatar className="w-8 h-8">
-                      {comment.profiles?.avatar_url ? (
-                        <AvatarImage src={comment.profiles.avatar_url} />
-                      ) : (
-                        <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                          {comment.profiles?.display_name?.substring(0, 2).toUpperCase() || "U"}
-                        </AvatarFallback>
-                      )}
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">
-                        {comment.profiles?.display_name || "Anonymous"}
-                      </p>
-                      <p className="text-xs text-muted-foreground mb-1">
-                        {new Date(comment.created_at).toLocaleDateString()}
-                      </p>
-                      <p className="text-sm">{comment.content}</p>
+                  <div key={comment.id} className="space-y-3">
+                    {/* Main Comment */}
+                    <div className="flex gap-3">
+                      <Avatar className="w-8 h-8">
+                        {comment.profiles?.avatar_url ? (
+                          <AvatarImage src={comment.profiles.avatar_url} />
+                        ) : (
+                          <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                            {comment.profiles?.display_name?.substring(0, 2).toUpperCase() || "U"}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">
+                          {comment.profiles?.display_name || "Anonymous"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          {new Date(comment.created_at).toLocaleDateString()}
+                        </p>
+                        <p className="text-sm mb-2">{comment.content}</p>
+                        
+                        {/* Comment Actions */}
+                        <div className="flex items-center gap-4 text-xs">
+                          <button
+                            onClick={() => handleLikeComment(comment.id)}
+                            className={cn(
+                              "flex items-center gap-1 transition-colors",
+                              commentLikes.has(comment.id)
+                                ? "text-primary"
+                                : "text-muted-foreground hover:text-primary"
+                            )}
+                          >
+                            <ThumbsUp className="w-3 h-3" />
+                            <span>{comment.likes_count}</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setReplyingTo(comment.id);
+                              setNewComment("");
+                            }}
+                            className="flex items-center gap-1 text-muted-foreground hover:text-blue-500 transition-colors"
+                          >
+                            <Reply className="w-3 h-3" />
+                            <span>Reply</span>
+                          </button>
+                          <button
+                            onClick={() => handleReportComment(comment.id)}
+                            className="flex items-center gap-1 text-muted-foreground hover:text-red-500 transition-colors"
+                          >
+                            <Flag className="w-3 h-3" />
+                            <span>Report</span>
+                          </button>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Replies */}
+                    {comment.replies && comment.replies.length > 0 && (
+                      <div className="ml-11 space-y-3 border-l-2 border-border pl-4">
+                        {comment.replies.map((reply) => (
+                          <div key={reply.id} className="flex gap-3">
+                            <Avatar className="w-6 h-6">
+                              {reply.profiles?.avatar_url ? (
+                                <AvatarImage src={reply.profiles.avatar_url} />
+                              ) : (
+                                <AvatarFallback className="bg-secondary text-xs">
+                                  {reply.profiles?.display_name?.substring(0, 2).toUpperCase() || "U"}
+                                </AvatarFallback>
+                              )}
+                            </Avatar>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium">
+                                {reply.profiles?.display_name || "Anonymous"}
+                              </p>
+                              <p className="text-xs text-muted-foreground mb-1">
+                                {new Date(reply.created_at).toLocaleDateString()}
+                              </p>
+                              <p className="text-sm mb-2">{reply.content}</p>
+                              
+                              {/* Reply Actions */}
+                              <div className="flex items-center gap-4 text-xs">
+                                <button
+                                  onClick={() => handleLikeComment(reply.id)}
+                                  className={cn(
+                                    "flex items-center gap-1 transition-colors",
+                                    commentLikes.has(reply.id)
+                                      ? "text-primary"
+                                      : "text-muted-foreground hover:text-primary"
+                                  )}
+                                >
+                                  <ThumbsUp className="w-3 h-3" />
+                                  <span>{reply.likes_count}</span>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setReplyingTo(comment.id);
+                                    setNewComment("");
+                                  }}
+                                  className="flex items-center gap-1 text-muted-foreground hover:text-blue-500 transition-colors"
+                                >
+                                  <Reply className="w-3 h-3" />
+                                  <span>Reply</span>
+                                </button>
+                                <button
+                                  onClick={() => handleReportComment(reply.id)}
+                                  className="flex items-center gap-1 text-muted-foreground hover:text-red-500 transition-colors"
+                                >
+                                  <Flag className="w-3 h-3" />
+                                  <span>Report</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

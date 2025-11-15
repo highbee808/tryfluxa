@@ -1,10 +1,11 @@
-import { Heart, MessageCircle, Bookmark, Share2, Play, Pause, Clock, Sparkles } from "lucide-react";
+import { Heart, MessageCircle, Bookmark, Share2, Play, Pause, Clock, Sparkles, Eye } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { supabase } from "@/integrations/supabase/client";
 
 interface FeedCardProps {
   id: string;
@@ -19,6 +20,9 @@ interface FeedCardProps {
   likes?: number;
   comments?: number;
   bookmarks?: number;
+  views?: number;
+  plays?: number;
+  shares?: number;
   credibilityScore?: number;
   isPlaying: boolean;
   isLiked?: boolean;
@@ -45,6 +49,9 @@ export const FeedCard = ({
   likes = 0,
   comments = 0,
   bookmarks = 0,
+  views = 0,
+  plays = 0,
+  shares = 0,
   credibilityScore = 75,
   isPlaying,
   isLiked,
@@ -59,6 +66,34 @@ export const FeedCard = ({
 }: FeedCardProps) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  
+  const handlePlayWithTracking = async () => {
+    onPlay();
+    if (!isPlaying) {
+      // Track play event
+      try {
+        await supabase.functions.invoke('track-post-event', {
+          body: { postId: id, event: 'play' }
+        });
+      } catch (error) {
+        console.error("Error tracking play:", error);
+      }
+    }
+  };
+
+  const handleShareWithTracking = async () => {
+    if (onShare) {
+      onShare();
+      // Track share event
+      try {
+        await supabase.functions.invoke('track-post-event', {
+          body: { postId: id, event: 'share' }
+        });
+      } catch (error) {
+        console.error("Error tracking share:", error);
+      }
+    }
+  };
   
   const getCredibilityColor = (score: number) => {
     if (score >= 80) return "text-green-500";
@@ -86,14 +121,19 @@ export const FeedCard = ({
             </Avatar>
             <div>
               <p className="text-sm font-medium">{author}</p>
-              <p className="text-xs text-muted-foreground">{timeAgo}</p>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{timeAgo}</span>
+                <span>•</span>
+                <Eye className="w-3 h-3" />
+                <span>{views}</span>
+              </div>
             </div>
           </div>
           <Badge 
             variant="secondary" 
             className={`text-xs ${getCredibilityColor(credibilityScore)}`}
           >
-            {credibilityScore}% verified
+            {credibilityScore}%
           </Badge>
         </div>
 
@@ -125,7 +165,7 @@ export const FeedCard = ({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-border">
             <div className="flex items-center gap-4 sm:gap-6">
               <button
-                onClick={onPlay}
+                onClick={handlePlayWithTracking}
                 className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group"
               >
                 {isPlaying ? (
@@ -133,7 +173,7 @@ export const FeedCard = ({
                 ) : (
                   <Play className="w-5 h-5 group-hover:scale-110 transition-all" />
                 )}
-                <span className="text-sm font-medium">{likes}</span>
+                <span className="text-sm font-medium">{plays}</span>
               </button>
 
               <button
@@ -149,7 +189,7 @@ export const FeedCard = ({
               </button>
 
               <button
-                onClick={handleCommentClick}
+                onClick={() => navigate(`/post/${id}`)}
                 className="flex items-center gap-2 text-muted-foreground hover:text-blue-500 transition-colors group"
               >
                 <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-all" />
@@ -169,10 +209,11 @@ export const FeedCard = ({
               </button>
 
               <button
-                onClick={onShare}
+                onClick={handleShareWithTracking}
                 className="flex items-center gap-2 text-muted-foreground hover:text-green-500 transition-colors group"
               >
                 <Share2 className="w-5 h-5 group-hover:scale-110 transition-all" />
+                <span className="text-sm font-medium">{shares}</span>
               </button>
             </div>
 
