@@ -3,7 +3,43 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-signature',
+}
+
+async function validateCronSignature(req: Request): Promise<boolean> {
+  const signature = req.headers.get('x-cron-signature')
+  const cronSecret = Deno.env.get('CRON_SECRET')
+  
+  if (!cronSecret) {
+    console.error('CRON_SECRET not configured')
+    return false
+  }
+  
+  if (!signature) {
+    console.error('Missing x-cron-signature header')
+    return false
+  }
+  
+  const body = await req.text()
+  const encoder = new TextEncoder()
+  
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(cronSecret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  
+  const expectedSig = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    encoder.encode(body || '')
+  )
+  
+  const expectedBase64 = btoa(String.fromCharCode(...new Uint8Array(expectedSig)))
+  
+  return signature === expectedBase64
 }
 
 // Team code mapping: Full names -> API abbreviations
@@ -55,6 +91,18 @@ const TEAM_CODE_MAP: Record<string, string> = {
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
+  }
+
+  // Validate HMAC signature for CRON jobs
+  const isValid = await validateCronSignature(req)
+  if (!isValid) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized - Invalid signature' }),
+      { 
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    )
   }
 
   try {

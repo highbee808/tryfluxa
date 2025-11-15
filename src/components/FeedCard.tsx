@@ -3,6 +3,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface FeedCardProps {
   id: string;
@@ -31,6 +33,7 @@ interface FeedCardProps {
 }
 
 export const FeedCard = ({
+  id,
   imageUrl,
   headline,
   context,
@@ -54,10 +57,17 @@ export const FeedCard = ({
   onDeeperSummary,
   deeperSummaryRequested,
 }: FeedCardProps) => {
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  
   const getCredibilityColor = (score: number) => {
     if (score >= 80) return "text-green-500";
     if (score >= 60) return "text-yellow-500";
     return "text-red-500";
+  };
+
+  const handleCommentClick = () => {
+    navigate(`/post/${id}`);
   };
   return (
     <Card className="overflow-hidden border shadow-sm hover:shadow-md transition-all duration-300 bg-card">
@@ -79,42 +89,22 @@ export const FeedCard = ({
               <p className="text-xs text-muted-foreground">{timeAgo}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs capitalize">
-              {author}
-            </Badge>
-            <Badge 
-              variant="secondary" 
-              className={`text-xs ${getCredibilityColor(credibilityScore)}`}
-            >
-              {credibilityScore}% verified
-            </Badge>
-          </div>
+          <Badge 
+            variant="secondary" 
+            className={`text-xs ${getCredibilityColor(credibilityScore)}`}
+          >
+            {credibilityScore}% verified
+          </Badge>
         </div>
 
-        {/* Image with Play Button */}
+        {/* Image */}
         {imageUrl && (
-          <div className="relative group cursor-pointer" onClick={onPlay}>
-            <img
-              src={imageUrl}
-              alt={headline}
-              className="w-full h-64 object-cover"
-            />
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-            <button
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white hover:scale-110 transition-all shadow-lg"
-              onClick={(e) => {
-                e.stopPropagation();
-                onPlay();
-              }}
-            >
-              {isPlaying ? (
-                <Pause className="w-8 h-8 text-blue-600" />
-              ) : (
-                <Play className="w-8 h-8 text-blue-600 ml-1" />
-              )}
-            </button>
-          </div>
+          <img
+            src={imageUrl}
+            alt={headline}
+            className="w-full h-48 sm:h-64 object-cover cursor-pointer"
+            onClick={() => navigate(`/post/${id}`)}
+          />
         )}
 
         {/* Content */}
@@ -132,62 +122,72 @@ export const FeedCard = ({
           </p>
 
           {/* Actions */}
-          <div className="space-y-3 pt-4 border-t border-border">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-6">
-                <button
-                  onClick={onLike}
-                  className="flex items-center gap-2 text-muted-foreground hover:text-red-500 transition-colors group"
-                >
-                  <Heart
-                    className={`w-5 h-5 transition-all ${
-                      isLiked ? "fill-red-500 text-red-500 scale-110" : "group-hover:scale-110"
-                    }`}
-                  />
-                  <span className="text-sm font-medium">{likes}</span>
-                </button>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-border">
+            <div className="flex items-center gap-4 sm:gap-6">
+              <button
+                onClick={onPlay}
+                className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group"
+              >
+                {isPlaying ? (
+                  <Pause className="w-5 h-5 group-hover:scale-110 transition-all" />
+                ) : (
+                  <Play className="w-5 h-5 group-hover:scale-110 transition-all" />
+                )}
+                <span className="text-sm font-medium">{likes}</span>
+              </button>
 
-                <button
-                  onClick={onComment}
-                  className="flex items-center gap-2 text-muted-foreground hover:text-blue-500 transition-colors group"
-                >
-                  <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-all" />
-                  <span className="text-sm font-medium">{comments}</span>
-                </button>
+              <button
+                onClick={onLike}
+                className="flex items-center gap-2 text-muted-foreground hover:text-red-500 transition-colors group"
+              >
+                <Heart
+                  className={`w-5 h-5 transition-all ${
+                    isLiked ? "fill-red-500 text-red-500 scale-110" : "group-hover:scale-110"
+                  }`}
+                />
+                <span className="text-sm font-medium">{likes}</span>
+              </button>
 
-                <button
-                  onClick={onBookmark}
-                  className="flex items-center gap-2 text-muted-foreground hover:text-coral-active transition-colors group"
-                >
-                  <Bookmark
-                    className={`w-5 h-5 transition-all ${
-                      isBookmarked ? "fill-coral-active text-coral-active scale-110" : "group-hover:scale-110"
-                    }`}
-                  />
-                  <span className="text-sm font-medium">{bookmarks}</span>
-                </button>
+              <button
+                onClick={handleCommentClick}
+                className="flex items-center gap-2 text-muted-foreground hover:text-blue-500 transition-colors group"
+              >
+                <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-all" />
+                <span className="text-sm font-medium">{comments}</span>
+              </button>
 
-                <button
-                  onClick={onShare}
-                  className="flex items-center gap-2 text-muted-foreground hover:text-green-500 transition-colors group"
-                >
-                  <Share2 className="w-5 h-5 group-hover:scale-110 transition-all" />
-                </button>
-              </div>
+              <button
+                onClick={onBookmark}
+                className="flex items-center gap-2 text-muted-foreground hover:text-coral-active transition-colors group"
+              >
+                <Bookmark
+                  className={`w-5 h-5 transition-all ${
+                    isBookmarked ? "fill-coral-active text-coral-active scale-110" : "group-hover:scale-110"
+                  }`}
+                />
+                <span className="text-sm font-medium">{bookmarks}</span>
+              </button>
 
-              {onDeeperSummary && (
-                <Button
-                  size="sm"
-                  variant={deeperSummaryRequested ? "secondary" : "outline"}
-                  onClick={onDeeperSummary}
-                  disabled={deeperSummaryRequested}
-                  className="gap-2"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  {deeperSummaryRequested ? "Requested" : "Deeper Analysis"}
-                </Button>
-              )}
+              <button
+                onClick={onShare}
+                className="flex items-center gap-2 text-muted-foreground hover:text-green-500 transition-colors group"
+              >
+                <Share2 className="w-5 h-5 group-hover:scale-110 transition-all" />
+              </button>
             </div>
+
+            {onDeeperSummary && (
+              <Button
+                size="sm"
+                variant={deeperSummaryRequested ? "secondary" : "outline"}
+                onClick={onDeeperSummary}
+                disabled={deeperSummaryRequested}
+                className="gap-2 w-full sm:w-auto"
+              >
+                <Sparkles className="w-4 h-4" />
+                {!isMobile && (deeperSummaryRequested ? "Requested" : "Deeper Analysis")}
+              </Button>
+            )}
           </div>
         </div>
       </CardContent>

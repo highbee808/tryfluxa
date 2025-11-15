@@ -3,12 +3,58 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-signature',
 }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
+  }
+
+  // Validate HMAC signature for CRON jobs
+  const signature = req.headers.get('x-cron-signature')
+  const cronSecret = Deno.env.get('CRON_SECRET')
+  
+  if (!cronSecret) {
+    console.error('CRON_SECRET not configured')
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized - CRON_SECRET not configured' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+  
+  if (!signature) {
+    console.error('Missing x-cron-signature header')
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized - Missing signature' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+  
+  const body = await req.text()
+  const encoder = new TextEncoder()
+  
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(cronSecret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  
+  const expectedSig = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    encoder.encode(body || '')
+  )
+  
+  const expectedBase64 = btoa(String.fromCharCode(...new Uint8Array(expectedSig)))
+  
+  if (signature !== expectedBase64) {
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized - Invalid signature' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
 
   try {
