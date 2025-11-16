@@ -35,22 +35,3 @@ const FluxaWaveform = () => {
 };
 
 export default FluxaWaveform;
-import React from "react";
-
-export const FluxaWaveform = () => {
-  return (
-    <div className="flex items-end gap-1 mt-3">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <div
-          key={i}
-          className="w-2 bg-gradient-to-b from-[#B794F6] via-[#60A5FA] to-[#F472B6] rounded-full animate-pulse"
-          style={{
-            height: `${8 + Math.random() * 20}px`,
-            animationDuration: `${0.4 + Math.random() * 0.4}s`,
-            animationDelay: `${i * 0.1}s`,
-          }}
-        ></div>
-      ))}
-    </div>
-  );
-};
