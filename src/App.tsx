@@ -18,6 +18,7 @@ import Room from "./pages/Room";
 import Profile from "./pages/Profile";
 import AdminHealth from "./pages/AdminHealth";
 import AdminSponsors from "./pages/AdminSponsors";
+import AnalyticsDashboard from "./pages/AnalyticsDashboard";
 import Analytics from "./pages/Analytics";
 import SportsHub from "./pages/SportsHub";
 import Fanbase from "./pages/Fanbase";
@@ -56,6 +57,7 @@ const App = () => (
           <Route path="/admin/sponsors" element={<AdminSponsors />} />
           <Route path="/admin/health" element={<AdminHealth />} />
           <Route path="/admin/analytics" element={<Analytics />} />
+          <Route path="/analytics" element={<AnalyticsDashboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

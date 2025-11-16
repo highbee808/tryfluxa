@@ -40,6 +40,8 @@ interface Comment {
   replies?: Comment[];
 }
 
+type CommentSort = 'newest' | 'oldest' | 'most_liked' | 'most_replied';
+
 interface Analytics {
   views: number;
   likes: number;
@@ -64,10 +66,12 @@ export default function PostDetail() {
   const [analytics, setAnalytics] = useState<Analytics>({ views: 0, likes: 0, comments: 0, shares: 0, plays: 0 });
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [commentLikes, setCommentLikes] = useState<Set<string>>(new Set());
+  const [commentSort, setCommentSort] = useState<CommentSort>('newest');
+  const [visibleReplies, setVisibleReplies] = useState<Set<string>>(new Set());
+  const [replyLimit] = useState(3);
 
   useEffect(() => {
     loadPost();
-    loadComments();
     loadUserInteractions();
     loadAnalytics();
     trackView();
@@ -113,6 +117,10 @@ export default function PostDetail() {
       supabase.removeChannel(analyticsChannel);
     };
   }, [postId]);
+
+  useEffect(() => {
+    loadComments();
+  }, [postId, commentSort]);
 
   const loadPost = async () => {
     try {
@@ -185,11 +193,28 @@ export default function PostDetail() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      const { data: commentsData, error } = await supabase
+      let query = supabase
         .from("article_comments")
         .select("*")
-        .eq("article_id", postId)
-        .order("created_at", { ascending: false });
+        .eq("article_id", postId);
+
+      // Apply sorting
+      switch (commentSort) {
+        case 'oldest':
+          query = query.order("created_at", { ascending: true });
+          break;
+        case 'most_liked':
+          query = query.order("likes_count", { ascending: false });
+          break;
+        case 'most_replied':
+          // Will be sorted in JS after building thread structure
+          query = query.order("created_at", { ascending: false });
+          break;
+        default: // newest
+          query = query.order("created_at", { ascending: false });
+      }
+
+      const { data: commentsData, error } = await query;
 
       if (error) throw error;
 
@@ -241,7 +266,15 @@ export default function PostDetail() {
           comment.replies = repliesMap.get(comment.id) || [];
         });
 
-        setComments(topLevelComments);
+        // Sort by most replied if selected
+        let sortedComments = topLevelComments;
+        if (commentSort === 'most_replied') {
+          sortedComments = topLevelComments.sort((a, b) => 
+            (b.replies?.length || 0) - (a.replies?.length || 0)
+          );
+        }
+
+        setComments(sortedComments);
       } else {
         setComments([]);
       }
@@ -556,6 +589,24 @@ export default function PostDetail() {
                 </Badge>
               </h3>
               
+              {/* Comment Sorting */}
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-sm text-muted-foreground">Sort by:</span>
+                <div className="flex gap-1">
+                  {(['newest', 'oldest', 'most_liked', 'most_replied'] as CommentSort[]).map((sort) => (
+                    <Button
+                      key={sort}
+                      variant={commentSort === sort ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => setCommentSort(sort)}
+                      className="text-xs capitalize"
+                    >
+                      {sort.replace('_', ' ')}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
               {/* Comment Input */}
               <div className="flex gap-2 mb-6">
                 <Textarea
@@ -649,7 +700,9 @@ export default function PostDetail() {
                     {/* Replies */}
                     {comment.replies && comment.replies.length > 0 && (
                       <div className="ml-11 space-y-3 border-l-2 border-border pl-4">
-                        {comment.replies.map((reply) => (
+                        {comment.replies
+                          .slice(0, visibleReplies.has(comment.id) ? undefined : replyLimit)
+                          .map((reply) => (
                           <div key={reply.id} className="flex gap-3">
                             <Avatar className="w-6 h-6">
                               {reply.profiles?.avatar_url ? (
@@ -664,7 +717,7 @@ export default function PostDetail() {
                               <p className="text-sm font-medium">
                                 {reply.profiles?.display_name || "Anonymous"}
                               </p>
-                              <p className="text-xs text-muted-foreground mb-1">
+                              <p className="text-xs text-muted-foreground mb-2">
                                 {new Date(reply.created_at).toLocaleDateString()}
                               </p>
                               <p className="text-sm mb-2">{reply.content}</p>
@@ -704,6 +757,33 @@ export default function PostDetail() {
                             </div>
                           </div>
                         ))}
+                        
+                        {/* Load More Replies Button */}
+                        {comment.replies.length > replyLimit && !visibleReplies.has(comment.id) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setVisibleReplies(prev => new Set([...prev, comment.id]))}
+                            className="text-xs"
+                          >
+                            Load {comment.replies.length - replyLimit} more {comment.replies.length - replyLimit === 1 ? 'reply' : 'replies'}
+                          </Button>
+                        )}
+                        
+                        {visibleReplies.has(comment.id) && comment.replies.length > replyLimit && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setVisibleReplies(prev => {
+                              const newSet = new Set(prev);
+                              newSet.delete(comment.id);
+                              return newSet;
+                            })}
+                            className="text-xs"
+                          >
+                            Show less
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>
