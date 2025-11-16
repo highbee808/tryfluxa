@@ -1,6 +1,17 @@
 import React, { useState, useRef } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
-const VoiceChatModal: React.FC = () => {
+interface VoiceChatModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [fluxaReply, setFluxaReply] = useState("");
@@ -168,53 +179,59 @@ const VoiceChatModal: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center gap-6 mt-8 text-center">
-      <h2 className="text-3xl font-bold text-foreground">Talk to Fluxa 🎧</h2>
-
-      {/* Glowing orb indicator */}
-      <div
-        className={`mt-4 h-20 w-20 rounded-full flex items-center justify-center transition-all duration-300 ${
-          isRecording
-            ? "bg-red-500/60 animate-pulse"
-            : isSpeaking
-              ? "bg-gradient-to-r from-purple-500 to-pink-500 shadow-[0_0_25px_rgba(200,100,255,0.8)] animate-pulse"
-              : "bg-muted"
-        }`}
-      >
-        <span className="text-white text-2xl">{isRecording ? "🎙️" : isSpeaking ? "🦋" : "🎧"}</span>
-      </div>
-
-      {renderWaveform()}
-
-      {/* Button */}
-      <button
-        onClick={isRecording ? stopRecording : startRecording}
-        className={`px-8 py-3 rounded-2xl font-semibold mt-4 transition-all duration-300 ${
-          isRecording
-            ? "bg-red-500 hover:bg-red-600 text-white"
-            : "bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:scale-105 shadow-lg"
-        }`}
-      >
-        {isRecording ? "Stop" : "Start Talking"}
-      </button>
-
-      {/* Status + reply */}
-      <div className="mt-4 w-full max-w-md text-left">
-        {isLoading && <p className="text-sm text-muted-foreground">Fluxa is thinking…</p>}
-        {userSpeech && (
-          <div className="mt-2 p-3 rounded-xl bg-muted/50">
-            <p className="text-xs text-muted-foreground mb-1">You said:</p>
-            <p className="text-foreground text-sm">{userSpeech}</p>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-center">Talk to Fluxa 🎧</DialogTitle>
+        </DialogHeader>
+        
+        <div className="flex flex-col items-center gap-6 text-center py-4">
+          {/* Glowing orb indicator */}
+          <div
+            className={`h-20 w-20 rounded-full flex items-center justify-center transition-all duration-300 ${
+              isRecording
+                ? "bg-red-500/60 animate-pulse"
+                : isSpeaking
+                  ? "bg-gradient-to-r from-purple-500 to-pink-500 shadow-[0_0_25px_rgba(200,100,255,0.8)] animate-pulse"
+                  : "bg-muted"
+            }`}
+          >
+            <span className="text-white text-2xl">{isRecording ? "🎙️" : isSpeaking ? "🦋" : "🎧"}</span>
           </div>
-        )}
-        {fluxaReply && (
-          <div className="mt-3 p-4 bg-muted rounded-xl shadow-inner">
-            <p className="font-semibold text-foreground mb-1">Fluxa says:</p>
-            <p className="text-muted-foreground">{fluxaReply}</p>
+
+          {renderWaveform()}
+
+          {/* Button */}
+          <button
+            onClick={isRecording ? stopRecording : startRecording}
+            className={`px-8 py-3 rounded-2xl font-semibold transition-all duration-300 ${
+              isRecording
+                ? "bg-red-500 hover:bg-red-600 text-white"
+                : "bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:scale-105 shadow-lg"
+            }`}
+          >
+            {isRecording ? "Stop" : "Start Talking"}
+          </button>
+
+          {/* Status + reply */}
+          <div className="w-full text-left">
+            {isLoading && <p className="text-sm text-muted-foreground">Fluxa is thinking…</p>}
+            {userSpeech && (
+              <div className="mt-2 p-3 rounded-xl bg-muted/50">
+                <p className="text-xs text-muted-foreground mb-1">You said:</p>
+                <p className="text-foreground text-sm">{userSpeech}</p>
+              </div>
+            )}
+            {fluxaReply && (
+              <div className="mt-3 p-4 bg-muted rounded-xl shadow-inner">
+                <p className="font-semibold text-foreground mb-1">Fluxa says:</p>
+                <p className="text-muted-foreground">{fluxaReply}</p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
