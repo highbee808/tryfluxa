@@ -23,11 +23,12 @@ export const BottomNavigation = () => {
             <button
               key={path}
               onClick={() => navigate(path)}
+              style={{ WebkitTapHighlightColor: 'transparent' }}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 px-3 py-2 transition-all focus:outline-none active:scale-95",
+                "flex flex-col items-center justify-center gap-1 px-3 py-2 transition-colors outline-none",
                 isActive
                   ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground"
               )}
             >
               <Icon
