@@ -5,6 +5,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useVoiceChatHistory } from "@/hooks/useVoiceChatHistory";
 import { Clock, MessageCircle } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import FluxaTyping from "./FluxaTyping";
+import FluxaWaveform from "./FluxaWaveform";
 
 interface VoiceChatModalProps {
   open: boolean;
@@ -18,6 +21,9 @@ const VoiceChatModal = ({ open, onOpenChange }: VoiceChatModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [showHistory, setShowHistory] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [fallbackMode, setFallbackMode] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -52,8 +58,18 @@ const VoiceChatModal = ({ open, onOpenChange }: VoiceChatModalProps) => {
       mediaRecorder.start();
       setIsRecording(true);
       visualizeMic();
+      
+      toast({
+        title: "🎙️ Fluxa is listening…",
+        description: "Talk to her.",
+      });
     } catch (err) {
       console.error("Error:", err);
+      toast({
+        title: "⚠️ Microphone access denied",
+        description: "Please allow microphone access to talk to Fluxa.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -61,10 +77,18 @@ const VoiceChatModal = ({ open, onOpenChange }: VoiceChatModalProps) => {
     mediaRecorderRef.current?.stop();
     setIsRecording(false);
     micStreamRef.current?.getTracks().forEach(t => t.stop());
+    
+    toast({
+      title: "✨ Processing your message…",
+      description: "Fluxa is thinking.",
+    });
   };
 
   const sendToFluxa = async (audioBlob: Blob) => {
     setIsLoading(true);
+    setIsThinking(true);
+    setIsTyping(false);
+    
     try {
       const formData = new FormData();
       formData.append("file", audioBlob, "speech.webm");
@@ -86,16 +110,39 @@ const VoiceChatModal = ({ open, onOpenChange }: VoiceChatModalProps) => {
         try {
           const json = JSON.parse(decoder.decode(value));
           if (json.event === "partial") {
+            setIsThinking(false);
+            setIsTyping(true);
             partialText += json.text;
             setFluxaReply(partialText);
           } else if (json.event === "done") {
+            setIsThinking(false);
+            setIsTyping(false);
             setFluxaReply(json.text);
-            playAudio(json.audioUrl);
+            
+            if (json.audioUrl) {
+              playAudio(json.audioUrl);
+            } else {
+              setFallbackMode(true);
+              toast({
+                title: "📄 Text mode enabled",
+                description: "Voice isn't working right now.",
+                variant: "default",
+              });
+            }
           }
         } catch {}
       }
     } catch (err) {
       console.error(err);
+      setIsThinking(false);
+      setIsTyping(false);
+      setFallbackMode(true);
+      
+      toast({
+        title: "⚠️ Voice error",
+        description: "Fluxa couldn't process your voice. Try again?",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -103,9 +150,47 @@ const VoiceChatModal = ({ open, onOpenChange }: VoiceChatModalProps) => {
 
   const playAudio = (url: string) => {
     const audio = new Audio(url);
-    audio.onplay = () => { setIsSpeaking(true); visualizePlayback(audio); };
-    audio.onended = () => { setIsSpeaking(false); setAudioLevel(0); };
-    audio.play();
+    
+    audio.onplay = () => { 
+      setIsSpeaking(true); 
+      setFallbackMode(false);
+      visualizePlayback(audio); 
+      
+      toast({
+        title: "🔊 Playing Fluxa's reply…",
+        description: "Listen up!",
+      });
+    };
+    
+    audio.onended = () => { 
+      setIsSpeaking(false); 
+      setAudioLevel(0); 
+      
+      toast({
+        title: "💁 Fluxa is waiting",
+        description: "Your turn to talk.",
+      });
+    };
+    
+    audio.onerror = () => {
+      setIsSpeaking(false);
+      setFallbackMode(true);
+      
+      toast({
+        title: "💬 Audio unavailable",
+        description: "Showing text instead.",
+        variant: "default",
+      });
+    };
+    
+    audio.play().catch(() => {
+      setFallbackMode(true);
+      toast({
+        title: "💬 Audio unavailable",
+        description: "Showing text instead.",
+        variant: "default",
+      });
+    });
   };
 
   const visualizeMic = () => {
@@ -191,11 +276,26 @@ const VoiceChatModal = ({ open, onOpenChange }: VoiceChatModalProps) => {
               {isRecording ? "Stop" : "Start Talking"}
             </Button>
 
-            {isLoading && <p className="text-sm text-muted-foreground">Fluxa is thinking...</p>}
-            {fluxaReply && (
+            {isThinking && (
+              <div className="w-full flex flex-col items-center gap-2">
+                <FluxaWaveform />
+                <p className="text-sm text-muted-foreground">Fluxa is thinking...</p>
+              </div>
+            )}
+            
+            {isTyping && !isThinking && (
+              <div className="w-full flex justify-start">
+                <FluxaTyping />
+              </div>
+            )}
+            
+            {fluxaReply && !isTyping && !isThinking && (
               <div className="p-4 bg-muted rounded-xl w-full">
                 <p className="font-semibold mb-1">Fluxa says:</p>
                 <p className="text-sm">{fluxaReply}</p>
+                {fallbackMode && (
+                  <p className="text-xs text-muted-foreground mt-2">📄 Text mode (voice unavailable)</p>
+                )}
               </div>
             )}
           </div>
