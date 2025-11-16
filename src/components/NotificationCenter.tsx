@@ -44,7 +44,7 @@ export const NotificationCenter = () => {
           schema: 'public',
           table: 'notifications',
         },
-        (payload) => {
+        async (payload) => {
           const newNotification = payload.new as Notification;
           setNotifications(prev => [newNotification, ...prev]);
           setUnreadCount(prev => prev + 1);
@@ -53,6 +53,24 @@ export const NotificationCenter = () => {
           toast.success(newNotification.title, {
             description: newNotification.message.substring(0, 80) + '...',
           });
+
+          // Send push notification if enabled
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            try {
+              await supabase.functions.invoke('send-push-notification', {
+                body: {
+                  userId: user.id,
+                  title: newNotification.title,
+                  body: newNotification.message,
+                  url: newNotification.gist_id ? `/post/${newNotification.gist_id}` : '/',
+                  notificationId: newNotification.id
+                }
+              });
+            } catch (error) {
+              console.error('Error sending push notification:', error);
+            }
+          }
         }
       )
       .subscribe();
