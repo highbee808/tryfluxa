@@ -1,7 +1,8 @@
-import { Home, Newspaper, Radio, Library, Moon, Sun, Sparkles, User } from "lucide-react";
+import { Home, Newspaper, Radio, Library, Moon, Sun, Sparkles, User, Bell } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useDarkMode } from "@/hooks/useDarkMode";
+import { NotificationCenter } from "./NotificationCenter";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/feed", id: "home" },
@@ -60,6 +61,7 @@ export const NavigationBar = () => {
 
           {/* Right Actions */}
           <div className="flex items-center gap-3">
+            <NotificationCenter />
             <button
               onClick={toggleDarkMode}
               className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-accent transition-colors"
