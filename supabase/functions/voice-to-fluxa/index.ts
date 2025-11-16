@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.1";
 
@@ -20,10 +19,10 @@ serve(async (req) => {
 
     if (!OPENAI_API_KEY || !supabaseUrl || !supabaseKey) {
       console.error("Missing required environment variables");
-      return new Response(
-        JSON.stringify({ error: "Server misconfigured: missing API keys" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Server misconfigured: missing API keys" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -33,10 +32,10 @@ serve(async (req) => {
     const file = formData.get("file") as File | null;
 
     if (!file) {
-      return new Response(
-        JSON.stringify({ error: "No audio file provided" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "No audio file provided" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     console.log("🎙️ Received audio file:", file.name, file.type, file.size);
@@ -59,10 +58,10 @@ serve(async (req) => {
     if (!whisperRes.ok) {
       const errText = await whisperRes.text().catch(() => "");
       console.error("Whisper error:", whisperRes.status, errText);
-      return new Response(
-        JSON.stringify({ error: "Transcription failed" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Transcription failed" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const whisperJson: any = await whisperRes.json();
@@ -70,10 +69,10 @@ serve(async (req) => {
     console.log("📝 Transcription:", userSpeech);
 
     if (!userSpeech.trim()) {
-      return new Response(
-        JSON.stringify({ error: "Empty transcription", userSpeech }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Empty transcription", userSpeech }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // 3) Generate Fluxa's reply using GPT
@@ -104,16 +103,15 @@ serve(async (req) => {
     if (!chatRes.ok) {
       const errText = await chatRes.text().catch(() => "");
       console.error("Chat error:", chatRes.status, errText);
-      return new Response(
-        JSON.stringify({ error: "Failed to generate reply", userSpeech }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Failed to generate reply", userSpeech }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const chatJson: any = await chatRes.json();
     const fluxaReply: string =
-      chatJson.choices?.[0]?.message?.content?.trim() ||
-      "Haha, my brain glitched for a sec. Say that again?";
+      chatJson.choices?.[0]?.message?.content?.trim() || "Haha, my brain glitched for a sec. Say that again?";
 
     console.log("💜 Fluxa reply:", fluxaReply);
 
@@ -139,10 +137,10 @@ serve(async (req) => {
       const errText = await ttsRes.text().catch(() => "");
       console.error("TTS error:", ttsRes.status, errText);
       // Fallback: return text-only
-      return new Response(
-        JSON.stringify({ userSpeech, fluxaReply, audioUrl: null }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ userSpeech, fluxaReply, audioUrl: null }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const audioArrayBuffer = await ttsRes.arrayBuffer();
@@ -161,28 +159,28 @@ serve(async (req) => {
 
     if (uploadError) {
       console.error("Upload error:", uploadError);
-      return new Response(
-        JSON.stringify({ userSpeech, fluxaReply, audioUrl: null }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ userSpeech, fluxaReply, audioUrl: null }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const { data: { publicUrl: audioUrl } } = supabase.storage
-      .from(bucketName)
-      .getPublicUrl(fileName) as any;
+    const {
+      data: { publicUrl: audioUrl },
+    } = supabase.storage.from(bucketName).getPublicUrl(fileName) as any;
 
     console.log("✅ Fluxa voice URL:", audioUrl);
 
     // 6) Send final JSON back
-    return new Response(
-      JSON.stringify({ userSpeech, fluxaReply, audioUrl }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ userSpeech, fluxaReply, audioUrl }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (err) {
     console.error("Unexpected error in voice-to-fluxa:", err);
-    return new Response(
-      JSON.stringify({ error: "Server error in voice-to-fluxa" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Server error in voice-to-fluxa" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
