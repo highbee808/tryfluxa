@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,20 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
   const analyserRef = useRef<AnalyserNode | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const silenceTimeoutRef = useRef<number | null>(null);
+
+  // Auto-start recording when modal opens
+  useEffect(() => {
+    if (open && !isRecording) {
+      startRecording();
+    }
+    
+    // Cleanup when modal closes
+    return () => {
+      if (isRecording) {
+        stopMic();
+      }
+    };
+  }, [open]);
 
   // 🎙️ Start Recording with silence detection
   const startRecording = async () => {
@@ -208,16 +222,15 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
 
           {renderWaveform()}
 
-          {/* Button */}
+          {/* End Call Button */}
           <button
-            onClick={isRecording ? stopRecording : startRecording}
-            className={`px-8 py-3 rounded-2xl font-semibold transition-all duration-300 ${
-              isRecording
-                ? "bg-red-500 hover:bg-red-600 text-white"
-                : "bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:scale-105 shadow-lg"
-            }`}
+            onClick={() => {
+              stopRecording();
+              onOpenChange(false);
+            }}
+            className="px-8 py-3 rounded-2xl font-semibold bg-red-500 hover:bg-red-600 text-white transition-all duration-300 shadow-lg hover:shadow-xl"
           >
-            {isRecording ? "Stop" : "Start Talking"}
+            End Call
           </button>
 
           {/* Status + reply */}
