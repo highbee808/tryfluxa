@@ -116,7 +116,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
       setAudioLevel(level);
 
       const SILENCE_THRESHOLD = 0.02;
-      const SILENCE_DURATION = 1500; // 1.5 seconds of silence before auto-stopping
+      const SILENCE_DURATION = 800; // 0.8 seconds for faster, more natural conversation
 
       if (level < SILENCE_THRESHOLD) {
         if (!silenceTimeoutRef.current) {
