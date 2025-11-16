@@ -25,7 +25,10 @@ export const BottomNavigation = () => {
               onClick={() => navigate(path)}
               style={{ WebkitTapHighlightColor: 'transparent' }}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 px-3 py-2 transition-colors outline-none",
+                "flex flex-col items-center justify-center gap-1 px-3 py-2 transition-colors",
+                "outline-none focus:outline-none focus-visible:outline-none",
+                "bg-transparent hover:bg-transparent focus:bg-transparent active:bg-transparent focus-visible:bg-transparent",
+                "border-none focus:border-none focus-visible:border-none",
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground"
