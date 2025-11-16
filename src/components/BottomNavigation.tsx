@@ -24,10 +24,10 @@ export const BottomNavigation = () => {
               key={path}
               onClick={() => navigate(path)}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all",
+                "flex flex-col items-center justify-center gap-1 px-3 py-2 transition-all focus:outline-none active:scale-95",
                 isActive
-                  ? "text-primary bg-transparent"
-                  : "text-muted-foreground bg-transparent hover:text-foreground hover:bg-transparent"
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
               <Icon
