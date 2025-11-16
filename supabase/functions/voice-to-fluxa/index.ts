@@ -9,203 +9,180 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  console.log("🎙️ Voice-to-Fluxa started");
-
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Authenticate user
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+
+    if (!OPENAI_API_KEY || !supabaseUrl || !supabaseKey) {
+      console.error("Missing required environment variables");
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: "Server misconfigured: missing API keys" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Authentication required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_KEY) throw new Error("Missing OPENAI_API_KEY");
-
-    // Parse multipart form data
+    // 1) Read audio file from multipart/form-data
     const formData = await req.formData();
-    const audioFile = formData.get("file") as File;
+    const file = formData.get("file") as File | null;
 
-    if (!audioFile) {
-      throw new Error("No audio file provided");
+    if (!file) {
+      return new Response(
+        JSON.stringify({ error: "No audio file provided" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Validate file type
-    const ALLOWED_AUDIO_TYPES = [
-      'audio/mpeg',
-      'audio/mp3',
-      'audio/wav',
-      'audio/webm',
-      'audio/ogg',
-      'audio/m4a'
-    ];
-    
-    if (!ALLOWED_AUDIO_TYPES.includes(audioFile.type)) {
-      throw new Error('Invalid file type. Only audio files allowed.');
-    }
+    console.log("🎙️ Received audio file:", file.name, file.type, file.size);
 
-    // Check file size (10MB limit)
-    if (audioFile.size > 10 * 1024 * 1024) {
-      throw new Error("File size exceeds 10MB limit");
-    }
+    // 2) Transcribe with Whisper
+    const whisperForm = new FormData();
+    whisperForm.append("file", file);
+    whisperForm.append("model", "whisper-1");
+    whisperForm.append("response_format", "json");
 
-    console.log("📁 Audio file received:", audioFile.name, audioFile.size, "bytes");
-
-    // Step 1: Transcribe audio with Whisper
-    console.log("🎧 Transcribing audio with Whisper...");
-    const whisperFormData = new FormData();
-    whisperFormData.append("file", audioFile);
-    whisperFormData.append("model", "whisper-1");
-
+    console.log("🧠 Sending to Whisper...");
     const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
-      body: whisperFormData,
+      body: whisperForm,
     });
 
     if (!whisperRes.ok) {
-      const errorText = await whisperRes.text();
-      console.error("[WHISPER] Error:", errorText);
-      throw new Error("Whisper transcription failed");
+      const errText = await whisperRes.text().catch(() => "");
+      console.error("Whisper error:", whisperRes.status, errText);
+      return new Response(
+        JSON.stringify({ error: "Transcription failed" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    const whisperData = await whisperRes.json();
-    const userSpeech = whisperData.text;
-    console.log("✅ Transcription:", userSpeech);
+    const whisperJson: any = await whisperRes.json();
+    const userSpeech: string = whisperJson.text ?? "";
+    console.log("📝 Transcription:", userSpeech);
 
-    // Step 2: Generate Fluxa's reply
-    console.log("💭 Generating Fluxa's reply...");
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    if (!userSpeech.trim()) {
+      return new Response(
+        JSON.stringify({ error: "Empty transcription", userSpeech }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    // Get context from recent gists
-    const { data: gists } = await supabase
-      .from("gists")
-      .select("headline, topic, context")
-      .eq("status", "published")
-      .order("published_at", { ascending: false })
-      .limit(3);
-
-    const contextStr = gists
-      ?.map((g) => `${g.topic}: ${g.headline}`)
-      .join(". ") || "";
-
-    const systemPrompt = `You are Fluxa, a Gen Z bestie who keeps it real with the latest tea. You're witty, playful, and always in the know. Recent topics: ${contextStr}. Keep responses under 50 words, casual and fun.`;
-
+    // 3) Generate Fluxa's reply using GPT
+    console.log("💬 Asking Fluxa (GPT) for a reply...");
     const chatRes = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userSpeech },
+          {
+            role: "system",
+            content:
+              "You are Fluxa, a playful, witty social AI companion. Reply like a Gen-Z friend giving gist: short, fun, warm, with natural emotion. You can giggle, tease lightly, and be encouraging. Keep answers under 3 short sentences.",
+          },
+          {
+            role: "user",
+            content: userSpeech,
+          },
         ],
-        max_tokens: 150,
-        temperature: 0.9,
+        temperature: 0.8,
       }),
     });
 
     if (!chatRes.ok) {
-      const errorText = await chatRes.text();
-      console.error("[CHAT] Error:", errorText);
-      throw new Error("Chat generation failed");
+      const errText = await chatRes.text().catch(() => "");
+      console.error("Chat error:", chatRes.status, errText);
+      return new Response(
+        JSON.stringify({ error: "Failed to generate reply", userSpeech }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    const chatData = await chatRes.json();
-    const fluxaReply = chatData.choices[0].message.content;
-    console.log("✅ Fluxa reply:", fluxaReply);
+    const chatJson: any = await chatRes.json();
+    const fluxaReply: string =
+      chatJson.choices?.[0]?.message?.content?.trim() ||
+      "Haha, my brain glitched for a sec. Say that again?";
 
-    // Step 3: Convert reply to speech
-    console.log("🎙️ Synthesizing speech...");
+    console.log("💜 Fluxa reply:", fluxaReply);
+
+    // 4) Generate TTS for Fluxa's reply
+    console.log("🎧 Creating voice for Fluxa...");
+    const emotionalMarkup = `<tone emotion="playful">${fluxaReply}</tone>`;
+
     const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: "gpt-4o-mini-tts",
-        input: fluxaReply,
-        voice: "shimmer",
-        speed: 0.94,
+        voice: "alloy",
+        input: emotionalMarkup,
         response_format: "mp3",
       }),
     });
 
     if (!ttsRes.ok) {
-      const errorText = await ttsRes.text();
-      console.error("[TTS] Error:", errorText);
-      throw new Error("TTS synthesis failed");
+      const errText = await ttsRes.text().catch(() => "");
+      console.error("TTS error:", ttsRes.status, errText);
+      // Fallback: return text-only
+      return new Response(
+        JSON.stringify({ userSpeech, fluxaReply, audioUrl: null }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    const audioBuffer = await ttsRes.arrayBuffer();
-    const audioBytes = new Uint8Array(audioBuffer);
+    const audioArrayBuffer = await ttsRes.arrayBuffer();
+    const audioBytes = new Uint8Array(audioArrayBuffer);
 
-    // Upload to Supabase storage
-    const audioFileName = `voice-reply-${Date.now()}.mp3`;
-    console.log("☁️ Uploading audio to storage:", audioFileName);
+    // 5) Upload mp3 to Supabase Storage (gist-audio bucket)
+    const fileName = `fluxa-voice-${Date.now()}.mp3`;
+    const bucketName = "gist-audio";
 
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from("gist-audio")
-      .upload(audioFileName, audioBytes, { contentType: "audio/mpeg", upsert: false });
+      .from(bucketName)
+      .upload(fileName, audioBytes, {
+        contentType: "audio/mpeg",
+        upsert: false,
+      });
 
     if (uploadError) {
-      console.error("[UPLOAD] Error:", uploadError);
-      throw new Error("Failed to upload audio");
+      console.error("Upload error:", uploadError);
+      return new Response(
+        JSON.stringify({ userSpeech, fluxaReply, audioUrl: null }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    const {
-      data: { publicUrl: audioUrl },
-    } = supabase.storage.from("gist-audio").getPublicUrl(audioFileName) as any;
+    const { data: { publicUrl: audioUrl } } = supabase.storage
+      .from(bucketName)
+      .getPublicUrl(fileName) as any;
 
-    console.log("✅ Audio URL:", audioUrl);
+    console.log("✅ Fluxa voice URL:", audioUrl);
 
-    // Return response
-    const response = {
-      userSpeech,
-      fluxaReply,
-      audioUrl,
-    };
-
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    console.error("[ERROR] Voice-to-Fluxa failed:", err);
+    // 6) Send final JSON back
     return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ userSpeech, fluxaReply, audioUrl }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (err) {
+    console.error("Unexpected error in voice-to-fluxa:", err);
+    return new Response(
+      JSON.stringify({ error: "Server error in voice-to-fluxa" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
