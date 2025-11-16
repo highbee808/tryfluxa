@@ -2,9 +2,11 @@ import React, { useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
 
 interface VoiceChatModalProps {
   open: boolean;
@@ -129,12 +131,14 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
       const formData = new FormData();
       formData.append("file", audioBlob, "speech.webm");
 
-      const res = await fetch("/functions/v1/voice-to-fluxa", {
-        method: "POST",
+      const { data, error } = await supabase.functions.invoke("voice-to-fluxa", {
         body: formData,
       });
 
-      const data = await res.json();
+      if (error) {
+        console.error("Error calling voice-to-fluxa:", error);
+        throw error;
+      }
       console.log("Fluxa voice response:", data);
 
       if (data.userSpeech) setUserSpeech(data.userSpeech);
@@ -183,6 +187,9 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-center">Talk to Fluxa 🎧</DialogTitle>
+          <DialogDescription className="text-center">
+            Click Start Talking to have a voice conversation with Fluxa
+          </DialogDescription>
         </DialogHeader>
         
         <div className="flex flex-col items-center gap-6 text-center py-4">

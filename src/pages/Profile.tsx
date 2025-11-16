@@ -190,7 +190,7 @@ const Profile = () => {
             <div className="flex gap-2 mt-3">
               <Button
                 variant="outline"
-                className="rounded-full font-bold px-4"
+                className="rounded-full font-bold px-4 hover:bg-primary hover:text-primary-foreground transition-colors"
                 onClick={() => setVoiceChatOpen(true)}
               >
                 <Mic className="w-4 h-4 mr-2" />
@@ -198,7 +198,7 @@ const Profile = () => {
               </Button>
               <Button
                 variant="outline"
-                className="rounded-full font-bold px-4"
+                className="rounded-full font-bold px-4 hover:bg-primary hover:text-primary-foreground transition-colors"
                 onClick={() => setEditModalOpen(true)}
               >
                 <Settings className="w-4 h-4 mr-2" />
