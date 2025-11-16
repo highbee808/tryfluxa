@@ -58,6 +58,13 @@ export default {
         hover: "var(--shadow-hover)",
         card: "var(--shadow-card)",
         glow: "var(--shadow-glow)",
+        glass: "var(--glass-shadow)",
+        "glass-glow": "var(--glass-shadow), var(--glass-glow)",
+      },
+      backdropBlur: {
+        glass: "20px",
+        "glass-light": "16px",
+        "glass-strong": "24px",
       },
       backgroundImage: {
         "gradient-warm": "var(--gradient-warm)",
