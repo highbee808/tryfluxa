@@ -26,6 +26,7 @@ import FanbaseHub from "./pages/FanbaseHub";
 import EntityPage from "./pages/EntityPage";
 import PostDetail from "./pages/PostDetail";
 import NotFound from "./pages/NotFound";
+import { PushNotificationPrompt } from "./components/PushNotificationPrompt";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <PushNotificationPrompt />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />

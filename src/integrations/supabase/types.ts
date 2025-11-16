@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          activity_count: number | null
+          activity_type: string | null
+          created_at: string | null
+          description: string
+          icon: string
+          id: string
+          name: string
+          points_required: number | null
+          tier: string | null
+        }
+        Insert: {
+          activity_count?: number | null
+          activity_type?: string | null
+          created_at?: string | null
+          description: string
+          icon: string
+          id?: string
+          name: string
+          points_required?: number | null
+          tier?: string | null
+        }
+        Update: {
+          activity_count?: number | null
+          activity_type?: string | null
+          created_at?: string | null
+          description?: string
+          icon?: string
+          id?: string
+          name?: string
+          points_required?: number | null
+          tier?: string | null
+        }
+        Relationships: []
+      }
       ai_provider_config: {
         Row: {
           cost_per_1k_tokens: number
@@ -1122,6 +1158,33 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          auth_key: string
+          created_at: string | null
+          endpoint: string
+          id: string
+          p256dh_key: string
+          user_id: string
+        }
+        Insert: {
+          auth_key: string
+          created_at?: string | null
+          endpoint: string
+          id?: string
+          p256dh_key: string
+          user_id: string
+        }
+        Update: {
+          auth_key?: string
+          created_at?: string | null
+          endpoint?: string
+          id?: string
+          p256dh_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       raw_trends: {
         Row: {
           category: string
@@ -1405,6 +1468,35 @@ export type Database = {
           },
         ]
       }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          earned_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          earned_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          earned_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_conversations: {
         Row: {
           conversation_id: string
@@ -1473,6 +1565,45 @@ export type Database = {
           follower_id?: string
           following_id?: string
           id?: string
+        }
+        Relationships: []
+      }
+      user_gamification: {
+        Row: {
+          comments_count: number | null
+          created_at: string | null
+          id: string
+          level: number | null
+          likes_given: number | null
+          posts_read: number | null
+          shares_count: number | null
+          total_points: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          comments_count?: number | null
+          created_at?: string | null
+          id?: string
+          level?: number | null
+          likes_given?: number | null
+          posts_read?: number | null
+          shares_count?: number | null
+          total_points?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          comments_count?: number | null
+          created_at?: string | null
+          id?: string
+          level?: number | null
+          likes_given?: number | null
+          posts_read?: number | null
+          shares_count?: number | null
+          total_points?: number | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -1625,6 +1756,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_and_award_achievements: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       get_favorite_category: { Args: { user_uuid: string }; Returns: string }
       has_role: {
         Args: {

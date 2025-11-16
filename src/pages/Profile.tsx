@@ -11,8 +11,9 @@ import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import VoiceChatModal from "@/components/VoiceChatModal";
 import { FollowButton } from "@/components/FollowButton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, MapPin, Calendar, Link as LinkIcon, Heart, Play, Volume2, MoreHorizontal, Settings, Trash2, Mic } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Link as LinkIcon, Heart, Play, Volume2, MoreHorizontal, Settings, Trash2, Mic, Trophy } from "lucide-react";
 import { toast } from "sonner";
+import { UserBadges } from "@/components/UserBadges";
 
 interface Gist {
   id: string;
@@ -37,6 +38,7 @@ const Profile = () => {
   const [voiceChatOpen, setVoiceChatOpen] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
+  const [gamificationStats, setGamificationStats] = useState<any>(null);
 
   useEffect(() => {
     loadProfile();
@@ -76,6 +78,15 @@ const Profile = () => {
 
       setFollowerCount(followers || 0);
       setFollowingCount(following || 0);
+
+      // Load gamification stats
+      const { data: statsData } = await supabase
+        .from("user_gamification")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      setGamificationStats(statsData);
 
       // Get user's favorited gist IDs
       const { data: favData, error: favError } = await supabase
@@ -233,6 +244,35 @@ const Profile = () => {
                 <span className="text-muted-foreground">Followers</span>
               </button>
             </div>
+
+            {/* Gamification Stats & Badges */}
+            {userId && (
+              <div className="mt-4 space-y-3">
+                <UserBadges userId={userId} />
+                
+                {gamificationStats && (
+                  <div className="flex gap-3 p-3 bg-accent/50 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-yellow-500" />
+                      <div className="text-sm">
+                        <p className="font-semibold">Level {gamificationStats.level}</p>
+                        <p className="text-xs text-muted-foreground">{gamificationStats.total_points} points</p>
+                      </div>
+                    </div>
+                    <div className="border-l border-border" />
+                    <div className="text-sm">
+                      <p className="font-semibold">{gamificationStats.comments_count}</p>
+                      <p className="text-xs text-muted-foreground">Comments</p>
+                    </div>
+                    <div className="border-l border-border" />
+                    <div className="text-sm">
+                      <p className="font-semibold">{gamificationStats.likes_given}</p>
+                      <p className="text-xs text-muted-foreground">Likes</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Tabs */}

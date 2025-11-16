@@ -7,11 +7,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Heart, MessageCircle, Bookmark, Share2, Play, Pause, ArrowLeft, Send, Reply, ThumbsUp, Flag } from "lucide-react";
 import { toast } from "sonner";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { cn } from "@/lib/utils";
+import { MentionInput } from "@/components/MentionInput";
+import { UserBadges } from "@/components/UserBadges";
 
 interface Gist {
   id: string;
@@ -609,10 +610,10 @@ export default function PostDetail() {
 
               {/* Comment Input */}
               <div className="flex gap-2 mb-6">
-                <Textarea
+                <MentionInput
                   placeholder={replyingTo ? "Write a reply..." : "Add a comment..."}
                   value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
+                  onChange={setNewComment}
                   className="min-h-[80px]"
                 />
                 <div className="flex flex-col gap-2">
@@ -654,9 +655,12 @@ export default function PostDetail() {
                         )}
                       </Avatar>
                       <div className="flex-1">
-                        <p className="text-sm font-medium">
-                          {comment.profiles?.display_name || "Anonymous"}
-                        </p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-medium">
+                            {comment.profiles?.display_name || "Anonymous"}
+                          </p>
+                          <UserBadges userId={comment.user_id} />
+                        </div>
                         <p className="text-xs text-muted-foreground mb-2">
                           {new Date(comment.created_at).toLocaleDateString()}
                         </p>
