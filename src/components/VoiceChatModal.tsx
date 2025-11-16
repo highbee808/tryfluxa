@@ -6,7 +6,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { supabase } from "@/integrations/supabase/client";
 
 interface VoiceChatModalProps {
   open: boolean;
@@ -20,6 +19,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
   const [userSpeech, setUserSpeech] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [partialText, setPartialText] = useState("");
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -27,31 +27,41 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
   const analyserRef = useRef<AnalyserNode | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const silenceTimeoutRef = useRef<number | null>(null);
+  const audioQueueRef = useRef<HTMLAudioElement[]>([]);
+  const isPlayingRef = useRef(false);
 
-  // Auto-start recording when modal opens
   useEffect(() => {
     if (open && !isRecording) {
       startRecording();
     }
     
-    // Cleanup when modal closes
     return () => {
       if (isRecording) {
         stopMic();
       }
+      audioQueueRef.current.forEach(audio => {
+        audio.pause();
+        audio.src = '';
+      });
+      audioQueueRef.current = [];
     };
   }, [open]);
 
-  // 🎙️ Start Recording with silence detection
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        }
+      });
       micStreamRef.current = stream;
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
-      // Setup Web Audio for visualization + silence detection
       audioContextRef.current = new AudioContext();
       const source = audioContextRef.current.createMediaStreamSource(stream);
       analyserRef.current = audioContextRef.current.createAnalyser();
@@ -63,9 +73,9 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
       };
 
       mediaRecorder.onstop = async () => {
-        stopMic();
         const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        await sendToFluxa(blob);
+        await sendToFluxaStreaming(blob);
+        audioChunksRef.current = [];
       };
 
       mediaRecorder.start();
@@ -116,7 +126,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
       setAudioLevel(level);
 
       const SILENCE_THRESHOLD = 0.02;
-      const SILENCE_DURATION = 800; // 0.8 seconds for faster, more natural conversation
+      const SILENCE_DURATION = 700; // 0.7 seconds
 
       if (level < SILENCE_THRESHOLD) {
         if (!silenceTimeoutRef.current) {
@@ -138,51 +148,105 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
     update();
   };
 
-  // 📡 Send audio to /voice-to-fluxa
-  const sendToFluxa = async (audioBlob: Blob) => {
+  const playAudioQueue = async () => {
+    if (isPlayingRef.current || audioQueueRef.current.length === 0) return;
+    
+    isPlayingRef.current = true;
+    setIsSpeaking(true);
+
+    while (audioQueueRef.current.length > 0) {
+      const audio = audioQueueRef.current.shift()!;
+      
+      await new Promise<void>((resolve) => {
+        audio.onended = () => resolve();
+        audio.onerror = () => resolve();
+        audio.play().catch(() => resolve());
+      });
+    }
+
+    isPlayingRef.current = false;
+    setIsSpeaking(false);
+
+    if (open && !isRecording) {
+      setTimeout(() => {
+        startRecording();
+      }, 300);
+    }
+  };
+
+  const sendToFluxaStreaming = async (audioBlob: Blob) => {
     setIsLoading(true);
+    setPartialText("");
+    setFluxaReply("");
+
     try {
       const formData = new FormData();
       formData.append("file", audioBlob, "speech.webm");
 
-      const { data, error } = await supabase.functions.invoke("voice-to-fluxa", {
-        body: formData,
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/voice-to-fluxa-stream`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: formData,
+        }
+      );
 
-      if (error) {
-        console.error("Error calling voice-to-fluxa:", error);
-        throw error;
+      if (!response.ok) {
+        throw new Error("Streaming request failed");
       }
-      console.log("Fluxa voice response:", data);
 
-      if (data.userSpeech) setUserSpeech(data.userSpeech);
-      if (data.fluxaReply) setFluxaReply(data.fluxaReply);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
 
-      if (data.audioUrl) {
-        const audio = new Audio(data.audioUrl);
-        audio.onplay = () => setIsSpeaking(true);
-        audio.onended = () => {
-          setIsSpeaking(false);
-          // Auto-restart recording after Fluxa finishes speaking
-          setTimeout(() => {
-            if (open) {
-              startRecording();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6);
+            try {
+              const parsed = JSON.parse(data);
+
+              if (parsed.event === "transcript") {
+                setUserSpeech(parsed.data.text);
+                setIsLoading(false);
+              } else if (parsed.event === "partial_text") {
+                setPartialText((prev) => prev + parsed.data.text);
+                setFluxaReply((prev) => prev + parsed.data.text);
+              } else if (parsed.event === "audio_chunk") {
+                const audioData = parsed.data.audio;
+                const audioBlob = new Blob(
+                  [Uint8Array.from(atob(audioData), c => c.charCodeAt(0))],
+                  { type: "audio/mpeg" }
+                );
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = new Audio(audioUrl);
+                audioQueueRef.current.push(audio);
+                
+                playAudioQueue();
+              } else if (parsed.event === "done") {
+                setFluxaReply(parsed.data.response);
+                setPartialText("");
+              } else if (parsed.event === "error") {
+                console.error("Streaming error:", parsed.data.message);
+              }
+            } catch (e) {
+              console.error("Error parsing SSE:", e);
             }
-          }, 500);
-        };
-        audio.play();
-      } else {
-        setIsSpeaking(false);
-        // If no audio, restart recording immediately
-        setTimeout(() => {
-          if (open) {
-            startRecording();
           }
-        }, 500);
+        }
       }
     } catch (err) {
-      console.error("Error calling voice-to-fluxa:", err);
-      // Restart recording even on error
+      console.error("Error in streaming:", err);
       setTimeout(() => {
         if (open) {
           startRecording();
@@ -242,21 +306,25 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
 
           {renderWaveform()}
 
-          {/* Status indicator */}
           <div className="text-center min-h-[40px]">
             {isLoading && (
               <p className="text-sm text-muted-foreground animate-pulse">
-                Fluxa is thinking...
+                Processing...
               </p>
             )}
-            {isSpeaking && (
+            {partialText && (
+              <p className="text-sm text-primary font-medium animate-pulse">
+                {partialText}
+              </p>
+            )}
+            {isSpeaking && !partialText && (
               <p className="text-sm text-primary font-medium">
                 Fluxa is speaking...
               </p>
             )}
-            {isRecording && !isLoading && !isSpeaking && (
+            {isRecording && !isLoading && !isSpeaking && !partialText && (
               <p className="text-sm text-foreground">
-                Listening... speak now
+                Listening...
               </p>
             )}
           </div>
