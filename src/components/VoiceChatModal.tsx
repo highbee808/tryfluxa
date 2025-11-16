@@ -115,8 +115,8 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
       const level = avg / 255;
       setAudioLevel(level);
 
-      const SILENCE_THRESHOLD = 0.02; // adjust if too sensitive
-      const SILENCE_DURATION = 1000; // ms of quiet before auto-stop
+      const SILENCE_THRESHOLD = 0.02;
+      const SILENCE_DURATION = 1500; // 1.5 seconds of silence before auto-stopping
 
       if (level < SILENCE_THRESHOLD) {
         if (!silenceTimeoutRef.current) {
@@ -161,13 +161,33 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
       if (data.audioUrl) {
         const audio = new Audio(data.audioUrl);
         audio.onplay = () => setIsSpeaking(true);
-        audio.onended = () => setIsSpeaking(false);
+        audio.onended = () => {
+          setIsSpeaking(false);
+          // Auto-restart recording after Fluxa finishes speaking
+          setTimeout(() => {
+            if (open) {
+              startRecording();
+            }
+          }, 500);
+        };
         audio.play();
       } else {
         setIsSpeaking(false);
+        // If no audio, restart recording immediately
+        setTimeout(() => {
+          if (open) {
+            startRecording();
+          }
+        }, 500);
       }
     } catch (err) {
       console.error("Error calling voice-to-fluxa:", err);
+      // Restart recording even on error
+      setTimeout(() => {
+        if (open) {
+          startRecording();
+        }
+      }, 1000);
     } finally {
       setIsLoading(false);
     }
@@ -222,15 +242,34 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
 
           {renderWaveform()}
 
-          {/* End Call Button */}
+          {/* Status indicator */}
+          <div className="text-center min-h-[40px]">
+            {isLoading && (
+              <p className="text-sm text-muted-foreground animate-pulse">
+                Fluxa is thinking...
+              </p>
+            )}
+            {isSpeaking && (
+              <p className="text-sm text-primary font-medium">
+                Fluxa is speaking...
+              </p>
+            )}
+            {isRecording && !isLoading && !isSpeaking && (
+              <p className="text-sm text-foreground">
+                Listening... speak now
+              </p>
+            )}
+          </div>
+
+          {/* Close button */}
           <button
             onClick={() => {
-              stopRecording();
+              stopMic();
               onOpenChange(false);
             }}
-            className="px-8 py-3 rounded-2xl font-semibold bg-red-500 hover:bg-red-600 text-white transition-all duration-300 shadow-lg hover:shadow-xl"
+            className="px-6 py-2 rounded-xl font-medium text-sm bg-muted hover:bg-muted/80 text-muted-foreground transition-colors"
           >
-            End Call
+            Close
           </button>
 
           {/* Status + reply */}
