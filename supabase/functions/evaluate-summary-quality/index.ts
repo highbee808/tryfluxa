@@ -21,6 +21,35 @@ serve(async (req) => {
   try {
     const { gist_id, provider, summary, original_content } = await req.json()
 
+    // Input validation
+    if (!gist_id || typeof gist_id !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'Invalid gist_id' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (!summary || typeof summary !== 'string' || summary.length > 2000) {
+      return new Response(
+        JSON.stringify({ error: 'Summary must be 1-2000 characters' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (!original_content || typeof original_content !== 'string' || original_content.length > 5000) {
+      return new Response(
+        JSON.stringify({ error: 'Original content must be 1-5000 characters' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (!provider || typeof provider !== 'string' || provider.length > 50) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid provider' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
