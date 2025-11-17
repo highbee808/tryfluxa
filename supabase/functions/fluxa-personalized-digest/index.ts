@@ -6,6 +6,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Cost estimation helper (approximate tokens and cost for Gemini)
+function estimateTokensAndCost(inputText: string, outputLength: number): { tokens: number; cost: number } {
+  const inputTokens = Math.ceil(inputText.length / 4)
+  const outputTokens = outputLength
+  const totalTokens = inputTokens + outputTokens
+  
+  // Gemini 2.5 Flash pricing: ~$0.075 per 1M input tokens, ~$0.30 per 1M output tokens
+  const inputCost = (inputTokens / 1_000_000) * 0.075
+  const outputCost = (outputTokens / 1_000_000) * 0.30
+  const totalCost = inputCost + outputCost
+  
+  return { tokens: totalTokens, cost: totalCost }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -125,6 +139,16 @@ Keep it under 500 words, personality-driven, and exciting!`;
 
     const aiData = await aiResponse.json();
     const digestContent = aiData.choices[0].message.content;
+
+    // Log API usage for cost monitoring
+    const usage = estimateTokensAndCost(aiPrompt, digestContent?.length || 0)
+    await supabase.from("api_usage_logs").insert({
+      provider: "lovable_ai",
+      endpoint: "gemini-2.5-flash",
+      tokens_used: usage.tokens,
+      estimated_cost: usage.cost,
+      user_id: userId
+    })
 
     // Create notification for the user
     await supabase

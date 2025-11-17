@@ -138,6 +138,21 @@ ${gist.source_url ? `Source: ${gist.source_url}` : ''}`
           throw new Error('No summary generated')
         }
 
+        // Log API usage for cost monitoring
+        const inputText = `${gist.headline} ${gist.context} ${gist.script} ${gist.topic}`
+        const inputTokens = Math.ceil(inputText.length / 4)
+        const outputTokens = Math.ceil((deeperSummary?.length || 0) / 4)
+        const totalTokens = inputTokens + outputTokens
+        const estimatedCost = (inputTokens / 1_000_000) * 0.075 + (outputTokens / 1_000_000) * 0.30
+        
+        await supabase.from("api_usage_logs").insert({
+          provider: "lovable_ai",
+          endpoint: "gemini-2.5-flash",
+          tokens_used: totalTokens,
+          estimated_cost: estimatedCost,
+          user_id: request.user_id
+        })
+
         // Update the request with the deeper summary
         const { error: updateError } = await supabase
           .from('deeper_summary_requests')
