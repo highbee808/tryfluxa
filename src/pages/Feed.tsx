@@ -3,20 +3,20 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { FeedCardWithSocial } from "@/components/FeedCardWithSocial";
 import { NewsCard } from "@/components/NewsCard";
-import { NavigationBar } from "@/components/NavigationBar";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { ShareDialog } from "@/components/ShareDialog";
 import { TrendingCarousel } from "@/components/TrendingCarousel";
 import { FloatingActionButtons } from "@/components/FloatingActionButtons";
 import { useFluxaMemory } from "@/hooks/useFluxaMemory";
+import { useDarkMode } from "@/hooks/useDarkMode";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Filter, Headphones, TrendingUp, Play, ChevronDown, Instagram, Facebook, MessageSquare, Sparkles, Bookmark, User, Settings, LogOut } from "lucide-react";
+import { Search, Filter, Headphones, TrendingUp, Play, ChevronDown, Instagram, Facebook, MessageSquare, Sparkles, Bookmark, User, Settings, LogOut, Moon, Sun } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -56,6 +56,7 @@ interface NewsItem {
 
 const Feed = () => {
   const navigate = useNavigate();
+  const { isDark, toggleDarkMode } = useDarkMode();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentPlayingId, setCurrentPlayingId] = useState<string | null>(null);
   const [gists, setGists] = useState<Gist[]>([]);
@@ -452,6 +453,10 @@ const Feed = () => {
               <DropdownMenuItem className="rounded-xl cursor-pointer">
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={toggleDarkMode} className="rounded-xl cursor-pointer">
+                {isDark ? <Sun className="w-4 h-4 mr-2" /> : <Moon className="w-4 h-4 mr-2" />}
+                {isDark ? "Light Mode" : "Dark Mode"}
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-glass-border-light" />
               <DropdownMenuItem 
