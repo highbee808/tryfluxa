@@ -16,8 +16,8 @@ export const BottomNavigation = () => {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 glass border-t border-glass-border-light z-50">
-      <div className="flex justify-around items-center h-16 max-w-lg mx-auto px-2">
-        {navItems.map(({ icon: Icon, label, path }) => {
+      <div className="flex justify-around items-center h-14 max-w-lg mx-auto px-4">
+        {navItems.map(({ icon: Icon, path }) => {
           const isActive = location.pathname === path;
           return (
             <button
@@ -25,22 +25,16 @@ export const BottomNavigation = () => {
               onClick={() => navigate(path)}
               style={{ WebkitTapHighlightColor: 'transparent' }}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 px-3 py-2 transition-colors",
+                "w-11 h-11 rounded-full flex items-center justify-center transition-all",
                 "outline-none focus:outline-none focus-visible:outline-none",
                 "bg-transparent hover:bg-transparent focus:bg-transparent active:bg-transparent focus-visible:bg-transparent",
                 "border-none focus:border-none focus-visible:border-none",
                 isActive
-                  ? "text-primary"
-                  : "text-muted-foreground"
+                  ? "glass-light text-primary hover-glow"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Icon
-                className={cn(
-                  "w-5 h-5 transition-all",
-                  isActive && "scale-110"
-                )}
-              />
-              <span className="text-xs font-medium">{label}</span>
+              <Icon className="w-5 h-5" />
             </button>
           );
         })}
