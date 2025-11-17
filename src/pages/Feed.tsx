@@ -435,12 +435,12 @@ const Feed = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 pb-28 animate-fade-in">
       {/* Header - Reference Style */}
-      <div className="sticky top-0 z-40 glass border-b border-glass-border-light">
+      <div className="sticky top-0 z-50 glass border-b border-glass-border-light backdrop-blur-xl">
         <div className="flex items-center justify-between px-4 py-3 gap-3">
           {/* Left: Profile Avatar Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center shadow-lg glass-strong hover-glow flex-shrink-0 transition-transform hover:scale-105">
+              <button className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center shadow-md glass-strong flex-shrink-0 transition-transform hover:scale-105">
                 <Sparkles className="w-6 h-6 text-white" />
               </button>
             </DropdownMenuTrigger>
@@ -472,7 +472,7 @@ const Feed = () => {
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="glass-light" 
-                className="rounded-full px-4 py-2 h-10 flex items-center gap-2 hover-glow flex-1 max-w-[140px] transition-transform hover:scale-105"
+                className="rounded-full px-4 py-2 h-10 flex items-center gap-2 flex-1 max-w-[140px] transition-transform hover:scale-105"
               >
                 <span className="text-sm font-medium truncate">{activeTab}</span>
                 <ChevronDown className="w-4 h-4" />
@@ -500,7 +500,7 @@ const Feed = () => {
             <Button
               variant="glass-light"
               size="icon"
-              className="w-10 h-10 rounded-full hover-glow transition-transform hover:scale-105"
+              className="w-10 h-10 rounded-full transition-transform hover:scale-105"
               onClick={() => navigate("/fluxa-mode")}
             >
               <MessageSquare className="w-5 h-5" />
