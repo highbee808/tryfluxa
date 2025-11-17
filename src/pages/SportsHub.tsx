@@ -50,11 +50,12 @@ const SportsHub = () => {
     fetchUserTeams();
     fetchMatches();
     
-    // Listen for score change notifications
-    const checkNotifications = async () => {
+    // Set up realtime subscriptions
+    const setupRealtimeSubscriptions = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       
+      // Initial fetch of notifications
       const { data: notifications } = await supabase
         .from('notifications')
         .select('*')
@@ -66,26 +67,86 @@ const SportsHub = () => {
       
       if (notifications && notifications.length > 0) {
         setScoreNotifications(notifications);
-        
-        // Show browser notification if permitted
-        if (Notification.permission === 'granted') {
-          notifications.forEach(notif => {
-            new Notification(notif.title, {
-              body: notif.message,
-              icon: '/fluxa_icon.png',
-              badge: '/fluxa_icon.png',
-            });
-          });
-        }
       }
+      
+      // Subscribe to new notifications
+      const notificationChannel = supabase
+        .channel('score-notifications')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('New notification received:', payload);
+            const newNotif = payload.new as any;
+            
+            if (newNotif.type === 'score_change' && !newNotif.is_read) {
+              setScoreNotifications(prev => [newNotif, ...prev]);
+              
+              // Show browser notification if permitted
+              if (Notification.permission === 'granted') {
+                new Notification(newNotif.title, {
+                  body: newNotif.message,
+                  icon: '/fluxa_icon.png',
+                  badge: '/fluxa_icon.png',
+                });
+              }
+              
+              // Show toast notification
+              toast.success(newNotif.title, {
+                description: newNotif.message,
+              });
+            }
+          }
+        )
+        .subscribe();
+      
+      // Subscribe to match result updates
+      const matchChannel = supabase
+        .channel('match-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'match_results'
+          },
+          (payload) => {
+            console.log('Match updated:', payload);
+            const updatedMatch = payload.new as Match;
+            
+            setMatches(prev => 
+              prev.map(match => 
+                match.match_id === updatedMatch.match_id ? updatedMatch : match
+              )
+            );
+            
+            // Mark as live update for visual feedback
+            if (updatedMatch.match_id) {
+              setLiveUpdates(prev => ({ ...prev, [updatedMatch.match_id!]: true }));
+              setTimeout(() => {
+                setLiveUpdates(prev => ({ ...prev, [updatedMatch.match_id!]: false }));
+              }, 3000);
+            }
+          }
+        )
+        .subscribe();
+      
+      return () => {
+        supabase.removeChannel(notificationChannel);
+        supabase.removeChannel(matchChannel);
+      };
     };
     
-    checkNotifications();
+    const cleanup = setupRealtimeSubscriptions();
     
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(checkNotifications, 30000);
-    
-    return () => clearInterval(interval);
+    return () => {
+      cleanup.then(cleanupFn => cleanupFn?.());
+    };
   }, []);
 
   useEffect(() => {
