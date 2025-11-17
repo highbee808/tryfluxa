@@ -138,10 +138,10 @@ export const NavigationBar = () => {
           {/* Dark Mode Toggle on Mobile - More Visible */}
           <button
             onClick={toggleDarkMode}
-            className="flex flex-col items-center justify-center gap-1.5 transition-all duration-300 px-4 py-2 rounded-2xl flex-1 hover:bg-accent/50"
+            className="flex flex-col items-center justify-center gap-1.5 transition-all duration-300 px-4 py-2 rounded-2xl flex-1 hover:bg-secondary/50"
             aria-label="Toggle dark mode"
           >
-            <div className="w-11 h-11 rounded-full flex items-center justify-center bg-accent/30 hover:bg-accent/50 transition-colors">
+            <div className="w-11 h-11 rounded-full flex items-center justify-center bg-secondary/30 hover:bg-secondary/50 transition-colors">
               {isDark ? (
                 <Sun className="w-5 h-5 text-foreground" />
               ) : (

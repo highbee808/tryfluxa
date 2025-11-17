@@ -11,9 +11,9 @@ const buttonVariants = cva(
       variant: {
         default: "bg-gradient-to-r from-primary via-[hsl(260_100%_60%)] to-accent text-primary-foreground shadow-lg hover:shadow-xl hover:from-primary/90 hover:via-[hsl(260_100%_65%)] hover:to-accent/90",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-lg",
-        outline: "border-2 border-input bg-background hover:bg-accent/10 hover:border-accent",
+        outline: "border-2 border-input bg-background hover:bg-secondary/50 hover:border-secondary",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-md",
-        ghost: "hover:bg-accent/20 hover:text-accent-foreground",
+        ghost: "hover:bg-secondary/50 hover:text-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         glass: "glass hover:glass-strong hover:shadow-glass-glow",
         "glass-light": "glass-light hover:glass hover:shadow-glass",

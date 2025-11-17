@@ -55,7 +55,7 @@ export function PushNotificationPrompt() {
         <CardContent className="p-4">
           <button
             onClick={handleDismiss}
-            className="absolute top-2 right-2 p-1 hover:bg-accent rounded-full transition-colors"
+            className="absolute top-2 right-2 p-1 hover:bg-secondary/50 rounded-full transition-colors"
           >
             <X className="w-4 h-4" />
           </button>

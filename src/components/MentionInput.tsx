@@ -126,8 +126,8 @@ export function MentionInput({ value, onChange, placeholder, className }: Mentio
               key={user.user_id}
               onClick={() => insertMention(user)}
               className={cn(
-                "w-full px-4 py-2 text-left hover:bg-accent transition-colors flex items-center gap-2",
-                index === selectedIndex && "bg-accent"
+                "w-full px-4 py-2 text-left hover:bg-secondary/50 transition-colors flex items-center gap-2",
+                index === selectedIndex && "bg-secondary"
               )}
             >
               <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
