@@ -100,3 +100,6 @@ verify_jwt = false
 
 [functions.evaluate-summary-quality]
 verify_jwt = true
+
+[functions.generate-live-commentary]
+verify_jwt = false

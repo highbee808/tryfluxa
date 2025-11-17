@@ -311,18 +311,43 @@ const SportsHub = () => {
   const handleGenerateGists = async () => {
     setGeneratingGists(true);
     try {
-      const { error } = await supabase.functions.invoke('generate-sports-gist');
+      // Generate commentary for live and recent matches
+      const relevantMatches = matches.filter(m => 
+        isLive(m.status) || (m.status === 'Match Finished' && isToday(m))
+      );
       
-      if (error) {
-        toast.error("Failed to generate Fluxa's commentary");
-        console.error(error);
-      } else {
-        toast.success("✨ Fluxa is analyzing the matches...");
-        // Wait a bit then refresh gists
-        setTimeout(() => {
-          fetchMatchGists();
-        }, 3000);
+      if (relevantMatches.length === 0) {
+        toast.info("No recent matches to commentate on");
+        setGeneratingGists(false);
+        return;
       }
+      
+      toast.success(`✨ Fluxa is analyzing ${relevantMatches.length} matches...`);
+      
+      // Generate commentary for each match
+      const promises = relevantMatches.map(async (match) => {
+        const eventType = isLive(match.status) ? 'close_call' : 'full_time';
+        
+        return supabase.functions.invoke('generate-live-commentary', {
+          body: {
+            matchId: match.match_id || match.id,
+            homeTeam: match.team_home,
+            awayTeam: match.team_away,
+            homeScore: match.score_home || 0,
+            awayScore: match.score_away || 0,
+            league: match.league,
+            eventType
+          }
+        });
+      });
+      
+      await Promise.all(promises);
+      
+      // Refresh gists after a short delay
+      setTimeout(() => {
+        fetchMatchGists();
+        toast.success("🎤 Fluxa's commentary is ready!");
+      }, 2000);
     } catch (err) {
       toast.error("Error generating commentary");
       console.error(err);
@@ -369,7 +394,13 @@ const SportsHub = () => {
   const isUserTeam = (team: string) => userTeams.includes(team);
   
   const isLive = (status: string) => 
-    status === 'InProgress' || status === 'Live' || status === 'Halftime';
+    status === 'InProgress' || status === 'Live' || status === 'Halftime' || status === '2H' || status === '1H';
+  
+  const isToday = (match: Match) => {
+    const matchDate = new Date(match.match_date);
+    const today = new Date();
+    return matchDate.toDateString() === today.toDateString();
+  };
 
   const todayMatches = matches.filter(m => {
     const matchDate = new Date(m.match_date);
@@ -378,7 +409,7 @@ const SportsHub = () => {
   });
 
   const recentMatches = matches.filter(m => 
-    m.status === 'Final' || m.status === 'FullTime'
+    m.status === 'Final' || m.status === 'FullTime' || m.status === 'Match Finished'
   ).slice(0, 10);
 
   const upcomingMatches = matches.filter(m => {
