@@ -17,9 +17,9 @@ export const InterestChip = ({ label, selected, onClick }: InterestChipProps) =>
       onClick={onClick}
       className={cn(
         "px-7 py-4 rounded-full font-semibold transition-all duration-400 group",
-        "border-2 hover:scale-105 active:scale-95 relative overflow-visible",
+        "border hover:scale-105 active:scale-95 relative overflow-visible",
         selected
-          ? "bg-gradient-to-r from-primary to-accent text-white border-transparent shadow-xl hover-glow-strong"
+          ? "bg-primary text-primary-foreground border-primary/30 shadow-xl hover-glow-strong"
           : "glass-light text-foreground border-glass-border-light hover:glass hover:border-glass-border-strong hover-glow"
       )}
       style={selected ? { boxShadow: "var(--shadow-glow)" } : {}}
