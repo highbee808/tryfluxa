@@ -95,29 +95,13 @@ export const useAutoUpdateScores = () => {
       }
     };
 
-    // Fetch team news and comprehensive updates
-    const fetchTeamNews = async () => {
-      try {
-        console.log('📰 Fetching team news and updates...');
-        const { data, error } = await supabase.functions.invoke('fetch-team-news');
-        
-        if (error) {
-          console.error('Error fetching team news:', error);
-          return;
-        }
-
-        console.log(`✅ Updated news for ${data?.updated || 0} teams`);
-      } catch (err) {
-        console.error('Failed to fetch team news:', err);
-      }
-    };
-
     // Initial sync and updates
     syncSportsData();
     updateScores();
     fetchArtistData();
     fetchMusicNews();
-    fetchTeamNews();
+    // Note: fetch-team-news is too heavy (65 teams, 20-30s) for auto-updates
+    // It's handled by scheduled backend jobs instead
 
     // Sync sports data every hour
     const syncInterval = setInterval(syncSportsData, 60 * 60 * 1000);
@@ -134,8 +118,7 @@ export const useAutoUpdateScores = () => {
     // Fetch music news every hour
     const newsInterval = setInterval(fetchMusicNews, 60 * 60 * 1000);
 
-    // Fetch team news every 2 hours (comprehensive: news, injuries, standings)
-    const teamNewsInterval = setInterval(fetchTeamNews, 2 * 60 * 60 * 1000);
+    // Note: fetch-team-news interval removed - too heavy for client-side polling
 
     return () => {
       console.log('Cleaning up data sync intervals');
@@ -144,7 +127,6 @@ export const useAutoUpdateScores = () => {
       clearInterval(validateInterval);
       clearInterval(artistInterval);
       clearInterval(newsInterval);
-      clearInterval(teamNewsInterval);
     };
   }, []);
 };
