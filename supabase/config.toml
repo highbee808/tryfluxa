@@ -26,6 +26,11 @@ name = "process-deeper-summaries-hourly"
 function = "process-deeper-summaries"
 schedule = "0 * * * *"
 
+[[edge_runtime.cron]]
+name = "fetch-team-news-every-6-hours"
+function = "fetch-team-news-cached"
+schedule = "0 */6 * * *"
+
 [functions.voice-to-fluxa]
 verify_jwt = true
 
@@ -88,6 +93,18 @@ verify_jwt = true
 
 [functions.upload-reactions]
 verify_jwt = false
+
+[functions.fetch-team-news-cached]
+verify_jwt = false
+
+[functions.predict-match]
+verify_jwt = true
+
+[functions.fluxa-personalized-digest]
+verify_jwt = false
+
+[functions.fan-sentiment-tracker]
+verify_jwt = true
 
 [functions.sync-fan-entities]
 verify_jwt = false

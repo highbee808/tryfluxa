@@ -16,6 +16,7 @@ import { LiveMatchRoom } from "@/components/LiveMatchRoom";
 import { requestNotificationPermission, sendFluxaPushNotification } from "@/lib/notifications";
 import { NewsCard } from "@/components/NewsCard";
 import { useFluxaBrain } from "@/hooks/useFluxaBrain";
+import { MatchesCarousel } from "@/components/MatchesCarousel";
 
 interface Entity {
   id: string;
@@ -596,16 +597,12 @@ const EntityPage = () => {
               </Card>
             )}
 
-            {/* Matches Carousel - Next, Last, and Upcoming */}
-            {(entity.next_match || entity.last_match || (entity.upcoming_events && entity.upcoming_events.length > 0)) && (
-              <Card className="mt-6 p-6">
-                <h3 className="font-bold mb-4 flex items-center gap-2">
-                  📅 {entity.category === 'music' ? 'Events & Performances' : 'Matches & Fixtures'}
-                </h3>
-                <Carousel className="w-full">
-                  <CarouselContent>
-                    {/* Next Match */}
-                    {entity.next_match && (
+            {/* Matches Carousel - Recent, Current, and Upcoming */}
+            <MatchesCarousel 
+              entity={entity}
+              primaryColor={primaryColor}
+              secondaryColor={secondaryColor}
+            />
                       <CarouselItem className="md:basis-1/2 lg:basis-1/3">
                         <Card className="p-4 h-full border-2 hover:border-primary transition-colors" style={{ borderColor: primaryColor }}>
                           <div className="space-y-3">
