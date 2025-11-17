@@ -505,7 +505,7 @@ const Feed = () => {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center shadow-md glass-strong flex-shrink-0 transition-transform hover:scale-105">
-                <Sparkles className="w-6 h-6 text-white" />
+                <Sparkles className="w-6 h-6 text-primary-foreground" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56 glass border-glass-border-light rounded-2xl">

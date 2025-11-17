@@ -59,7 +59,7 @@ export const FloatingActionButtons = () => {
         >
           <Sparkles 
             className={cn(
-              "w-7 h-7 text-white transition-transform duration-300",
+              "w-7 h-7 text-primary-foreground transition-transform duration-300",
               isExpanded && "rotate-180"
             )} 
           />

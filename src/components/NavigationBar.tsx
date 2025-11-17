@@ -23,7 +23,7 @@ export const NavigationBar = () => {
           {/* Logo */}
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/feed")}>
             <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
+              <Sparkles className="w-5 h-5 text-primary-foreground" />
             </div>
             <span className="font-bold text-xl">Fluxa</span>
           </div>
