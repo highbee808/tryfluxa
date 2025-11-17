@@ -27,6 +27,7 @@ import EntityPage from "./pages/EntityPage";
 import PostDetail from "./pages/PostDetail";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import VoiceHistory from "./pages/VoiceHistory";
 import { PushNotificationPrompt } from "./components/PushNotificationPrompt";
 
 const queryClient = new QueryClient();
@@ -58,6 +59,7 @@ const App = () => (
           <Route path="/fanbase/:slug" element={<EntityPage />} />
           <Route path="/post/:postId" element={<PostDetail />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/voice-history" element={<VoiceHistory />} />
           <Route path="/admin/sponsors" element={<AdminSponsors />} />
           <Route path="/admin/health" element={<AdminHealth />} />
           <Route path="/admin/analytics" element={<Analytics />} />

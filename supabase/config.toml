@@ -4,7 +4,7 @@ project_id = "zikzuwomznlpgvrftcpf"
 policy = "per_worker"
 
 [functions.realtime-session]
-verify_jwt = true
+verify_jwt = false
 
 [[edge_runtime.cron]]
 name = "auto-generate-gists-every-minute"
