@@ -70,6 +70,75 @@ async function notifyUsersOfScoreChange(
   }
 }
 
+// Function to notify users about match events (start, half-time, etc.)
+async function sendMatchNotification(
+  supabase: any,
+  matchId: string,
+  homeTeam: string,
+  awayTeam: string,
+  league: string,
+  eventType: 'match_start' | 'half_time' | 'full_time'
+) {
+  console.log(`Sending ${eventType} notification for ${homeTeam} vs ${awayTeam}`)
+  
+  // Get users following either team
+  const { data: entities } = await supabase
+    .from('fan_entities')
+    .select('id, name')
+    .or(`name.eq.${homeTeam},name.eq.${awayTeam}`)
+    .eq('category', 'sports')
+  
+  if (!entities || entities.length === 0) {
+    console.log('No entities found for teams')
+    return
+  }
+  
+  const entityIds = entities.map((e: any) => e.id)
+  
+  // Get followers of these teams
+  const { data: followers } = await supabase
+    .from('fan_follows')
+    .select('user_id')
+    .in('entity_id', entityIds)
+  
+  if (!followers || followers.length === 0) {
+    console.log('No followers found')
+    return
+  }
+  
+  const eventMessages = {
+    match_start: `⚽ ${homeTeam} vs ${awayTeam} is starting now in ${league}!`,
+    half_time: `⏸️ Half time: ${homeTeam} vs ${awayTeam} - Check the latest scores!`,
+    full_time: `⏱️ Full time! ${homeTeam} vs ${awayTeam} has ended. See the final result!`
+  }
+  
+  const eventTitles = {
+    match_start: '⚽ Match Starting!',
+    half_time: '⏸️ Half Time',
+    full_time: '⏱️ Full Time'
+  }
+  
+  // Create notifications for each follower
+  const notifications = followers.map((f: any) => ({
+    user_id: f.user_id,
+    type: 'match_event',
+    title: eventTitles[eventType],
+    message: eventMessages[eventType],
+    entity_name: `${homeTeam} vs ${awayTeam}`,
+    is_read: false
+  }))
+  
+  const { error } = await supabase
+    .from('notifications')
+    .insert(notifications)
+    
+  if (error) {
+    console.error('Error sending match notifications:', error)
+  } else {
+    console.log(`✉️ Sent ${eventType} notifications to ${followers.length} users`)
+  }
+}
+
 async function validateCronSignature(req: Request): Promise<boolean> {
   const signature = req.headers.get('x-cron-signature')
   
@@ -248,6 +317,26 @@ serve(async (req) => {
           m.status === 'InProgress' || m.status === 'Halftime' || m.status === 'LIVE' || 
           m.status === '1H' || m.status === '2H' || m.status === 'HT' || m.status === 'In Play'
         )
+        
+        // Detect if match just started (became live)
+        const wasNotLive = !entity.current_match || entity.current_match.status !== 'live'
+        const isNowLive = !!liveMatch
+        
+        if (isNowLive && wasNotLive && liveMatch) {
+          // Match just went live - send notifications
+          try {
+            await sendMatchNotification(
+              supabase,
+              liveMatch.match_id,
+              liveMatch.team_home,
+              liveMatch.team_away,
+              liveMatch.league,
+              'match_start'
+            )
+          } catch (notifError) {
+            console.error('Failed to send match start notification:', notifError)
+          }
+        }
 
         // Detect score changes for live matches
         const scoreChanges: ScoreChange[] = []
@@ -277,14 +366,31 @@ serve(async (req) => {
             })
           }
           
-          // Send notifications if there are score changes
-          if (scoreChanges.length > 0) {
-            await notifyUsersOfScoreChange(supabase, scoreChanges, {
-              team_home: liveMatch.team_home,
-              team_away: liveMatch.team_away,
-              league: liveMatch.league
+        // Send notifications if there are score changes
+        if (scoreChanges.length > 0) {
+          await notifyUsersOfScoreChange(supabase, scoreChanges, {
+            team_home: liveMatch.team_home,
+            team_away: liveMatch.team_away,
+            league: liveMatch.league
+          })
+          
+          // Generate live commentary for goals
+          try {
+            await supabase.functions.invoke('generate-live-commentary', {
+              body: {
+                matchId: liveMatch.match_id,
+                homeTeam: liveMatch.team_home,
+                awayTeam: liveMatch.team_away,
+                homeScore: liveMatch.score_home,
+                awayScore: liveMatch.score_away,
+                league: liveMatch.league,
+                eventType: 'goal'
+              }
             })
+          } catch (commentaryError) {
+            console.error('Failed to generate commentary:', commentaryError)
           }
+        }
         }
 
         // Find completed matches - support multiple status variations
@@ -383,9 +489,6 @@ serve(async (req) => {
             if (scoreChanges.length > 0) {
               console.log(`📢 Score changes detected: ${scoreChanges.length} notifications sent`)
             }
-            
-            // Send push notifications for live matches
-            await sendMatchNotification(supabase, entity.id, currentMatch)
           }
         }
       } catch (err) {
@@ -421,32 +524,6 @@ serve(async (req) => {
 })
 
 // Helper functions
-
-async function sendMatchNotification(supabase: any, entityId: string, match: any) {
-  try {
-    // Get all users following this entity
-    const { data: followers } = await supabase
-      .from('fan_follows')
-      .select('user_id')
-      .eq('entity_id', entityId)
-
-    if (!followers || followers.length === 0) return
-
-    // Store notification data for web push (to be sent by frontend)
-    const notifications = followers.map((follower: any) => ({
-      user_id: follower.user_id,
-      entity_id: entityId,
-      type: 'live_match',
-      title: `🔴 LIVE: ${match.home_team} vs ${match.away_team}`,
-      message: `${match.home_score}-${match.away_score} • ${match.match_time}`,
-      data: { match_id: match.match_id }
-    }))
-
-    console.log(`📲 Prepared ${notifications.length} notifications for live match`)
-  } catch (err) {
-    console.error('Error sending notifications:', err)
-  }
-}
 
 function generateCommentary(team: string, homeScore: number, awayScore: number): string {
   const commentaries = [
