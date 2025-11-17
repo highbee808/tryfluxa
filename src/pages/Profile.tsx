@@ -187,7 +187,7 @@ const Profile = () => {
             <div className="flex gap-2 mt-3">
               <Button
                 variant="outline"
-                className="rounded-full font-bold px-4 hover:bg-accent hover:text-accent-foreground transition-colors"
+                className="rounded-full font-bold px-4 hover:bg-secondary/50 transition-colors"
                 onClick={() => setVoiceChatOpen(true)}
               >
                 <Mic className="w-4 h-4 mr-2" />
@@ -195,7 +195,7 @@ const Profile = () => {
               </Button>
               <Button
                 variant="outline"
-                className="rounded-full font-bold px-4 hover:bg-accent hover:text-accent-foreground transition-colors"
+                className="rounded-full font-bold px-4 hover:bg-secondary/50 transition-colors"
                 onClick={() => setEditModalOpen(true)}
               >
                 <Settings className="w-4 h-4 mr-2" />
@@ -310,7 +310,7 @@ const Profile = () => {
                   {favorites.map((gist) => (
                     <article
                       key={gist.id}
-                      className="p-4 hover:bg-accent/50 transition-colors cursor-pointer"
+                      className="p-4 hover:bg-secondary/50 transition-colors cursor-pointer"
                     >
                       <div className="flex gap-3">
                         {/* Avatar */}

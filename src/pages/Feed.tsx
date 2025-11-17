@@ -697,7 +697,7 @@ const Feed = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium gap-1 hover:bg-accent"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium gap-1 hover:bg-secondary/50"
                 >
                   {platforms.find(p => p.name === selectedPlatform)?.name === "X" ? (
                     <span className="text-base font-bold">𝕏</span>
@@ -720,8 +720,8 @@ const Feed = () => {
                       className={cn(
                         "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
                         selectedPlatform === platform.name
-                          ? "bg-accent text-accent-foreground"
-                          : "hover:bg-accent/50"
+                          ? "bg-secondary text-foreground"
+                          : "hover:bg-secondary/50"
                       )}
                     >
                       {platform.name === "X" ? (
@@ -929,8 +929,8 @@ const Feed = () => {
                       { topic: "Productivity", posts: "412 posts" },
                     ].map((item, i) => (
                       <div
-                        key={i}
-                        className="p-3 bg-accent/50 rounded-lg hover:bg-accent/70 cursor-pointer transition-colors"
+                       key={i}
+                        className="p-3 bg-secondary/50 rounded-lg hover:bg-secondary/70 cursor-pointer transition-colors"
                       >
                         <p className="text-sm font-medium">{item.topic}</p>
                         <p className="text-xs text-muted-foreground">{item.posts}</p>
