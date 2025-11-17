@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { FeedCardWithSocial } from "@/components/FeedCardWithSocial";
 import { NewsCard } from "@/components/NewsCard";
 import { NavigationBar } from "@/components/NavigationBar";
@@ -15,8 +16,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Filter, Headphones, TrendingUp, Play, ChevronDown, Instagram, Facebook, MessageSquare, Sparkles, Bookmark } from "lucide-react";
+import { Search, Filter, Headphones, TrendingUp, Play, ChevronDown, Instagram, Facebook, MessageSquare, Sparkles, Bookmark, User, Settings, LogOut } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { highlightText } from "@/lib/highlightText";
 
@@ -53,10 +55,12 @@ interface NewsItem {
 }
 
 const Feed = () => {
+  const navigate = useNavigate();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentPlayingId, setCurrentPlayingId] = useState<string | null>(null);
   const [gists, setGists] = useState<Gist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("All Updates");
   const currentAudio = useRef<HTMLAudioElement | null>(null);
   const [chatContext, setChatContext] = useState<{ topic: string; summary: string } | undefined>(undefined);
   const [likedGists, setLikedGists] = useState<string[]>([]);
@@ -429,23 +433,66 @@ const Feed = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 pb-20">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 pb-28 animate-fade-in">
       {/* Header - Reference Style */}
       <div className="sticky top-0 z-40 glass border-b border-glass-border-light">
         <div className="flex items-center justify-between px-4 py-3 gap-3">
-          {/* Left: Profile Avatar */}
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center shadow-lg glass-strong hover-glow flex-shrink-0">
-            <Sparkles className="w-6 h-6 text-white" />
-          </div>
+          {/* Left: Profile Avatar Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center shadow-lg glass-strong hover-glow flex-shrink-0 transition-transform hover:scale-105">
+                <Sparkles className="w-6 h-6 text-white" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56 glass border-glass-border-light rounded-2xl">
+              <DropdownMenuItem onClick={() => navigate("/profile")} className="rounded-xl cursor-pointer">
+                <User className="w-4 h-4 mr-2" />
+                View Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem className="rounded-xl cursor-pointer">
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-glass-border-light" />
+              <DropdownMenuItem 
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  navigate("/");
+                }}
+                className="rounded-xl cursor-pointer text-destructive"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           
-          {/* Center: Pill Button */}
-          <Button 
-            variant="glass-light" 
-            className="rounded-full px-4 py-2 h-10 flex items-center gap-2 hover-glow flex-1 max-w-[140px]"
-          >
-            <span className="text-sm font-medium truncate">All Updates</span>
-            <ChevronDown className="w-4 h-4" />
-          </Button>
+          {/* Center: Filter Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="glass-light" 
+                className="rounded-full px-4 py-2 h-10 flex items-center gap-2 hover-glow flex-1 max-w-[140px] transition-transform hover:scale-105"
+              >
+                <span className="text-sm font-medium truncate">{activeTab}</span>
+                <ChevronDown className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-48 glass border-glass-border-light rounded-2xl">
+              <DropdownMenuItem onClick={() => setActiveTab("All Updates")} className="rounded-xl cursor-pointer">
+                All Updates
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setActiveTab("Following")} className="rounded-xl cursor-pointer">
+                Following
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setActiveTab("Trending")} className="rounded-xl cursor-pointer">
+                Trending
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setActiveTab("Saved")} className="rounded-xl cursor-pointer">
+                Saved
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           
           {/* Right: Icon Buttons */}
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -453,7 +500,8 @@ const Feed = () => {
             <Button
               variant="glass-light"
               size="icon"
-              className="w-10 h-10 rounded-full hover-glow"
+              className="w-10 h-10 rounded-full hover-glow transition-transform hover:scale-105"
+              onClick={() => navigate("/fluxa-mode")}
             >
               <MessageSquare className="w-5 h-5" />
             </Button>
