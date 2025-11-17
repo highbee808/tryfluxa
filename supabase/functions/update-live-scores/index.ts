@@ -227,11 +227,28 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
-  // Validate HMAC signature for CRON jobs
-  const isValid = await validateCronSignature(req)
-  if (!isValid) {
+  // Check authentication - allow either JWT or HMAC signature
+  const authHeader = req.headers.get('Authorization')
+  const hasCronSignature = req.headers.get('x-cron-signature')
+  
+  // If there's an Authorization header, treat as authenticated user request
+  if (!authHeader && hasCronSignature) {
+    // Validate HMAC signature for CRON jobs
+    const isValid = await validateCronSignature(req)
+    if (!isValid) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - Invalid signature' }),
+        { 
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+  }
+  // If no auth header and no cron signature, reject
+  else if (!authHeader && !hasCronSignature) {
     return new Response(
-      JSON.stringify({ error: 'Unauthorized - Invalid signature' }),
+      JSON.stringify({ error: 'Unauthorized - Missing authentication' }),
       { 
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
