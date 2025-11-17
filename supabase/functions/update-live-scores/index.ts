@@ -8,15 +8,18 @@ const corsHeaders = {
 
 async function validateCronSignature(req: Request): Promise<boolean> {
   const signature = req.headers.get('x-cron-signature')
+  
+  // If no signature header, allow the call (manual trigger from frontend)
+  if (!signature) {
+    console.log('No cron signature - allowing manual trigger')
+    return true
+  }
+  
+  // If signature is present, validate it
   const cronSecret = Deno.env.get('CRON_SECRET')
   
   if (!cronSecret) {
     console.error('CRON_SECRET not configured')
-    return false
-  }
-  
-  if (!signature) {
-    console.error('Missing x-cron-signature header')
     return false
   }
   
