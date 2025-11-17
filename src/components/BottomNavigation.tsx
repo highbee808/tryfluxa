@@ -7,38 +7,31 @@ export const BottomNavigation = () => {
   const location = useLocation();
 
   const navItems = [
-    { icon: Home, path: "/feed" },
-    { icon: Radio, path: "/fanbase-hub" },
-    { icon: Trophy, path: "/sports-hub" },
-    { icon: Search, path: "/universe" },
+    { icon: Home, path: "/feed", label: "Home" },
+    { icon: Radio, path: "/fanbase-hub", label: "Radio" },
+    { icon: Trophy, path: "/sports-hub", label: "Sports" },
+    { icon: Search, path: "/universe", label: "Explore" },
   ];
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
-      <div className="glass-strong rounded-full border border-glass-border-light shadow-md px-5 py-3">
-        <div className="flex items-center gap-5">
-          {navItems.map(({ icon: Icon, path }) => {
-            const isActive = location.pathname === path;
-            return (
-              <button
-                key={path}
-                onClick={() => navigate(path)}
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-                className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200",
-                  "outline-none focus:outline-none focus-visible:outline-none",
-                  "border-none focus:border-none focus-visible:border-none",
-                  "hover:scale-105 active:scale-95",
-                  isActive
-                    ? "glass-light text-primary shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:glass-light"
-                )}
-              >
-                <Icon className="w-5 h-5" />
-              </button>
-            );
-          })}
-        </div>
+    <div className="ios-tabbar">
+      <div className="ios-tabbar-inner">
+        {navItems.map(({ icon: Icon, path, label }) => {
+          const isActive = location.pathname === path;
+          return (
+            <button
+              key={path}
+              onClick={() => navigate(path)}
+              style={{ WebkitTapHighlightColor: "transparent" }}
+              className={cn("ios-tab-button", isActive && "ios-tab-button-active")}
+              aria-label={label}
+            >
+              <Icon className="w-5 h-5" />
+              <span className="text-[0.7rem] font-semibold tracking-wide">{label}</span>
+              <span className="ios-tab-indicator" />
+            </button>
+          );
+        })}
       </div>
     </div>
   );

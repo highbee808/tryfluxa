@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 interface FeedCardProps {
   id: string;
@@ -105,12 +106,12 @@ export const FeedCard = ({
     navigate(`/post/${id}`);
   };
   return (
-    <Card className="overflow-hidden border-glass-border-light shadow-glass hover:shadow-glass-glow transition-all duration-300 bg-card/95 backdrop-blur-sm">
+    <Card className="ios-card ios-card--interactive overflow-hidden">
       <CardContent className="p-0">
         {/* Author Info */}
-        <div className="p-4 flex items-center justify-between">
+        <div className="p-5 flex items-center justify-between bg-white/40 backdrop-blur-sm border-b border-white/50">
           <div className="flex items-center gap-3">
-            <Avatar className="w-10 h-10">
+            <Avatar className="w-11 h-11">
               {authorAvatar ? (
                 <AvatarImage src={authorAvatar} alt={author} />
               ) : (
@@ -120,7 +121,7 @@ export const FeedCard = ({
               )}
             </Avatar>
             <div>
-              <p className="text-sm font-medium">{author}</p>
+              <p className="text-sm font-semibold">{author}</p>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>{timeAgo}</span>
                 <span>•</span>
@@ -129,9 +130,12 @@ export const FeedCard = ({
               </div>
             </div>
           </div>
-          <Badge 
-            variant="secondary" 
-            className={`text-xs ${getCredibilityColor(credibilityScore)}`}
+          <Badge
+            variant="secondary"
+            className={cn(
+              "px-3 py-1 rounded-full text-[0.7rem] font-semibold border-0",
+              getCredibilityColor(credibilityScore)
+            )}
           >
             {credibilityScore}%
           </Badge>
@@ -139,31 +143,39 @@ export const FeedCard = ({
 
         {/* Image */}
         {imageUrl && (
-          <img
-            src={imageUrl}
-            alt={headline}
-            className="w-full h-48 sm:h-64 object-cover cursor-pointer"
+          <div
+            className="relative w-full h-52 sm:h-64 overflow-hidden cursor-pointer"
             onClick={() => navigate(`/post/${id}`)}
-          />
+          >
+            <img src={imageUrl} alt={headline} className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent" />
+            <span className="absolute bottom-4 left-4 text-xs font-medium text-white/80 flex items-center gap-1">
+              <Clock className="w-4 h-4" /> {readTime} read
+            </span>
+          </div>
         )}
 
         {/* Content */}
-        <div className="p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Clock className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">{readTime} read</span>
-          </div>
+        <div className="p-6 space-y-4">
+          {!imageUrl && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="w-4 h-4" />
+              <span>{readTime} read</span>
+            </div>
+          )}
 
-          <h2 className="text-xl md:text-2xl font-semibold mb-2 leading-tight">
+          <h2 className="text-xl md:text-2xl font-semibold leading-tight tracking-tight">
             {headline}
           </h2>
-          <p className="text-muted-foreground text-sm md:text-base mb-4 line-clamp-3">
+          <p className="text-muted-foreground text-sm md:text-base leading-relaxed">
             {context}
           </p>
 
+          <div className="ios-divider" />
+
           {/* Actions */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-border">
-            <div className="flex items-center gap-4 sm:gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-4 sm:gap-6">
               <button
                 onClick={handlePlayWithTracking}
                 className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group"
@@ -181,9 +193,10 @@ export const FeedCard = ({
                 className="flex items-center gap-2 text-muted-foreground hover:text-red-500 transition-colors group"
               >
                 <Heart
-                  className={`w-5 h-5 transition-all ${
+                  className={cn(
+                    "w-5 h-5 transition-all",
                     isLiked ? "fill-red-500 text-red-500 scale-110" : "group-hover:scale-110"
-                  }`}
+                  )}
                 />
                 <span className="text-sm font-medium">{likes}</span>
               </button>
@@ -201,9 +214,10 @@ export const FeedCard = ({
                 className="flex items-center gap-2 text-muted-foreground hover:text-coral-active transition-colors group"
               >
                 <Bookmark
-                  className={`w-5 h-5 transition-all ${
+                  className={cn(
+                    "w-5 h-5 transition-all",
                     isBookmarked ? "fill-coral-active text-coral-active scale-110" : "group-hover:scale-110"
-                  }`}
+                  )}
                 />
                 <span className="text-sm font-medium">{bookmarks}</span>
               </button>
