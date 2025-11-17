@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { NavigationBar } from "@/components/NavigationBar";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -469,8 +468,6 @@ export default function PostDetail() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <NavigationBar />
-      
       <div className="max-w-2xl mx-auto p-4">
         <Button
           variant="ghost"
