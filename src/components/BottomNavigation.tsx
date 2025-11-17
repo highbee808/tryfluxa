@@ -15,29 +15,33 @@ export const BottomNavigation = () => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 glass border-t border-glass-border-light z-50">
-      <div className="flex justify-around items-center h-14 max-w-lg mx-auto px-4">
-        {navItems.map(({ icon: Icon, path }) => {
-          const isActive = location.pathname === path;
-          return (
-            <button
-              key={path}
-              onClick={() => navigate(path)}
-              style={{ WebkitTapHighlightColor: 'transparent' }}
-              className={cn(
-                "w-11 h-11 rounded-full flex items-center justify-center transition-all",
-                "outline-none focus:outline-none focus-visible:outline-none",
-                "bg-transparent hover:bg-transparent focus:bg-transparent active:bg-transparent focus-visible:bg-transparent",
-                "border-none focus:border-none focus-visible:border-none",
-                isActive
-                  ? "glass-light text-primary hover-glow"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Icon className="w-5 h-5" />
-            </button>
-          );
-        })}
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md">
+      <div className="glass-strong rounded-[32px] border border-glass-border-light shadow-glass-glow px-6 py-3">
+        <div className="flex justify-around items-center gap-2">
+          {navItems.map(({ icon: Icon, label, path }) => {
+            const isActive = location.pathname === path;
+            return (
+              <button
+                key={path}
+                onClick={() => navigate(path)}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1.5 px-4 py-2 rounded-2xl transition-all duration-300",
+                  "outline-none focus:outline-none focus-visible:outline-none",
+                  "bg-transparent hover:bg-transparent focus:bg-transparent active:bg-transparent focus-visible:bg-transparent",
+                  "border-none focus:border-none focus-visible:border-none",
+                  "hover:scale-105 active:scale-95",
+                  isActive
+                    ? "glass-light text-primary hover-glow"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Icon className={cn("w-6 h-6 transition-transform", isActive && "scale-110")} />
+                <span className="text-xs font-medium">{label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
