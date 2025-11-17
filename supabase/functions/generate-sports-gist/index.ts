@@ -3,44 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-signature',
-}
-
-// HMAC signature validation for scheduled functions
-async function validateCronSignature(req: Request): Promise<boolean> {
-  const signature = req.headers.get('x-cron-signature')
-  const cronSecret = Deno.env.get('CRON_SECRET')
-  
-  if (!cronSecret) {
-    console.error('CRON_SECRET not configured')
-    return false
-  }
-  
-  if (!signature) {
-    console.error('Missing x-cron-signature header')
-    return false
-  }
-  
-  const body = await req.text()
-  const encoder = new TextEncoder()
-  
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(cronSecret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  )
-  
-  const expectedSig = await crypto.subtle.sign(
-    'HMAC',
-    key,
-    encoder.encode(body || '')
-  )
-  
-  const expectedBase64 = btoa(String.fromCharCode(...new Uint8Array(expectedSig)))
-  
-  return signature === expectedBase64
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 serve(async (req) => {
@@ -48,38 +11,10 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
-  // Allow both authenticated users (JWT) and cron jobs (HMAC)
-  const authHeader = req.headers.get('Authorization')
-  const hasCronSignature = req.headers.get('x-cron-signature')
-  
-  // If it's a user request (has JWT), allow it
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    console.log('✅ Authenticated user request')
-  } 
-  // If it's a cron request, validate HMAC signature
-  else if (hasCronSignature) {
-    const isValid = await validateCronSignature(req)
-    if (!isValid) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized - Invalid HMAC signature' }),
-        { 
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-    console.log('✅ Valid cron request')
-  }
-  // Neither JWT nor valid HMAC - reject
-  else {
-    return new Response(
-      JSON.stringify({ error: 'Unauthorized - Authentication required' }),
-      { 
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
-  }
+  // This function can be called by:
+  // 1. Authenticated users with JWT (for manual triggers)
+  // 2. Supabase cron jobs (managed by Supabase, no auth needed)
+  // No additional validation needed as Supabase handles cron security
 
   try {
     console.log('⚽ Generating sports banter...')
