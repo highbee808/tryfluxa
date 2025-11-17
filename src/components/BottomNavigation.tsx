@@ -7,18 +7,18 @@ export const BottomNavigation = () => {
   const location = useLocation();
 
   const navItems = [
-    { icon: Home, label: "Home", path: "/feed" },
-    { icon: Radio, label: "Fanbase", path: "/fanbase-hub" },
-    { icon: Trophy, label: "Sports", path: "/sports-hub" },
-    { icon: Search, label: "Discover", path: "/universe" },
-    { icon: User, label: "Profile", path: "/profile" },
+    { icon: Home, path: "/feed" },
+    { icon: Radio, path: "/fanbase-hub" },
+    { icon: Trophy, path: "/sports-hub" },
+    { icon: Search, path: "/universe" },
+    { icon: User, path: "/profile" },
   ];
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-md">
-      <div className="glass-strong rounded-[32px] border border-glass-border-light shadow-glass-glow px-6 py-3">
-        <div className="flex justify-around items-center gap-2">
-          {navItems.map(({ icon: Icon, label, path }) => {
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+      <div className="glass-strong rounded-full border border-glass-border-light shadow-glass-glow px-8 py-4">
+        <div className="flex items-center gap-8">
+          {navItems.map(({ icon: Icon, path }) => {
             const isActive = location.pathname === path;
             return (
               <button
@@ -26,18 +26,16 @@ export const BottomNavigation = () => {
                 onClick={() => navigate(path)}
                 style={{ WebkitTapHighlightColor: 'transparent' }}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1.5 px-4 py-2 rounded-2xl transition-all duration-300",
+                  "w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300",
                   "outline-none focus:outline-none focus-visible:outline-none",
-                  "bg-transparent hover:bg-transparent focus:bg-transparent active:bg-transparent focus-visible:bg-transparent",
                   "border-none focus:border-none focus-visible:border-none",
-                  "hover:scale-105 active:scale-95",
+                  "hover:scale-110 active:scale-95",
                   isActive
-                    ? "glass-light text-primary hover-glow"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "glass-light text-primary hover-glow shadow-glass"
+                    : "text-muted-foreground hover:text-foreground hover:glass-light"
                 )}
               >
-                <Icon className={cn("w-6 h-6 transition-transform", isActive && "scale-110")} />
-                <span className="text-xs font-medium">{label}</span>
+                <Icon className="w-6 h-6" />
               </button>
             );
           })}
