@@ -747,19 +747,19 @@ const Feed = () => {
 
         {/* Category Pills */}
         <div className="flex gap-2 overflow-x-auto pb-4 mb-8 animate-fade-in" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-          {categories.map((category) => (
-            <Badge
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 hover:scale-105 ${
-                selectedCategory === category
-                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-pink-700 shadow-glass-glow"
-                  : "glass-light text-foreground hover:glass border-glass-border-light"
-              }`}
-            >
-              {category}
-            </Badge>
-          ))}
+        {categories.map((category) => (
+          <Badge
+            key={category}
+            onClick={() => setSelectedCategory(category)}
+            className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 ${
+              selectedCategory === category
+                ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
+                : "bg-secondary text-foreground border border-border"
+            }`}
+          >
+            {category}
+          </Badge>
+        ))}
         </div>
 
         {/* Trending Carousel */}
