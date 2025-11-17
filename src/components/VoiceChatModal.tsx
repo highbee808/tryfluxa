@@ -69,8 +69,10 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
       setIsConnecting(true);
 
       // 1) Get ephemeral session from our backend edge function
-      const sessionRes = await fetch("/functions/v1/realtime-session");
+      const sessionRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/realtime-session`);
       if (!sessionRes.ok) {
+        const errorText = await sessionRes.text();
+        console.error("Session error:", errorText);
         throw new Error("Failed to create Realtime session");
       }
       const sessionJson = await sessionRes.json();

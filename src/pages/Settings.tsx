@@ -152,6 +152,17 @@ const Settings = () => {
             <Button onClick={handleSaveProfile} className="w-full">
               Save Changes
             </Button>
+
+            <Separator />
+
+            <Button 
+              variant="outline" 
+              className="w-full gap-2" 
+              onClick={() => navigate("/voice-history")}
+            >
+              <Bell className="w-4 h-4" />
+              Voice Chat History
+            </Button>
           </CardContent>
         </Card>
 
