@@ -93,6 +93,19 @@ Event types: goal, half_time, full_time, match_start, close_call`
 
     console.log('Generated commentary:', commentary)
 
+    // Log API usage for cost monitoring
+    const inputTokens = Math.ceil(prompt.length / 4)
+    const outputTokens = Math.ceil((commentary?.length || 0) / 4)
+    const totalTokens = inputTokens + outputTokens
+    const estimatedCost = (inputTokens / 1_000_000) * 0.075 + (outputTokens / 1_000_000) * 0.30
+    
+    await supabase.from("api_usage_logs").insert({
+      provider: "lovable_ai",
+      endpoint: "gemini-2.5-flash",
+      tokens_used: totalTokens,
+      estimated_cost: estimatedCost
+    })
+
     // Generate audio using TTS
     const { data: ttsData, error: ttsError } = await supabase.functions.invoke('text-to-speech', {
       body: { text: commentary }

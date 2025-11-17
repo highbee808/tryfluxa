@@ -6,6 +6,43 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-signature',
 }
 
+// HMAC signature validation for scheduled functions
+async function validateCronSignature(req: Request): Promise<boolean> {
+  const signature = req.headers.get('x-cron-signature')
+  const cronSecret = Deno.env.get('CRON_SECRET')
+  
+  if (!cronSecret) {
+    console.error('CRON_SECRET not configured')
+    return false
+  }
+  
+  if (!signature) {
+    console.error('Missing x-cron-signature header')
+    return false
+  }
+  
+  const body = await req.text()
+  const encoder = new TextEncoder()
+  
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(cronSecret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  
+  const expectedSig = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    encoder.encode(body || '')
+  )
+  
+  const expectedBase64 = btoa(String.fromCharCode(...new Uint8Array(expectedSig)))
+  
+  return signature === expectedBase64
+}
+
 interface ScoreChange {
   match_id: string;
   team: string;
@@ -137,45 +174,6 @@ async function sendMatchNotification(
   } else {
     console.log(`✉️ Sent ${eventType} notifications to ${followers.length} users`)
   }
-}
-
-async function validateCronSignature(req: Request): Promise<boolean> {
-  const signature = req.headers.get('x-cron-signature')
-  
-  // If no signature header, allow the call (manual trigger from frontend)
-  if (!signature) {
-    console.log('No cron signature - allowing manual trigger')
-    return true
-  }
-  
-  // If signature is present, validate it
-  const cronSecret = Deno.env.get('CRON_SECRET')
-  
-  if (!cronSecret) {
-    console.error('CRON_SECRET not configured')
-    return false
-  }
-  
-  const body = await req.text()
-  const encoder = new TextEncoder()
-  
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(cronSecret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  )
-  
-  const expectedSig = await crypto.subtle.sign(
-    'HMAC',
-    key,
-    encoder.encode(body || '')
-  )
-  
-  const expectedBase64 = btoa(String.fromCharCode(...new Uint8Array(expectedSig)))
-  
-  return signature === expectedBase64
 }
 
 // Team code mapping: Full names -> API abbreviations
