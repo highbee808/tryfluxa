@@ -34,7 +34,7 @@ export const FluxaGreeting = ({ greeting, isLoading }: FluxaGreetingProps) => {
 
   if (isLoading) {
     return (
-      <Card className="max-w-6xl w-full p-6 mb-8 border-primary/30 animate-pulse rounded-[24px]"
+      <Card className="max-w-6xl w-full p-6 mb-8 border-glass-border-light animate-pulse rounded-[24px] glass"
         style={{ 
           background: "var(--gradient-card)",
           boxShadow: "var(--shadow-card)"
@@ -46,7 +46,7 @@ export const FluxaGreeting = ({ greeting, isLoading }: FluxaGreetingProps) => {
   }
 
   return (
-    <Card className="max-w-6xl w-full p-6 mb-8 border-primary/30 animate-fade-in relative overflow-hidden rounded-[24px]"
+    <Card className="max-w-6xl w-full p-6 mb-8 border-glass-border-light animate-fade-in relative overflow-hidden rounded-[24px] glass hover-glow"
       style={{ 
         background: "var(--gradient-card)",
         boxShadow: "var(--shadow-card)"
