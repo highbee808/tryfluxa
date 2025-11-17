@@ -1,11 +1,17 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 type RealtimeEvent = {
   type: string;
   [key: string]: any;
 };
 
-const VoiceChatModal: React.FC = () => {
+interface VoiceChatModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isLive, setIsLive] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -48,6 +54,13 @@ const VoiceChatModal: React.FC = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Cleanup when modal closes
+  useEffect(() => {
+    if (!open && isLive) {
+      cleanup();
+    }
+  }, [open, isLive]);
 
   const startLiveSession = async () => {
     try {
@@ -196,36 +209,40 @@ const VoiceChatModal: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center gap-6 mt-8 text-center">
-      <h2 className="text-3xl font-bold text-foreground">Talk to Fluxa 🎧</h2>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <div className="flex flex-col items-center gap-6 text-center">
+          <h2 className="text-3xl font-bold text-foreground">Talk to Fluxa 🎧</h2>
 
-      {/* Status */}
-      <p className="text-sm text-muted-foreground max-w-md">{status}</p>
-      {error && <p className="text-xs text-red-400">{error}</p>}
+          {/* Status */}
+          <p className="text-sm text-muted-foreground max-w-md">{status}</p>
+          {error && <p className="text-xs text-red-400">{error}</p>}
 
-      {/* Big button */}
-      <button
-        onClick={isLive ? stopLiveSession : startLiveSession}
-        disabled={isConnecting}
-        className={`px-8 py-3 rounded-2xl font-semibold mt-2 transition-all duration-300 ${
-          isLive
-            ? "bg-red-500 hover:bg-red-600 text-white"
-            : "bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:scale-105 shadow-lg"
-        } ${isConnecting ? "opacity-60 cursor-not-allowed" : ""}`}
-      >
-        {isConnecting ? "Connecting to Fluxa…" : isLive ? "End Live Session" : "Start Live Session"}
-      </button>
+          {/* Big button */}
+          <button
+            onClick={isLive ? stopLiveSession : startLiveSession}
+            disabled={isConnecting}
+            className={`px-8 py-3 rounded-2xl font-semibold mt-2 transition-all duration-300 ${
+              isLive
+                ? "bg-red-500 hover:bg-red-600 text-white"
+                : "bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:scale-105 shadow-lg"
+            } ${isConnecting ? "opacity-60 cursor-not-allowed" : ""}`}
+          >
+            {isConnecting ? "Connecting to Fluxa…" : isLive ? "End Live Session" : "Start Live Session"}
+          </button>
 
-      {/* Transcript */}
-      <div className="mt-4 w-full max-w-md text-left">
-        {transcript && (
-          <div className="mt-3 p-4 bg-muted rounded-xl shadow-inner">
-            <p className="font-semibold text-foreground mb-1">Fluxa (live transcript):</p>
-            <p className="text-muted-foreground whitespace-pre-wrap">{transcript}</p>
+          {/* Transcript */}
+          <div className="mt-4 w-full max-w-md text-left">
+            {transcript && (
+              <div className="mt-3 p-4 bg-muted rounded-xl shadow-inner">
+                <p className="font-semibold text-foreground mb-1">Fluxa (live transcript):</p>
+                <p className="text-muted-foreground whitespace-pre-wrap">{transcript}</p>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
