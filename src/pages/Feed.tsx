@@ -513,7 +513,7 @@ const Feed = () => {
                 <User className="w-4 h-4 mr-2" />
                 View Profile
               </DropdownMenuItem>
-              <DropdownMenuItem className="rounded-xl cursor-pointer">
+              <DropdownMenuItem onClick={() => navigate("/settings")} className="rounded-xl cursor-pointer">
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
               </DropdownMenuItem>
