@@ -429,8 +429,37 @@ const Feed = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 pb-20 md:pb-8 md:pt-20">
-      <NavigationBar />
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 pb-20">
+      {/* Header - Reference Style */}
+      <div className="sticky top-0 z-40 glass border-b border-glass-border-light">
+        <div className="flex items-center justify-between px-4 py-3 gap-3">
+          {/* Left: Profile Avatar */}
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center shadow-lg glass-strong hover-glow flex-shrink-0">
+            <Sparkles className="w-6 h-6 text-white" />
+          </div>
+          
+          {/* Center: Pill Button */}
+          <Button 
+            variant="glass-light" 
+            className="rounded-full px-4 py-2 h-10 flex items-center gap-2 hover-glow flex-1 max-w-[140px]"
+          >
+            <span className="text-sm font-medium truncate">All Updates</span>
+            <ChevronDown className="w-4 h-4" />
+          </Button>
+          
+          {/* Right: Icon Buttons */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <NotificationCenter />
+            <Button
+              variant="glass-light"
+              size="icon"
+              className="w-10 h-10 rounded-full hover-glow"
+            >
+              <MessageSquare className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+      </div>
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Tabs */}
