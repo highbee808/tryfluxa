@@ -15,31 +15,28 @@ export const InterestChip = ({ label, selected, onClick }: InterestChipProps) =>
   return (
     <button
       onClick={onClick}
+      aria-pressed={selected}
       className={cn(
-        "px-7 py-4 rounded-full font-semibold transition-all duration-400 group",
-        "border hover:scale-105 active:scale-95 relative overflow-visible",
+        "ios-pill group relative overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2",
+        "transition-transform duration-300",
         selected
-          ? "bg-primary text-primary-foreground border-primary/30 shadow-xl hover-glow-strong"
-          : "glass-light text-foreground border-glass-border-light hover:glass hover:border-glass-border-strong hover-glow"
+          ? "ios-pill-active"
+          : "ios-pill-idle hover:-translate-y-0.5 active:scale-95"
       )}
-      style={selected ? { boxShadow: "var(--shadow-glow)" } : {}}
     >
-      <span className="flex items-center gap-3">
-        <span 
+      {selected && <span className="ios-pill-highlight" aria-hidden />}
+      <span className="flex items-center gap-3 relative z-10">
+        <span
           className={cn(
-            "inline-block transition-all duration-400 text-xl",
-            "animate-float",
-            "group-hover:scale-125 group-hover:rotate-12",
-            selected && "animate-pulse scale-110"
+            "inline-block text-2xl transition-all duration-500",
+            selected
+              ? "scale-110 drop-shadow"
+              : "opacity-80 group-hover:opacity-100 group-hover:-translate-y-0.5"
           )}
-          style={{
-            animationDuration: `${2 + Math.random() * 2}s`,
-            animationDelay: `${Math.random() * 2}s`
-          }}
         >
           {emoji}
         </span>
-        <span className="text-base">{text}</span>
+        <span className="text-base font-semibold tracking-tight">{text}</span>
       </span>
     </button>
   );

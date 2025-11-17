@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -8,36 +8,52 @@
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
-    --foreground: 0 0% 15%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 15%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 15%;
-    --primary: 221 83% 53%;
+    --background: 220 33% 97%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100% / 0.9;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100% / 0.95;
+    --popover-foreground: 222 47% 11%;
+    --primary: 222 89% 63%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 0 0% 15%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 0 0% 15%;
+    --secondary: 220 45% 97%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 220 15% 92%;
+    --muted-foreground: 224 15% 45%;
+    --accent: 262 89% 76%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
-    --radius: 0.75rem;
-    
+    --border: 224 26% 88%;
+    --input: 224 26% 88%;
+    --ring: 222 89% 63%;
+    --radius: 1.75rem;
+
+    /* iOS 26 inspired depth */
+    --ios-surface: hsl(0 0% 100% / 0.82);
+    --ios-panel: hsl(0 0% 100% / 0.72);
+    --ios-border: hsl(220 20% 90% / 0.8);
+    --ios-border-strong: hsl(220 25% 82% / 0.8);
+    --ios-shadow: 0 25px 60px hsl(226 55% 70% / 0.25);
+    --ios-shadow-strong: 0 35px 65px hsl(230 55% 55% / 0.35);
+    --ios-highlight: hsl(254 92% 72%);
+    --ios-success: hsl(152 77% 45%);
+    --ios-warning: hsl(30 90% 62%);
+
+    /* Gradients */
+    --gradient-hero: radial-gradient(circle at 15% 20%, hsl(213 100% 97%), hsl(250 100% 96%), hsl(284 74% 95%));
+    --gradient-screen: linear-gradient(180deg, hsl(220 60% 98%) 0%, hsl(251 62% 97%) 45%, hsl(290 58% 96%) 100%);
+    --gradient-card: linear-gradient(135deg, hsl(222 89% 63% / 0.12), hsl(262 89% 76% / 0.18));
+
     /* Glass effect */
     --glass-bg: hsl(0 0% 100% / 0.8);
     --glass-border: hsl(0 0% 100% / 0.3);
     --glass-shadow: 0 8px 32px 0 hsl(0 0% 0% / 0.1);
-    
+
     /* Active coral */
     --coral-active: 10 95% 68%;
     --coral-glow: 10 100% 75%;
-    
+
     /* Glassmorphism */
     --glass-light: hsl(0 0% 100% / 0.15);
     --glass-medium: hsl(0 0% 100% / 0.25);
@@ -49,30 +65,38 @@
   }
 
   .dark {
-    --background: 222 47% 11%;
+    --background: 222 47% 8%;
     --foreground: 210 40% 98%;
-    --card: 222 47% 11%;
+    --card: 222 47% 12% / 0.8;
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
+    --popover: 222 47% 8% / 0.85;
     --popover-foreground: 210 40% 98%;
     --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
     --secondary: 217 33% 18%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 18%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 217 33% 18%;
-    --accent-foreground: 210 40% 98%;
+    --muted: 217 33% 22%;
+    --muted-foreground: 215 20% 75%;
+    --accent: 262 94% 70%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 18%;
-    --input: 217 33% 18%;
+    --border: 217 33% 26%;
+    --input: 217 33% 26%;
     --ring: 224 76% 48%;
-    
+
+    --ios-surface: hsl(222 47% 12% / 0.85);
+    --ios-panel: hsl(222 47% 10% / 0.72);
+    --ios-border: hsl(222 33% 35% / 0.8);
+    --ios-border-strong: hsl(222 40% 28% / 0.8);
+    --ios-shadow: 0 25px 60px hsl(222 50% 2% / 0.45);
+    --gradient-hero: radial-gradient(circle at 15% 20%, hsl(226 45% 18%), hsl(256 50% 15%), hsl(280 45% 12%));
+    --gradient-screen: linear-gradient(180deg, hsl(222 32% 10%) 0%, hsl(250 33% 12%) 50%, hsl(280 31% 10%) 100%);
+
     --glass-bg: hsl(222 47% 11% / 0.8);
     --glass-border: hsl(0 0% 100% / 0.1);
     --glass-shadow: 0 8px 32px 0 hsl(0 0% 0% / 0.4);
-    
+
     /* Dark mode glassmorphism */
     --glass-light: hsl(0 0% 100% / 0.08);
     --glass-medium: hsl(0 0% 100% / 0.12);
@@ -90,15 +114,17 @@
   }
 
   body {
-    @apply bg-background text-foreground;
-    font-family: 'Fredoka', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    @apply text-foreground;
+    background: var(--gradient-screen);
+    font-family: 'SF Pro Display', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+    transition: background 0.4s ease, color 0.4s ease;
     margin: 0;
     padding: 0;
     min-height: 100vh;
     overflow-x: hidden;
     max-width: 100vw;
     position: relative;
+    color-scheme: light;
   }
 
   html {
@@ -211,4 +237,183 @@
 
 .hover-glow-strong:hover {
   animation: pulse-glow-strong 1.5s ease-in-out infinite;
+}
+
+/* iOS 26 inspired utilities */
+.ios-background {
+  background: var(--gradient-screen);
+  background-attachment: fixed;
+}
+
+.ios-page {
+  background: var(--gradient-screen);
+  min-height: 100vh;
+  padding: clamp(1.5rem, 3vw, 3.5rem) clamp(1rem, 4vw, 4rem);
+}
+
+.ios-hero {
+  background: var(--gradient-hero);
+  border-radius: 32px;
+  padding: clamp(2rem, 3vw, 3.5rem);
+  box-shadow: var(--ios-shadow);
+  border: 1px solid var(--ios-border);
+  position: relative;
+  overflow: hidden;
+}
+
+.ios-hero::after {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border-radius: 28px;
+  border: 1px solid hsl(0 0% 100% / 0.35);
+  pointer-events: none;
+}
+
+.ios-panel {
+  background: var(--ios-panel);
+  border-radius: 28px;
+  border: 1px solid var(--ios-border);
+  padding: clamp(1.25rem, 2vw, 2rem);
+  box-shadow: var(--ios-shadow);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+}
+
+.ios-card {
+  background: var(--ios-surface);
+  border-radius: 28px;
+  border: 1px solid var(--ios-border);
+  box-shadow: 0 15px 45px hsl(226 55% 70% / 0.18);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  transition: transform 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease;
+}
+
+.ios-card--interactive:hover {
+  transform: translateY(-6px) scale(1.01);
+  box-shadow: var(--ios-shadow-strong);
+  border-color: hsl(var(--primary) / 0.35);
+}
+
+.ios-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(220 20% 85% / 0.8), transparent);
+}
+
+.ios-pill {
+  position: relative;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0.85rem 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: all 0.35s ease;
+  background: linear-gradient(145deg, hsl(0 0% 100% / 0.85), hsl(0 0% 100% / 0.6));
+  box-shadow: 0 10px 25px hsl(220 55% 70% / 0.25);
+  color: var(--foreground);
+}
+
+.ios-pill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid hsl(0 0% 100% / 0.6);
+  pointer-events: none;
+}
+
+.ios-pill-active {
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.95), hsl(var(--accent) / 0.85));
+  color: white;
+  box-shadow: 0 15px 35px hsl(var(--primary) / 0.35);
+}
+
+.ios-pill-idle {
+  border-color: var(--ios-border);
+}
+
+.ios-pill-highlight {
+  position: absolute;
+  inset: 2px;
+  border-radius: inherit;
+  border: 1px solid hsl(0 0% 100% / 0.8);
+  opacity: 0.6;
+}
+
+.ios-header {
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  background: linear-gradient(145deg, hsl(0 0% 100% / 0.8), hsl(0 0% 100% / 0.65));
+  border-bottom: 1px solid var(--ios-border);
+  box-shadow: 0 15px 30px hsl(220 55% 70% / 0.2);
+}
+
+.ios-tabbar {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, calc(100% - 2rem));
+  z-index: 50;
+}
+
+.ios-tabbar-inner {
+  background: var(--ios-panel);
+  border-radius: 28px;
+  padding: 0.5rem;
+  border: 1px solid var(--ios-border);
+  box-shadow: 0 30px 60px hsl(227 52% 60% / 0.25);
+  display: flex;
+  justify-content: space-between;
+}
+
+.ios-tab-button {
+  flex: 1;
+  border-radius: 999px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.65rem 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: hsl(224 15% 45%);
+  transition: all 0.3s ease;
+}
+
+.ios-tab-button-active {
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(var(--accent) / 0.12));
+  color: hsl(var(--primary));
+  box-shadow: inset 0 0 0 1px hsl(var(--primary) / 0.15);
+}
+
+.ios-tab-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.ios-tab-button-active .ios-tab-indicator {
+  opacity: 1;
+}
+
+.ios-stat-badge {
+  background: hsl(0 0% 100% / 0.45);
+  border-radius: 18px;
+  padding: 0.4rem 0.95rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid hsl(0 0% 100% / 0.5);
+}
+
+.ios-scroll {
+  scrollbar-width: none;
+}
+
+.ios-scroll::-webkit-scrollbar {
+  display: none;
 }

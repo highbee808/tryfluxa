@@ -99,6 +99,11 @@ const Feed = () => {
   ];
 
   const categories = ["All", "Technology", "Lifestyle", "Science", "Media", "Productivity"];
+  const viewTabs: { label: string; value: "all" | "foryou" | "bookmarks" }[] = [
+    { label: "For You", value: "foryou" },
+    { label: "All Updates", value: "all" },
+    { label: "Bookmarks", value: "bookmarks" }
+  ];
 
   const loadGists = async (showToast = false, loadMore = false) => {
     try {
@@ -465,110 +470,110 @@ const Feed = () => {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
-        <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
+      <div className="flex flex-col items-center justify-center min-h-screen ios-background text-foreground">
+        <div className="w-16 h-16 border-4 border-primary/30 border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-muted-foreground animate-pulse">Loading your personalized feed...</p>
       </div>
     );
   }
 
   return (
-    <div 
+    <div
       ref={contentRef}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="min-h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 pb-28 animate-fade-in overflow-y-auto"
+      className="min-h-screen ios-background pb-36 animate-fade-in overflow-y-auto ios-scroll"
     >
       {/* Pull-to-refresh indicator */}
       {isPulling && (
-        <div 
+        <div
           className="fixed top-16 left-1/2 -translate-x-1/2 z-40 transition-all duration-200"
           style={{ 
             transform: `translate(-50%, ${Math.min(pullDistance - 20, 80)}px)`,
             opacity: Math.min(pullDistance / 80, 1)
           }}
         >
-          <div className="glass-strong rounded-full p-3 shadow-lg">
-            <div 
+          <div className="ios-card px-4 py-3 rounded-full shadow-xl">
+            <div
               className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"
               style={{ animationDuration: pullDistance > 80 ? '0.6s' : '1.2s' }}
             />
           </div>
         </div>
       )}
-      
+
       {/* Header - Reference Style */}
-      <div className="sticky top-0 z-50 glass border-b border-glass-border-light backdrop-blur-xl">
-        <div className="flex items-center justify-between px-4 py-3 gap-3">
+      <div className="sticky top-0 z-50 ios-header">
+        <div className="flex items-center justify-between gap-3 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           {/* Left: Profile Avatar Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center shadow-md glass-strong flex-shrink-0 transition-transform hover:scale-105">
+              <button className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shadow-xl border border-white/50 flex-shrink-0 transition-transform hover:scale-105">
                 <Sparkles className="w-6 h-6 text-primary-foreground" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 glass border-glass-border-light rounded-2xl">
-              <DropdownMenuItem onClick={() => navigate("/profile")} className="rounded-xl cursor-pointer">
+            <DropdownMenuContent align="start" className="w-56 ios-card p-2 rounded-3xl border-none">
+              <DropdownMenuItem onClick={() => navigate("/profile")} className="rounded-2xl cursor-pointer">
                 <User className="w-4 h-4 mr-2" />
                 View Profile
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate("/settings")} className="rounded-xl cursor-pointer">
+              <DropdownMenuItem onClick={() => navigate("/settings")} className="rounded-2xl cursor-pointer">
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={toggleDarkMode} className="rounded-xl cursor-pointer">
+              <DropdownMenuItem onClick={toggleDarkMode} className="rounded-2xl cursor-pointer">
                 {isDark ? <Sun className="w-4 h-4 mr-2" /> : <Moon className="w-4 h-4 mr-2" />}
                 {isDark ? "Light Mode" : "Dark Mode"}
               </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-glass-border-light" />
-              <DropdownMenuItem 
+              <DropdownMenuSeparator className="bg-white/40" />
+              <DropdownMenuItem
                 onClick={async () => {
                   await supabase.auth.signOut();
                   navigate("/");
                 }}
-                className="rounded-xl cursor-pointer text-destructive"
+                className="rounded-2xl cursor-pointer text-destructive"
               >
                 <LogOut className="w-4 h-4 mr-2" />
                 Logout
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          
+
           {/* Center: Filter Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button 
-                variant="glass-light" 
-                className="rounded-full px-4 py-2 h-10 flex items-center gap-2 flex-1 max-w-[140px] transition-transform hover:scale-105"
+              <Button
+                variant="glass-light"
+                className="rounded-full px-4 py-2 h-10 flex items-center gap-2 flex-1 max-w-[160px] transition-transform hover:scale-105 bg-white/60"
               >
                 <span className="text-sm font-medium truncate">{activeTab}</span>
                 <ChevronDown className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="w-48 glass border-glass-border-light rounded-2xl">
-              <DropdownMenuItem onClick={() => setActiveTab("All Updates")} className="rounded-xl cursor-pointer">
+            <DropdownMenuContent align="center" className="w-48 ios-card p-2 rounded-3xl border-none">
+              <DropdownMenuItem onClick={() => setActiveTab("All Updates")} className="rounded-2xl cursor-pointer">
                 All Updates
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setActiveTab("Following")} className="rounded-xl cursor-pointer">
+              <DropdownMenuItem onClick={() => setActiveTab("Following")} className="rounded-2xl cursor-pointer">
                 Following
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setActiveTab("Trending")} className="rounded-xl cursor-pointer">
+              <DropdownMenuItem onClick={() => setActiveTab("Trending")} className="rounded-2xl cursor-pointer">
                 Trending
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setActiveTab("Saved")} className="rounded-xl cursor-pointer">
+              <DropdownMenuItem onClick={() => setActiveTab("Saved")} className="rounded-2xl cursor-pointer">
                 Saved
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          
+
           {/* Right: Icon Buttons */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <NotificationCenter />
             <Button
               variant="glass-light"
               size="icon"
-              className="w-10 h-10 rounded-full transition-transform hover:scale-105"
+              className="w-10 h-10 rounded-full transition-transform hover:scale-105 bg-white/60"
               onClick={() => navigate("/fluxa-mode")}
             >
               <MessageSquare className="w-5 h-5" />
@@ -577,25 +582,22 @@ const Feed = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
         {/* Filter Tags */}
-        <div className="mb-6 flex items-center gap-4">
-          <div className="flex gap-2">
-            <Badge
-              onClick={() => setSelectedTab("all")}
-              className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 ${
-                selectedTab === "all"
-                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
-                  : "bg-secondary text-foreground border border-border"
-              }`}
-            >
-              For You
-            </Badge>
-            <Badge
-              className="cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 bg-secondary text-foreground border border-border"
-            >
-              Technology
-            </Badge>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center">
+          <div className="flex flex-wrap gap-3">
+            {viewTabs.map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setSelectedTab(tab.value)}
+                className={cn(
+                  "ios-pill text-sm px-5 py-2",
+                  selectedTab === tab.value ? "ios-pill-active text-white" : "ios-pill-idle bg-white/70"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
           <Button
             onClick={() => {
@@ -603,7 +605,7 @@ const Feed = () => {
               loadGists(true);
             }}
             variant="glass-light"
-            className="ml-auto relative border-glass-border-light"
+            className="md:ml-auto relative border-white/60 bg-white/70 text-foreground"
             disabled={isRefreshing}
           >
             {isRefreshing ? (
@@ -626,62 +628,65 @@ const Feed = () => {
         </div>
 
         {/* Header Banner */}
-        <div className="mb-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-8 md:p-12 text-white shadow-xl animate-fade-in relative overflow-hidden">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 glass-strong rounded-full flex items-center justify-center">
-                <Headphones className="w-6 h-6" />
+        <div className="ios-hero relative overflow-hidden text-foreground">
+          <div className="absolute -top-10 -right-10 w-48 h-48 bg-gradient-to-br from-blue-500/40 to-purple-500/40 blur-3xl" />
+          <div className="flex flex-wrap items-center justify-between gap-4 relative z-10">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-white/40 border border-white/60 flex items-center justify-center">
+                <Headphones className="w-6 h-6 text-primary" />
               </div>
-              <h1 className="text-3xl md:text-4xl font-bold">
-                {selectedTab === "foryou" 
-                  ? "Your Personalized Feed" 
-                  : selectedTab === "bookmarks"
-                  ? "Saved Gists"
-                  : "All Content"}
-              </h1>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-[0.35em]">Now streaming</p>
+                <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
+                  {selectedTab === "foryou"
+                    ? "Your Personalized Feed"
+                    : selectedTab === "bookmarks"
+                    ? "Saved Gists"
+                    : "All Content"}
+                </h1>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="text-white [&_button]:text-white [&_button:hover]:bg-white/20">
+              <div className="hidden md:block">
                 <NotificationCenter />
               </div>
-              {/* Play button - positioned in top right on mobile */}
               <button
                 onClick={() => {
                   const firstGist = filteredGists[0];
                   if (firstGist) handlePlay(firstGist.id, firstGist.audio_url);
                 }}
-                className="w-14 h-14 md:w-16 md:h-16 glass-strong rounded-full flex items-center justify-center hover:glass-glow transition-all hover:scale-105 border-2 border-glass-border-strong"
+                className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 text-white shadow-2xl border border-white/40 flex items-center justify-center transition-transform hover:scale-105"
                 aria-label="Play latest gist"
               >
-                <Play className="w-7 h-7 md:w-8 md:h-8 fill-white text-white" />
+                <Play className="w-7 h-7 md:w-8 md:h-8" />
               </button>
             </div>
           </div>
-          <p className="text-blue-100 text-lg">
-            {selectedTab === "foryou" 
-              ? "Content curated based on your interests. Click play to listen!"
+          <p className="text-base md:text-lg text-foreground/70 mt-4 relative z-10 max-w-3xl">
+            {selectedTab === "foryou"
+              ? "Content curated based on your interests. Tap play to hear the highlights instantly."
               : selectedTab === "bookmarks"
-              ? "Your saved gists, available offline anytime!"
-              : "Explore all the latest gists and news. Click play to listen!"}
+              ? "Your saved gists, always within reach for offline listening."
+              : "Explore every story in the universe with Fluxa's sonic briefing."}
           </p>
         </div>
 
         {/* Search and Filters */}
-        <div className="mb-6 flex flex-col md:flex-row gap-4 animate-fade-in">
+        <div className="ios-panel flex flex-col md:flex-row gap-4 items-stretch animate-fade-in">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <Input
               placeholder="Search gists by keyword..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 glass-light h-12 border-glass-border-light hover:glass"
+              className="pl-12 h-14 rounded-full bg-white/70 border border-white/60 text-base shadow-inner"
             />
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium gap-1 hover:bg-secondary/50"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium gap-1 rounded-full bg-white/70 hover:bg-white"
                 >
                   {platforms.find(p => p.name === selectedPlatform)?.name === "X" ? (
                     <span className="text-base font-bold">𝕏</span>
@@ -695,17 +700,17 @@ const Feed = () => {
                   <ChevronDown className="w-3 h-3" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-48 p-2 bg-card border-border z-50">
+              <PopoverContent className="w-48 p-2 ios-card rounded-3xl border-none">
                 <div className="space-y-1">
                   {platforms.map((platform) => (
                     <button
                       key={platform.name}
                       onClick={() => setSelectedPlatform(platform.name)}
                       className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                        "w-full flex items-center gap-3 px-3 py-2 rounded-2xl text-sm transition-colors",
                         selectedPlatform === platform.name
-                          ? "bg-secondary text-foreground"
-                          : "hover:bg-secondary/50"
+                          ? "bg-primary/10 text-primary"
+                          : "hover:bg-white/60"
                       )}
                     >
                       {platform.name === "X" ? (
@@ -723,27 +728,26 @@ const Feed = () => {
               </PopoverContent>
             </Popover>
           </div>
-          <Button variant="glass-light" className="bg-card border-glass-border-light hidden md:flex">
+          <Button variant="glass-light" className="bg-white/70 border-white/60 text-foreground rounded-full h-14">
             <Filter className="w-4 h-4 mr-2" />
             Filters
           </Button>
         </div>
 
         {/* Category Pills */}
-        <div className="flex gap-2 overflow-x-auto pb-4 mb-8 animate-fade-in" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-        {categories.map((category) => (
-          <Badge
-            key={category}
-            onClick={() => setSelectedCategory(category)}
-            className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 ${
-              selectedCategory === category
-                ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
-                : "bg-secondary text-foreground border border-border"
-            }`}
-          >
-            {category}
-          </Badge>
-        ))}
+        <div className="flex gap-3 overflow-x-auto pb-2 mb-4 animate-fade-in" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          {categories.map((category) => (
+            <button
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              className={cn(
+                "ios-pill text-sm px-5 py-2 flex-shrink-0",
+                selectedCategory === category ? "ios-pill-active text-white" : "ios-pill-idle bg-white/70"
+              )}
+            >
+              {category}
+            </button>
+          ))}
         </div>
 
         {/* Trending Carousel */}
@@ -767,22 +771,22 @@ const Feed = () => {
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
               {recommendedGists.map((gist) => (
-                <Card 
-                  key={gist.id} 
-                  className="cursor-pointer glass hover:shadow-glass-glow transition-all hover:scale-105 border-glass-border-light"
+                <Card
+                  key={gist.id}
+                  className="cursor-pointer ios-card ios-card--interactive"
                   onClick={() => handlePlay(gist.id, gist.audio_url)}
                 >
                   {gist.image_url && (
-                    <img 
-                      src={gist.image_url} 
+                    <img
+                      src={gist.image_url}
                       alt={gist.headline}
                       className="w-full h-40 object-cover"
                     />
                   )}
-                  <CardContent className="p-4">
-                    <h3 className="font-semibold line-clamp-2 mb-2">{gist.headline}</h3>
+                  <CardContent className="p-4 space-y-2">
+                    <h3 className="font-semibold line-clamp-2">{gist.headline}</h3>
                     <p className="text-sm text-muted-foreground line-clamp-2">{gist.context}</p>
-                    <Badge variant="secondary" className="mt-2 text-xs">
+                    <Badge variant="secondary" className="mt-2 text-xs rounded-full px-3 py-1">
                       {gist.topic}
                     </Badge>
                   </CardContent>
@@ -797,7 +801,7 @@ const Feed = () => {
           {/* Main Feed */}
           <div className="space-y-6">
             {combinedFeed.length === 0 ? (
-              <Card className="p-12 text-center">
+              <Card className="ios-card p-12 text-center">
                 <p className="text-muted-foreground mb-4">No content available yet</p>
                 <Button onClick={() => window.location.href = '/admin'}>
                   Go to Admin Panel
@@ -898,7 +902,7 @@ const Feed = () => {
           <div className="hidden lg:block">
             <div className="sticky top-24 space-y-6">
               {/* Trending Topics */}
-              <Card className="shadow-glass border-glass-border-light glass">
+              <Card className="ios-card">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-2 mb-4">
                     <TrendingUp className="w-5 h-5 text-blue-600" />
@@ -925,7 +929,7 @@ const Feed = () => {
               </Card>
 
               {/* User Stats */}
-              <Card className="shadow-lg border-0 bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+              <Card className="ios-card bg-gradient-to-br from-blue-600 to-purple-600 text-white">
                 <CardContent className="p-6">
                   <h3 className="text-lg font-semibold mb-4">Your Activity</h3>
                   <div className="space-y-4">
