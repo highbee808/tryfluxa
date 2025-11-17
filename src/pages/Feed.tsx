@@ -84,6 +84,10 @@ const Feed = () => {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedGist, setSelectedGist] = useState<Gist | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const [isPulling, setIsPulling] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const touchStartY = useRef(0);
+  const contentRef = useRef<HTMLDivElement>(null);
   
   const fluxaMemory = useFluxaMemory();
 
@@ -424,6 +428,41 @@ const Feed = () => {
     ...filteredNews.map(n => ({ type: 'news' as const, data: n }))
   ];
 
+  // Pull-to-refresh handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (contentRef.current && contentRef.current.scrollTop === 0) {
+      touchStartY.current = e.touches[0].clientY;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartY.current === 0) return;
+    
+    const touchY = e.touches[0].clientY;
+    const distance = touchY - touchStartY.current;
+    
+    if (distance > 0 && distance < 150) {
+      setIsPulling(true);
+      setPullDistance(distance);
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (pullDistance > 80) {
+      // Haptic feedback
+      if ('vibrate' in navigator) {
+        navigator.vibrate(50);
+      }
+      setIsRefreshing(true);
+      await loadGists(true);
+      setIsRefreshing(false);
+    }
+    
+    setIsPulling(false);
+    setPullDistance(0);
+    touchStartY.current = 0;
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
@@ -434,7 +473,31 @@ const Feed = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 pb-28 animate-fade-in">
+    <div 
+      ref={contentRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className="min-h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 pb-28 animate-fade-in overflow-y-auto"
+    >
+      {/* Pull-to-refresh indicator */}
+      {isPulling && (
+        <div 
+          className="fixed top-16 left-1/2 -translate-x-1/2 z-40 transition-all duration-200"
+          style={{ 
+            transform: `translate(-50%, ${Math.min(pullDistance - 20, 80)}px)`,
+            opacity: Math.min(pullDistance / 80, 1)
+          }}
+        >
+          <div className="glass-strong rounded-full p-3 shadow-lg">
+            <div 
+              className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"
+              style={{ animationDuration: pullDistance > 80 ? '0.6s' : '1.2s' }}
+            />
+          </div>
+        </div>
+      )}
+      
       {/* Header - Reference Style */}
       <div className="sticky top-0 z-50 glass border-b border-glass-border-light backdrop-blur-xl">
         <div className="flex items-center justify-between px-4 py-3 gap-3">

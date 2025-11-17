@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNavigation } from "@/components/BottomNavigation";
-import { NavigationBar } from "@/components/NavigationBar";
 import { ProfileEditModal } from "@/components/ProfileEditModal";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import VoiceChatModal from "@/components/VoiceChatModal";
@@ -152,8 +151,6 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <NavigationBar />
-      
       {/* Profile Header - X.com Style */}
       <div className="max-w-[600px] mx-auto border-x border-border min-h-screen pb-20 md:mt-16">
         {/* Top Nav */}
