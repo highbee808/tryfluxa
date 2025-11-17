@@ -42,6 +42,7 @@ const SportsHub = () => {
   const [liveUpdates, setLiveUpdates] = useState<Record<string, boolean>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [generatingGists, setGeneratingGists] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
   const lastScoresRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
@@ -110,6 +111,43 @@ const SportsHub = () => {
     
     setLoading(false);
     setRefreshing(false);
+  };
+
+  const handleRefreshScores = async () => {
+    setRefreshing(true);
+    setUpdateError(null);
+    
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-live-scores`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update scores');
+      }
+
+      toast.success(`✅ Scores updated! ${result.updated || 0} entities refreshed`, {
+        duration: 3000,
+      });
+
+      // Fetch the latest matches after the update
+      await fetchMatches(true);
+    } catch (error) {
+      console.error('Error updating scores:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update scores';
+      setUpdateError(errorMessage);
+      toast.error(`❌ ${errorMessage}`, { duration: 5000 });
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const fetchMatchGists = async () => {
@@ -259,10 +297,12 @@ const SportsHub = () => {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => fetchMatches(true)}
+              onClick={handleRefreshScores}
               disabled={refreshing}
+              className="min-w-[100px]"
             >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Updating...' : 'Refresh'}
             </Button>
             <Button
               size="sm"
@@ -275,6 +315,37 @@ const SportsHub = () => {
             </Button>
           </div>
         </div>
+        
+        {/* Error Alert */}
+        {updateError && (
+          <div className="max-w-4xl mx-auto mt-4">
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3">
+              <span className="text-destructive text-xl">⚠️</span>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-destructive mb-1">Update Failed</p>
+                <p className="text-xs text-destructive/80">{updateError}</p>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setUpdateError(null)}
+                className="text-destructive hover:text-destructive"
+              >
+                ✕
+              </Button>
+            </div>
+          </div>
+        )}
+        
+        {/* Loading Indicator */}
+        {refreshing && (
+          <div className="max-w-4xl mx-auto mt-4">
+            <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center gap-3">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              <p className="text-sm text-foreground">Fetching latest scores from live data sources...</p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="max-w-4xl mx-auto p-4 space-y-6">
