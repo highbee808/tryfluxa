@@ -18,7 +18,7 @@ export const NavigationBar = () => {
   return (
     <>
       {/* Desktop Header */}
-      <nav className="hidden md:block fixed top-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-lg border-b border-border">
+      <nav className="hidden md:block fixed top-0 left-0 right-0 z-50 glass border-b border-glass-border-light">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/feed")}>
@@ -64,7 +64,7 @@ export const NavigationBar = () => {
             <NotificationCenter />
             <button
               onClick={toggleDarkMode}
-              className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-accent transition-colors"
+              className="w-10 h-10 rounded-full glass-light flex items-center justify-center hover:glass hover-glow transition-all"
               aria-label="Toggle dark mode"
             >
               {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
@@ -77,7 +77,7 @@ export const NavigationBar = () => {
             </button>
             <button
               onClick={() => navigate("/auth")}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-xl text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all hover-glow-strong shadow-lg"
             >
               Get Started
             </button>

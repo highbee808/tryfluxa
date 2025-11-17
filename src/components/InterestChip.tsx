@@ -19,8 +19,8 @@ export const InterestChip = ({ label, selected, onClick }: InterestChipProps) =>
         "px-7 py-4 rounded-full font-semibold transition-all duration-400 group",
         "border-2 hover:scale-105 active:scale-95 relative overflow-visible",
         selected
-          ? "bg-gradient-to-r from-primary to-accent text-white border-transparent shadow-xl"
-          : "bg-card text-foreground border-border hover:border-accent/60 shadow-md hover:shadow-lg"
+          ? "bg-gradient-to-r from-primary to-accent text-white border-transparent shadow-xl hover-glow-strong"
+          : "glass-light text-foreground border-glass-border-light hover:glass hover:border-glass-border-strong hover-glow"
       )}
       style={selected ? { boxShadow: "var(--shadow-glow)" } : {}}
     >
