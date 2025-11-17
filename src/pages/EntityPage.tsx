@@ -81,6 +81,38 @@ const EntityPage = () => {
       checkFollowStatus();
       fetchCachedNews();
     }
+    
+    // Set up realtime subscription for entity updates
+    if (slug) {
+      const entityChannel = supabase
+        .channel(`entity-${slug}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'fan_entities',
+            filter: `slug=eq.${slug}`
+          },
+          (payload) => {
+            console.log('Entity updated:', payload);
+            setEntity(payload.new as Entity);
+            
+            // Show toast for live match updates
+            const newEntity = payload.new as Entity;
+            if (newEntity.current_match) {
+              toast.success('⚽ Live match updated!', {
+                description: `${newEntity.current_match.home_team} ${newEntity.current_match.home_score} - ${newEntity.current_match.away_score} ${newEntity.current_match.away_team}`
+              });
+            }
+          }
+        )
+        .subscribe();
+      
+      return () => {
+        supabase.removeChannel(entityChannel);
+      };
+    }
   }, [slug]);
 
   const fetchCachedNews = async () => {
