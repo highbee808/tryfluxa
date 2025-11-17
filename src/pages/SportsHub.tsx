@@ -43,11 +43,49 @@ const SportsHub = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [generatingGists, setGeneratingGists] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [scoreNotifications, setScoreNotifications] = useState<any[]>([]);
   const lastScoresRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
     fetchUserTeams();
     fetchMatches();
+    
+    // Listen for score change notifications
+    const checkNotifications = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data: notifications } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('type', 'score_change')
+        .eq('is_read', false)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      
+      if (notifications && notifications.length > 0) {
+        setScoreNotifications(notifications);
+        
+        // Show browser notification if permitted
+        if (Notification.permission === 'granted') {
+          notifications.forEach(notif => {
+            new Notification(notif.title, {
+              body: notif.message,
+              icon: '/fluxa_icon.png',
+              badge: '/fluxa_icon.png',
+            });
+          });
+        }
+      }
+    };
+    
+    checkNotifications();
+    
+    // Poll for new notifications every 30 seconds
+    const interval = setInterval(checkNotifications, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -254,6 +292,18 @@ const SportsHub = () => {
       toast.success(reaction === "cheer" ? "🎉 Cheered!" : "😏 Banter sent!");
     }
   };
+  
+  const dismissNotification = async (notifId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', notifId);
+    
+    setScoreNotifications(prev => prev.filter(n => n.id !== notifId));
+  };
 
   const isUserTeam = (team: string) => userTeams.includes(team);
   
@@ -349,6 +399,35 @@ const SportsHub = () => {
       </div>
 
       <div className="max-w-4xl mx-auto p-4 space-y-6">
+        {/* Score Change Notifications */}
+        {scoreNotifications.length > 0 && (
+          <div className="space-y-2">
+            {scoreNotifications.map((notif) => (
+              <div
+                key={notif.id}
+                className="bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30 rounded-lg p-4 flex items-start gap-3 animate-in slide-in-from-top"
+              >
+                <span className="text-2xl">{notif.title.includes('Your Team') ? '⚽' : '🚨'}</span>
+                <div className="flex-1">
+                  <p className="font-bold text-foreground">{notif.title}</p>
+                  <p className="text-sm text-muted-foreground">{notif.message}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {new Date(notif.created_at).toLocaleTimeString()}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => dismissNotification(notif.id)}
+                  className="text-foreground hover:text-foreground"
+                >
+                  ✕
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Today's Matches */}
         {todayMatches.length > 0 && (
           <div>

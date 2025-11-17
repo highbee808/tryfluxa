@@ -51,6 +51,13 @@ export const fluxaNotifications = {
     title: "Fluxa Stories 📸",
     body: "5 gists you missed overnight — tap to catch up!",
   }),
+  
+  scoreChange: (team: string, score: string, isFavorite: boolean) => ({
+    title: isFavorite ? "⚽ Your Team Scored!" : "🚨 Rival Team Update",
+    body: isFavorite 
+      ? `🎯 ${team} just scored! ${score}`
+      : `⚠️ ${team} scored! ${score}`,
+  }),
 };
 
 export const sendFluxaPushNotification = async (title: string, body: string, icon?: string) => {
