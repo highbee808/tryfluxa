@@ -522,8 +522,8 @@ const Feed = () => {
               onClick={() => setSelectedTab("foryou")}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all hover:scale-105 ${
                 selectedTab === "foryou"
-                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow hover-glow-strong"
-                  : "glass-light text-muted-foreground hover:text-foreground hover:glass hover-glow border-glass-border-light"
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
+                  : "glass-light text-muted-foreground hover:text-foreground hover:glass border-glass-border-light"
               }`}
             >
               For You
@@ -532,8 +532,8 @@ const Feed = () => {
               onClick={() => setSelectedTab("all")}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all hover:scale-105 ${
                 selectedTab === "all"
-                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow hover-glow-strong"
-                  : "glass-light text-muted-foreground hover:text-foreground hover:glass hover-glow border-glass-border-light"
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
+                  : "glass-light text-muted-foreground hover:text-foreground hover:glass border-glass-border-light"
               }`}
             >
               All
@@ -542,8 +542,8 @@ const Feed = () => {
               onClick={() => setSelectedTab("bookmarks")}
               className={`px-6 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 hover:scale-105 ${
                 selectedTab === "bookmarks"
-                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow hover-glow-strong"
-                  : "glass-light text-muted-foreground hover:text-foreground hover:glass hover-glow border-glass-border-light"
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
+                  : "glass-light text-muted-foreground hover:text-foreground hover:glass border-glass-border-light"
               }`}
             >
               <Bookmark className="w-4 h-4" />
@@ -556,7 +556,7 @@ const Feed = () => {
               loadGists(true);
             }}
             variant="glass-light"
-            className="ml-auto relative hover-glow border-glass-border-light"
+            className="ml-auto relative border-glass-border-light"
             disabled={isRefreshing}
           >
             {isRefreshing ? (
@@ -582,7 +582,7 @@ const Feed = () => {
         <div className="mb-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-8 md:p-12 text-white shadow-xl animate-fade-in relative overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 glass-strong rounded-full flex items-center justify-center hover-glow">
+              <div className="w-12 h-12 glass-strong rounded-full flex items-center justify-center">
                 <Headphones className="w-6 h-6" />
               </div>
               <h1 className="text-3xl md:text-4xl font-bold">
@@ -603,7 +603,7 @@ const Feed = () => {
                   const firstGist = filteredGists[0];
                   if (firstGist) handlePlay(firstGist.id, firstGist.audio_url);
                 }}
-                className="w-14 h-14 md:w-16 md:h-16 glass-strong rounded-full flex items-center justify-center hover:glass-glow transition-all hover:scale-105 border-2 border-glass-border-strong hover-glow-strong"
+                className="w-14 h-14 md:w-16 md:h-16 glass-strong rounded-full flex items-center justify-center hover:glass-glow transition-all hover:scale-105 border-2 border-glass-border-strong"
                 aria-label="Play latest gist"
               >
                 <Play className="w-7 h-7 md:w-8 md:h-8 fill-white text-white" />
@@ -627,7 +627,7 @@ const Feed = () => {
               placeholder="Search gists by keyword..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 glass-light h-12 border-glass-border-light hover:glass hover-glow"
+              className="pl-10 glass-light h-12 border-glass-border-light hover:glass"
             />
             <Popover>
               <PopoverTrigger asChild>
@@ -676,7 +676,7 @@ const Feed = () => {
               </PopoverContent>
             </Popover>
           </div>
-          <Button variant="glass-light" className="bg-card border-glass-border-light hidden md:flex hover-glow">
+          <Button variant="glass-light" className="bg-card border-glass-border-light hidden md:flex">
             <Filter className="w-4 h-4 mr-2" />
             Filters
           </Button>
@@ -690,8 +690,8 @@ const Feed = () => {
               onClick={() => setSelectedCategory(category)}
               className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 hover:scale-105 ${
                 selectedCategory === category
-                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-pink-700 shadow-glass-glow hover-glow-strong"
-                  : "glass-light text-foreground hover:glass border-glass-border-light hover-glow"
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-pink-700 shadow-glass-glow"
+                  : "glass-light text-foreground hover:glass border-glass-border-light"
               }`}
             >
               {category}
@@ -722,7 +722,7 @@ const Feed = () => {
               {recommendedGists.map((gist) => (
                 <Card 
                   key={gist.id} 
-                  className="cursor-pointer glass hover:shadow-glass-glow transition-all hover:scale-105 hover-glow border-glass-border-light" 
+                  className="cursor-pointer glass hover:shadow-glass-glow transition-all hover:scale-105 border-glass-border-light"
                   onClick={() => handlePlay(gist.id, gist.audio_url)}
                 >
                   {gist.image_url && (
@@ -851,7 +851,7 @@ const Feed = () => {
           <div className="hidden lg:block">
             <div className="sticky top-24 space-y-6">
               {/* Trending Topics */}
-              <Card className="shadow-glass border-glass-border-light glass hover-glow">
+              <Card className="shadow-glass border-glass-border-light glass">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-2 mb-4">
                     <TrendingUp className="w-5 h-5 text-blue-600" />
