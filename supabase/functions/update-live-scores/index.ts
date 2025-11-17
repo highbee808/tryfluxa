@@ -6,6 +6,70 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-signature',
 }
 
+interface ScoreChange {
+  match_id: string;
+  team: string;
+  old_score: number | null;
+  new_score: number | null;
+  is_home: boolean;
+}
+
+async function notifyUsersOfScoreChange(
+  supabase: any,
+  scoreChanges: ScoreChange[],
+  matchInfo: { team_home: string; team_away: string; league: string }
+) {
+  console.log('Checking for users to notify about score changes:', scoreChanges)
+  
+  for (const change of scoreChanges) {
+    const team = change.is_home ? matchInfo.team_home : matchInfo.team_away
+    const opponent = change.is_home ? matchInfo.team_away : matchInfo.team_home
+    
+    // Get all users who follow this team (favorite or rival)
+    const { data: userTeams, error: userError } = await supabase
+      .from('user_teams')
+      .select('user_id, favorite_teams, rival_teams')
+    
+    if (userError) {
+      console.error('Error fetching user teams:', userError)
+      continue
+    }
+    
+    console.log(`Found ${userTeams?.length || 0} user team records`)
+    
+    for (const userTeam of userTeams || []) {
+      const isFavorite = userTeam.favorite_teams?.includes(team)
+      const isRival = userTeam.rival_teams?.includes(team)
+      
+      if (isFavorite || isRival) {
+        const homeScore = change.is_home ? change.new_score : (matchInfo.team_home === team ? change.old_score : change.new_score)
+        const awayScore = !change.is_home ? change.new_score : (matchInfo.team_away === team ? change.old_score : change.new_score)
+        const scoreText = `${matchInfo.team_home} ${homeScore ?? 0} - ${awayScore ?? 0} ${matchInfo.team_away}`
+        
+        const message = isFavorite
+          ? `🎯 ${team} just scored! ${scoreText}`
+          : `⚠️ Rival team ${team} scored against ${opponent}! ${scoreText}`
+        
+        const { error: notifError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: userTeam.user_id,
+            type: 'score_change',
+            title: isFavorite ? '⚽ Your Team Scored!' : '🚨 Rival Team Update',
+            message,
+            entity_name: team
+          })
+        
+        if (notifError) {
+          console.error('Error creating notification:', notifError)
+        } else {
+          console.log(`Notification sent to user ${userTeam.user_id} for ${team}`)
+        }
+      }
+    }
+  }
+}
+
 async function validateCronSignature(req: Request): Promise<boolean> {
   const signature = req.headers.get('x-cron-signature')
   
@@ -184,6 +248,44 @@ serve(async (req) => {
           m.status === 'InProgress' || m.status === 'Halftime' || m.status === 'LIVE' || m.status === '1H' || m.status === '2H' || m.status === 'HT'
         )
 
+        // Detect score changes for live matches
+        const scoreChanges: ScoreChange[] = []
+        if (liveMatch && entity.current_match) {
+          const oldHomeScore = entity.current_match.home_score
+          const oldAwayScore = entity.current_match.away_score
+          const newHomeScore = liveMatch.score_home
+          const newAwayScore = liveMatch.score_away
+          
+          if (oldHomeScore !== newHomeScore) {
+            scoreChanges.push({
+              match_id: liveMatch.match_id,
+              team: liveMatch.team_home,
+              old_score: oldHomeScore,
+              new_score: newHomeScore,
+              is_home: true
+            })
+          }
+          
+          if (oldAwayScore !== newAwayScore) {
+            scoreChanges.push({
+              match_id: liveMatch.match_id,
+              team: liveMatch.team_away,
+              old_score: oldAwayScore,
+              new_score: newAwayScore,
+              is_home: false
+            })
+          }
+          
+          // Send notifications if there are score changes
+          if (scoreChanges.length > 0) {
+            await notifyUsersOfScoreChange(supabase, scoreChanges, {
+              team_home: liveMatch.team_home,
+              team_away: liveMatch.team_away,
+              league: liveMatch.league
+            })
+          }
+        }
+
         // Find completed matches - support multiple status variations
         const completedMatches = validMatches.filter(m => 
           m.status === 'FullTime' || m.status === 'Finished' || m.status === 'Final' || m.status === 'FT' || m.status === 'Closed'
@@ -274,6 +376,9 @@ serve(async (req) => {
           updatedCount++
           if (currentMatch) {
             console.log(`🔴 LIVE: ${entity.name} ${currentMatch.home_score}-${currentMatch.away_score} ${currentMatch.away_team}`)
+            if (scoreChanges.length > 0) {
+              console.log(`📢 Score changes detected: ${scoreChanges.length} notifications sent`)
+            }
             
             // Send push notifications for live matches
             await sendMatchNotification(supabase, entity.id, currentMatch)
