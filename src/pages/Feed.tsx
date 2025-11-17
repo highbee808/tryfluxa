@@ -578,40 +578,24 @@ const Feed = () => {
       </div>
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Tabs */}
+        {/* Filter Tags */}
         <div className="mb-6 flex items-center gap-4">
-          <div className="flex bg-card border border-border rounded-lg p-1">
-            <button
-              onClick={() => setSelectedTab("foryou")}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all hover:scale-105 ${
-                selectedTab === "foryou"
+          <div className="flex gap-2">
+            <Badge
+              onClick={() => setSelectedTab("all")}
+              className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 ${
+                selectedTab === "all"
                   ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
-                  : "glass-light text-muted-foreground hover:text-foreground hover:glass border-glass-border-light"
+                  : "bg-secondary text-foreground border border-border"
               }`}
             >
               For You
-            </button>
-            <button
-              onClick={() => setSelectedTab("all")}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all hover:scale-105 ${
-                selectedTab === "all"
-                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
-                  : "glass-light text-muted-foreground hover:text-foreground hover:glass border-glass-border-light"
-              }`}
+            </Badge>
+            <Badge
+              className="cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 bg-secondary text-foreground border border-border"
             >
-              All
-            </button>
-            <button
-              onClick={() => setSelectedTab("bookmarks")}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 hover:scale-105 ${
-                selectedTab === "bookmarks"
-                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
-                  : "glass-light text-muted-foreground hover:text-foreground hover:glass border-glass-border-light"
-              }`}
-            >
-              <Bookmark className="w-4 h-4" />
-              Saved
-            </button>
+              Technology
+            </Badge>
           </div>
           <Button
             onClick={() => {
