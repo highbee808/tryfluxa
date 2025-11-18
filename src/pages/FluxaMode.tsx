@@ -37,11 +37,54 @@ const FluxaMode = () => {
       }
     }
 
-    // If there's initial context from navigation, add it as user message
+    // If there's initial context from navigation, automatically send it
     const initialContext = (location.state as any)?.initialContext;
     if (initialContext) {
       const contextMessage = `Tell me about: ${initialContext.summary}`;
-      setInput(contextMessage);
+      
+      // Automatically send the message
+      const sendInitialMessage = async () => {
+        const userMessage: Message = {
+          role: "user",
+          content: contextMessage,
+          timestamp: new Date()
+        };
+
+        setMessages(prev => [...prev, userMessage]);
+        setIsLoading(true);
+
+        try {
+          const { data, error } = await supabase.functions.invoke("fluxa-chat", {
+            body: { 
+              message: contextMessage,
+              conversationHistory: []
+            }
+          });
+
+          if (error) throw error;
+
+          const fluxaMessage: Message = {
+            role: "fluxa",
+            content: data.reply,
+            timestamp: new Date()
+          };
+
+          setMessages(prev => [...prev, fluxaMessage]);
+          
+          // Automatically play the voice response
+          if (!isMuted) {
+            await playFluxaVoice(data.reply);
+          }
+        } catch (error) {
+          console.error("Error sending initial message:", error);
+          toast.error("Failed to analyze content! 😢");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      sendInitialMessage();
+      
       // Clear the navigation state
       window.history.replaceState({}, document.title);
     }
