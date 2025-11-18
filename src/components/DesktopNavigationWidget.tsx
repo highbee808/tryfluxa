@@ -22,6 +22,7 @@ const quickLinks = [
 export const DesktopNavigationWidget = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,7 +64,12 @@ export const DesktopNavigationWidget = () => {
           .select("*", { count: "exact", head: true })
           .eq("user_id", data.user.id);
 
-        const [profileResponse, followersResponse, followingResponse, postsResponse] = await Promise.all([
+        const [
+          profileResponse,
+          followersResponse,
+          followingResponse,
+          postsResponse,
+        ] = await Promise.all([
           profilePromise,
           followersPromise,
           followingPromise,
@@ -72,18 +78,10 @@ export const DesktopNavigationWidget = () => {
 
         if (!isMounted) return;
 
-        if (profileResponse.error) {
-          throw profileResponse.error;
-        }
-        if (followersResponse.error) {
-          throw followersResponse.error;
-        }
-        if (followingResponse.error) {
-          throw followingResponse.error;
-        }
-        if (postsResponse.error) {
-          throw postsResponse.error;
-        }
+        if (profileResponse.error) throw profileResponse.error;
+        if (followersResponse.error) throw followersResponse.error;
+        if (followingResponse.error) throw followingResponse.error;
+        if (postsResponse.error) throw postsResponse.error;
 
         setProfile(profileResponse.data);
         setStats({
@@ -111,7 +109,9 @@ export const DesktopNavigationWidget = () => {
     authUser?.user_metadata?.full_name ||
     authUser?.user_metadata?.name ||
     username;
-  const avatarUrl = profile?.avatar_url || authUser?.user_metadata?.avatar_url || "";
+
+  const avatarUrl =
+    profile?.avatar_url || authUser?.user_metadata?.avatar_url || "";
 
   const formatNumber = (value: number) => {
     if (value >= 1000) {
@@ -126,12 +126,12 @@ export const DesktopNavigationWidget = () => {
       navigate("/feed", { state: { tab: "bookmarks" } });
       return;
     }
-
     navigate(path);
   };
 
   return (
     <div className="hidden lg:flex flex-col gap-6 sticky top-24 self-start">
+      {/* Profile Summary */}
       <Card className="glass rounded-3xl border-glass-border-light">
         <CardContent className="p-5 flex flex-col gap-4">
           <div className="flex items-center gap-3">
@@ -139,6 +139,7 @@ export const DesktopNavigationWidget = () => {
               <AvatarImage src={avatarUrl} alt={displayName} />
               <AvatarFallback>{displayName?.charAt(0)}</AvatarFallback>
             </Avatar>
+
             <div>
               <p className="text-sm text-muted-foreground">Signed in as</p>
               <p className="text-lg font-semibold">
@@ -146,14 +147,14 @@ export const DesktopNavigationWidget = () => {
               </p>
             </div>
           </div>
+
+          {/* Stats */}
           <div className="grid grid-cols-3 gap-3 text-center">
-            {(
-              [
-                { label: "Posts", value: stats.posts },
-                { label: "Followers", value: stats.followers },
-                { label: "Following", value: stats.following },
-              ] as const
-            ).map(({ label, value }) => (
+            {([
+              { label: "Posts", value: stats.posts },
+              { label: "Followers", value: stats.followers },
+              { label: "Following", value: stats.following },
+            ] as const).map(({ label, value }) => (
               <div key={label} className="rounded-2xl glass-light py-3">
                 <p className="text-xs text-muted-foreground">{label}</p>
                 <p className="text-base font-semibold">
@@ -165,6 +166,7 @@ export const DesktopNavigationWidget = () => {
         </CardContent>
       </Card>
 
+      {/* Main Navigation */}
       <Card className="glass-light rounded-3xl border-glass-border-light">
         <CardContent className="p-4 space-y-1">
           {navMenuItems.map(({ label, icon: Icon, path }) => {
@@ -179,9 +181,11 @@ export const DesktopNavigationWidget = () => {
                     : "hover:bg-secondary/60"
                 }`}
               >
-                <span className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  isActive ? "glass-strong shadow-glass-glow" : "glass"
-                }`}>
+                <span
+                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    isActive ? "glass-strong shadow-glass-glow" : "glass"
+                  }`}
+                >
                   <Icon className="w-4 h-4" />
                 </span>
                 <span className="text-sm font-medium">{label}</span>
@@ -191,6 +195,7 @@ export const DesktopNavigationWidget = () => {
         </CardContent>
       </Card>
 
+      {/* Quick Links */}
       <Card className="glass-light rounded-3xl border-glass-border-light">
         <CardContent className="p-4 space-y-1">
           {quickLinks.map(({ label, icon: Icon, path }) => (

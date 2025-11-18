@@ -18,8 +18,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Sparkles, User, Settings, LogOut, Moon, Sun, RefreshCw } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  Sparkles,
+  User,
+  Settings,
+  LogOut,
+  Moon,
+  Sun,
+  RefreshCw,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { highlightText } from "@/lib/highlightText";
 
 interface Gist {
@@ -62,7 +76,9 @@ const Feed = () => {
   const [gists, setGists] = useState<Gist[]>([]);
   const [loading, setLoading] = useState(true);
   const currentAudio = useRef<HTMLAudioElement | null>(null);
-  const [chatContext, setChatContext] = useState<{ topic: string; summary: string; requestId?: string } | undefined>(undefined);
+  const [chatContext, setChatContext] = useState<
+    { topic: string; summary: string; requestId?: string } | undefined
+  >(undefined);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [likedGists, setLikedGists] = useState<string[]>([]);
   const [bookmarkedGists, setBookmarkedGists] = useState<string[]>([]);
@@ -91,7 +107,7 @@ const Feed = () => {
   const [isDesktop, setIsDesktop] = useState(false);
   const [scrollRoot, setScrollRoot] = useState<Element | null>(null);
   const location = useLocation();
-  
+
   const fluxaMemory = useFluxaMemory();
 
   const categories = ["All", "Technology", "Lifestyle", "Science", "Media"];
@@ -134,9 +150,11 @@ const Feed = () => {
     try {
       if (showToast) setIsRefreshing(true);
       if (loadMore) setIsLoadingMore(true);
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       // Get user's interests to filter content
       let userTopics: string[] = [];
       if (user) {
@@ -144,11 +162,11 @@ const Feed = () => {
           .from("user_subniches")
           .select("main_topic, sub_niches")
           .eq("user_id", user.id);
-        
+
         if (subniches && subniches.length > 0) {
           userTopics = [
-            ...subniches.map(s => s.main_topic),
-            ...subniches.flatMap(s => s.sub_niches || [])
+            ...subniches.map((s) => s.main_topic),
+            ...subniches.flatMap((s) => s.sub_niches || []),
           ];
         }
       }
@@ -165,43 +183,43 @@ const Feed = () => {
         .range(offset, offset + pageSize - 1);
 
       if (userTopics.length > 0 && selectedTab === "foryou") {
-        const conditions = userTopics.flatMap(topic => [
+        const conditions = userTopics.flatMap((topic) => [
           `topic_category.ilike.%${topic}%`,
-          `topic.ilike.%${topic}%`
+          `topic.ilike.%${topic}%`,
         ]);
-        query = query.or(conditions.join(','));
+        query = query.or(conditions.join(","));
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
 
       if (data) {
         // Fetch analytics for all gists
-        const gistIds = data.map(g => g.id);
+        const gistIds = data.map((g) => g.id);
         const { data: analyticsData } = await supabase
           .from("post_analytics")
           .select("*")
           .in("post_id", gistIds);
 
         const analyticsMap = new Map(
-          analyticsData?.map(a => [a.post_id, a]) || []
+          analyticsData?.map((a: any) => [a.post_id, a]) || []
         );
 
-        const gistsWithAnalytics = data.map(gist => ({
+        const gistsWithAnalytics: Gist[] = data.map((gist: any) => ({
           ...gist,
-          analytics: analyticsMap.get(gist.id) || {
-            views: 0,
-            likes: 0,
-            comments: 0,
-            shares: 0,
-            plays: 0
-          }
+          analytics:
+            analyticsMap.get(gist.id) || {
+              views: 0,
+              likes: 0,
+              comments: 0,
+              shares: 0,
+              plays: 0,
+            },
         }));
 
         if (loadMore) {
-          setGists(prev => [...prev, ...gistsWithAnalytics]);
-          setPage(prev => prev + 1);
+          setGists((prev) => [...prev, ...gistsWithAnalytics]);
+          setPage((prev) => prev + 1);
         } else {
           setGists(gistsWithAnalytics);
           setPage(0);
@@ -209,69 +227,70 @@ const Feed = () => {
         setHasMore(data.length === pageSize);
       }
 
-      // Load trending gists (top by likes/plays in last 24 hours)
+      // Load trending gists (top by plays in last 24 hours)
       if (!loadMore) {
         const { data: trending } = await supabase
           .from("gists")
           .select("*")
           .eq("status", "published")
-          .gte("published_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .gte(
+            "published_at",
+            new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+          )
           .order("play_count", { ascending: false })
           .limit(5);
-        
-        if (trending) setTrendingGists(trending);
 
-        // Load personalized recommendations based on user history
+        if (trending) setTrendingGists(trending as Gist[]);
+
+        // Personalized recommendations
         if (user) {
           const { data: memory } = await supabase
             .from("fluxa_memory")
             .select("gist_history, favorite_topics")
             .eq("user_id", user.id)
-            .single();
+            .maybeSingle();
 
           if (memory) {
-            // Get topics from history and favorites
-            const historyTopics = Array.isArray(memory.gist_history) 
+            const historyTopics = Array.isArray(memory.gist_history)
               ? memory.gist_history.map((h: any) => h.topic).filter(Boolean)
               : [];
             const favoriteTopics = memory.favorite_topics || [];
             const allTopics = [...new Set([...historyTopics, ...favoriteTopics])];
 
             if (allTopics.length > 0) {
-              const conditions = allTopics.flatMap(topic => [
+              const conditions = allTopics.flatMap((topic: string) => [
                 `topic_category.ilike.%${topic}%`,
-                `topic.ilike.%${topic}%`
+                `topic.ilike.%${topic}%`,
               ]);
 
               const { data: recommendations } = await supabase
                 .from("gists")
                 .select("*")
                 .eq("status", "published")
-                .or(conditions.join(','))
+                .or(conditions.join(","))
                 .order("published_at", { ascending: false })
                 .limit(6);
 
-              if (recommendations) setRecommendedGists(recommendations);
+              if (recommendations) {
+                setRecommendedGists(recommendations as Gist[]);
+              }
             }
           }
         }
-      }
 
-      const { data: gistData, error: gistError } = await query;
-
-        // Load user's bookmarked gists
+        // Bookmarked gists
         if (user && !loadMore) {
           const { data: favorites } = await supabase
             .from("user_favorites")
             .select("gist_id")
             .eq("user_id", user.id);
-          
+
           if (favorites) {
-            setBookmarkedGists(favorites.map(f => f.gist_id));
+            setBookmarkedGists(favorites.map((f) => f.gist_id));
           }
         }
 
-        // Load news from followed entities
+        // News from followed entities
         if (user) {
           const { data: follows } = await supabase
             .from("fan_follows")
@@ -279,7 +298,7 @@ const Feed = () => {
             .eq("user_id", user.id);
 
           if (follows && follows.length > 0) {
-            const entityIds = follows.map(f => f.entity_id);
+            const entityIds = follows.map((f) => f.entity_id);
             const { data: entities } = await supabase
               .from("fan_entities")
               .select("id, name, category, news_feed, background_url")
@@ -287,20 +306,21 @@ const Feed = () => {
 
             if (entities) {
               const allNews: NewsItem[] = [];
-              entities.forEach(entity => {
+              entities.forEach((entity: any) => {
                 if (entity.news_feed && Array.isArray(entity.news_feed)) {
                   entity.news_feed.slice(0, 3).forEach((news: any, idx: number) => {
                     allNews.push({
                       id: `news-${entity.id}-${idx}`,
                       title: news.title,
                       source: news.source,
-                      time: news.time || '1h ago',
-                      description: news.description || `Latest news about ${entity.name}`,
+                      time: news.time || "1h ago",
+                      description:
+                        news.description || `Latest news about ${entity.name}`,
                       url: news.url,
                       image: news.image || entity.background_url,
                       category: entity.category,
                       entityName: entity.name,
-                      entityId: entity.id
+                      entityId: entity.id,
                     });
                   });
                 }
@@ -309,18 +329,19 @@ const Feed = () => {
             }
           }
         }
-      } catch (error) {
-        console.error("Error loading gists:", error);
-        toast.error("Failed to load feed");
-      } finally {
-        setLoading(false);
-        setIsLoadingMore(false);
-        if (showToast) {
-          setIsRefreshing(false);
-          toast.success("Feed refreshed!");
-        }
       }
-    };
+    } catch (error) {
+      console.error("Error loading gists:", error);
+      toast.error("Failed to load feed");
+    } finally {
+      setLoading(false);
+      setIsLoadingMore(false);
+      if (showToast) {
+        setIsRefreshing(false);
+        toast.success("Feed refreshed!");
+      }
+    }
+  };
 
   useEffect(() => {
     loadGists();
@@ -328,19 +349,18 @@ const Feed = () => {
 
   useEffect(() => {
     const channel = supabase
-      .channel('gists-changes')
+      .channel("gists-changes")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'gists',
-          filter: 'status=eq.published'
+          event: "INSERT",
+          schema: "public",
+          table: "gists",
+          filter: "status=eq.published",
         },
-        (payload) => {
-          console.log('New gist published:', payload);
-          setNewGistCount(prev => prev + 1);
-          toast.info('New content available! Click refresh to see it.');
+        () => {
+          setNewGistCount((prev) => prev + 1);
+          toast.info("New content available! Tap refresh to see it.");
         }
       )
       .subscribe();
@@ -353,13 +373,18 @@ const Feed = () => {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading) {
+        if (
+          entries[0].isIntersecting &&
+          hasMore &&
+          !isLoadingMore &&
+          !loading
+        ) {
           loadGists(false, true);
         }
       },
       {
         threshold: 0.1,
-        root: scrollRoot ?? null
+        root: scrollRoot ?? null,
       }
     );
 
@@ -376,18 +401,16 @@ const Feed = () => {
 
   const handlePlay = async (gistId: string, audioUrl: string) => {
     if (currentPlayingId === gistId && isPlaying) {
-      // Pause current
       if (currentAudio.current) {
         currentAudio.current.pause();
       }
       setIsPlaying(false);
       setCurrentPlayingId(null);
     } else {
-      // Stop previous and play new
       if (currentAudio.current) {
         currentAudio.current.pause();
       }
-      
+
       const audio = new Audio(audioUrl);
       currentAudio.current = audio;
       audio.play();
@@ -402,27 +425,32 @@ const Feed = () => {
   };
 
   const handleLike = (gistId: string) => {
-    setLikedGists(prev => 
-      prev.includes(gistId) ? prev.filter(id => id !== gistId) : [...prev, gistId]
+    setLikedGists((prev) =>
+      prev.includes(gistId)
+        ? prev.filter((id) => id !== gistId)
+        : [...prev, gistId]
     );
   };
 
   const handleBookmark = async (gistId: string) => {
     await fluxaMemory.toggleFavorite(gistId);
-    setBookmarkedGists(prev => 
-      prev.includes(gistId) ? prev.filter(id => id !== gistId) : [...prev, gistId]
+    setBookmarkedGists((prev) =>
+      prev.includes(gistId)
+        ? prev.filter((id) => id !== gistId)
+        : [...prev, gistId]
     );
   };
 
   const openChatWithContext = (topic: string, summary: string) => {
-    const uniqueId = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const uniqueId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
     setChatContext({
       topic,
       summary,
-      requestId: uniqueId
+      requestId: uniqueId,
     });
     setIsChatOpen(true);
   };
@@ -440,47 +468,48 @@ const Feed = () => {
     setShareDialogOpen(true);
   };
 
-  // Search and filter gists
   const filteredGists: Gist[] = React.useMemo(() => {
     let filtered = gists;
-    
-    // Bookmarks tab - show only bookmarked gists
+
     if (selectedTab === "bookmarks") {
-      filtered = filtered.filter(g => bookmarkedGists.includes(g.id));
+      filtered = filtered.filter((g) => bookmarkedGists.includes(g.id));
     }
-    
-    // Category filter
+
     if (selectedCategory !== "All") {
-      filtered = filtered.filter(g => 
-        g.topic_category?.toLowerCase().includes(selectedCategory.toLowerCase()) || 
-        g.topic.toLowerCase().includes(selectedCategory.toLowerCase())
+      filtered = filtered.filter(
+        (g) =>
+          g.topic_category
+            ?.toLowerCase()
+            .includes(selectedCategory.toLowerCase()) ||
+          g.topic.toLowerCase().includes(selectedCategory.toLowerCase())
       );
     }
-    
-    // Search filter
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(g =>
-        g.headline?.toLowerCase().includes(query) ||
-        g.context?.toLowerCase().includes(query) ||
-        g.topic?.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (g) =>
+          g.headline?.toLowerCase().includes(query) ||
+          g.context?.toLowerCase().includes(query) ||
+          g.topic?.toLowerCase().includes(query)
       );
     }
-    
+
     return filtered;
   }, [gists, selectedCategory, searchQuery, selectedTab, bookmarkedGists]);
 
-  const filteredNews: NewsItem[] = selectedCategory === "All"
-    ? newsItems
-    : newsItems.filter(n => n.category.toLowerCase().includes(selectedCategory.toLowerCase()));
+  const filteredNews: NewsItem[] =
+    selectedCategory === "All"
+      ? newsItems
+      : newsItems.filter((n) =>
+          n.category.toLowerCase().includes(selectedCategory.toLowerCase())
+        );
 
-  // Combine and sort by time
   const combinedFeed = [
-    ...filteredGists.map(g => ({ type: 'gist' as const, data: g })),
-    ...filteredNews.map(n => ({ type: 'news' as const, data: n }))
+    ...filteredGists.map((g) => ({ type: "gist" as const, data: g })),
+    ...filteredNews.map((n) => ({ type: "news" as const, data: n })),
   ];
 
-  // Pull-to-refresh handlers
   const handleTouchStart = (e: React.TouchEvent) => {
     if (contentRef.current && contentRef.current.scrollTop === 0) {
       touchStartY.current = e.touches[0].clientY;
@@ -489,10 +518,10 @@ const Feed = () => {
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (touchStartY.current === 0) return;
-    
+
     const touchY = e.touches[0].clientY;
     const distance = touchY - touchStartY.current;
-    
+
     if (distance > 0 && distance < 150) {
       setIsPulling(true);
       setPullDistance(distance);
@@ -501,15 +530,14 @@ const Feed = () => {
 
   const handleTouchEnd = async () => {
     if (pullDistance > 80) {
-      // Haptic feedback
-      if ('vibrate' in navigator) {
+      if ("vibrate" in navigator) {
         navigator.vibrate(50);
       }
       setIsRefreshing(true);
       await loadGists(true);
       setIsRefreshing(false);
     }
-    
+
     setIsPulling(false);
     setPullDistance(0);
     touchStartY.current = 0;
@@ -525,7 +553,9 @@ const Feed = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
         <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-muted-foreground animate-pulse">Loading your personalized feed...</p>
+        <p className="text-muted-foreground animate-pulse">
+          Loading your personalized feed...
+        </p>
       </div>
     );
   }
@@ -540,26 +570,28 @@ const Feed = () => {
     >
       {/* Pull-to-refresh indicator */}
       {isPulling && (
-        <div 
+        <div
           className="fixed top-16 left-1/2 -translate-x-1/2 z-40 transition-all duration-200"
-          style={{ 
+          style={{
             transform: `translate(-50%, ${Math.min(pullDistance - 20, 80)}px)`,
-            opacity: Math.min(pullDistance / 80, 1)
+            opacity: Math.min(pullDistance / 80, 1),
           }}
         >
           <div className="glass-strong rounded-full p-3 shadow-lg">
-            <div 
+            <div
               className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"
-              style={{ animationDuration: pullDistance > 80 ? '0.6s' : '1.2s' }}
+              style={{
+                animationDuration: pullDistance > 80 ? "0.6s" : "1.2s",
+              }}
             />
           </div>
         </div>
       )}
-      
-      {/* Header - Floating controls */}
+
+      {/* Header */}
       <div className="sticky top-0 z-50 px-4 pt-4 pb-3 bg-background/85 backdrop-blur-xl border-b border-glass-border-light">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
-          {/* Left: Profile Avatar Dropdown */}
+          {/* Profile menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -568,22 +600,41 @@ const Feed = () => {
                 type="button"
               >
                 <Avatar className="w-10 h-10">
-                  <AvatarImage src="https://images.unsplash.com/photo-1504593811423-6dd665756598?auto=format&fit=crop&w=200&q=80" alt="Profile" />
+                  <AvatarImage
+                    src="https://images.unsplash.com/photo-1504593811423-6dd665756598?auto=format&fit=crop&w=200&q=80"
+                    alt="Profile"
+                  />
                   <AvatarFallback>AI</AvatarFallback>
                 </Avatar>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 glass border-glass-border-light rounded-2xl">
-              <DropdownMenuItem onClick={() => navigate("/profile")} className="rounded-xl cursor-pointer">
+            <DropdownMenuContent
+              align="start"
+              className="w-56 glass border-glass-border-light rounded-2xl"
+            >
+              <DropdownMenuItem
+                onClick={() => navigate("/profile")}
+                className="rounded-xl cursor-pointer"
+              >
                 <User className="w-4 h-4 mr-2" />
                 View Profile
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate("/settings")} className="rounded-xl cursor-pointer">
+              <DropdownMenuItem
+                onClick={() => navigate("/settings")}
+                className="rounded-xl cursor-pointer"
+              >
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={toggleDarkMode} className="rounded-xl cursor-pointer">
-                {isDark ? <Sun className="w-4 h-4 mr-2" /> : <Moon className="w-4 h-4 mr-2" />}
+              <DropdownMenuItem
+                onClick={toggleDarkMode}
+                className="rounded-xl cursor-pointer"
+              >
+                {isDark ? (
+                  <Sun className="w-4 h-4 mr-2" />
+                ) : (
+                  <Moon className="w-4 h-4 mr-2" />
+                )}
                 {isDark ? "Light Mode" : "Dark Mode"}
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-glass-border-light" />
@@ -600,7 +651,7 @@ const Feed = () => {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Right: Icon Buttons */}
+          {/* Right controls */}
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -623,8 +674,12 @@ const Feed = () => {
         </div>
       </div>
 
+      {/* Mobile categories */}
       <div className="lg:hidden px-4 pt-4">
-        <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <div
+          className="flex gap-2 overflow-x-auto pb-1"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
           {categories.map((category) => (
             <Badge
               key={`${category}-mobile`}
@@ -641,6 +696,7 @@ const Feed = () => {
         </div>
       </div>
 
+      {/* Mobile trending */}
       {trendingGists.length > 0 && !searchQuery && (
         <div className="lg:hidden px-4 mt-4">
           <TrendingCarousel
@@ -652,17 +708,16 @@ const Feed = () => {
         </div>
       )}
 
+      {/* Main layout */}
       <div className="container mx-auto px-4 pt-4 pb-6 max-w-6xl lg:py-6 lg:h-[calc(100vh-150px)]">
         <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px] lg:h-full items-start">
-          {/* Left rail */}
           <DesktopNavigationWidget />
 
-          {/* Main column */}
           <div
             ref={feedColumnRef}
             className="space-y-6 w-full max-w-[420px] sm:max-w-[520px] md:max-w-[640px] mx-auto scrollbar-hide lg:max-w-none lg:mx-0 lg:h-full lg:overflow-y-auto lg:pr-3 lg:pb-24"
           >
-
+            {/* Desktop categories */}
             <div className="hidden lg:flex flex-wrap gap-2">
               {categories.map((category) => (
                 <Badge
@@ -679,59 +734,83 @@ const Feed = () => {
               ))}
             </div>
 
-            {recommendedGists.length > 0 && !searchQuery && selectedTab === "foryou" && (
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Sparkles className="w-5 h-5 text-purple-500" />
-                  <h2 className="text-xl font-bold">Recommended for You</h2>
-                  <Badge variant="secondary" className="ml-auto">
-                    Based on your history
-                  </Badge>
+            {/* Recommended */}
+            {recommendedGists.length > 0 &&
+              !searchQuery &&
+              selectedTab === "foryou" && (
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Sparkles className="w-5 h-5 text-purple-500" />
+                    <h2 className="text-xl font-bold">Recommended for You</h2>
+                    <Badge variant="secondary" className="ml-auto">
+                      Based on your history
+                    </Badge>
+                  </div>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {recommendedGists.map((gist) => (
+                      <Card
+                        key={gist.id}
+                        className="cursor-pointer glass hover:shadow-glass-glow transition-all hover:scale-105 border-glass-border-light"
+                        onClick={() => handlePlay(gist.id, gist.audio_url)}
+                      >
+                        {gist.image_url && (
+                          <img
+                            src={gist.image_url}
+                            alt={gist.headline}
+                            className="w-full h-40 object-cover"
+                          />
+                        )}
+                        <CardContent className="p-4">
+                          <h3 className="font-semibold line-clamp-2 mb-2">
+                            {gist.headline}
+                          </h3>
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {gist.context}
+                          </p>
+                          <Badge variant="secondary" className="mt-2 text-xs">
+                            {gist.topic}
+                          </Badge>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {recommendedGists.map((gist) => (
-                    <Card
-                      key={gist.id}
-                      className="cursor-pointer glass hover:shadow-glass-glow transition-all hover:scale-105 border-glass-border-light"
-                      onClick={() => handlePlay(gist.id, gist.audio_url)}
-                    >
-                      {gist.image_url && (
-                        <img
-                          src={gist.image_url}
-                          alt={gist.headline}
-                          className="w-full h-40 object-cover"
-                        />
-                      )}
-                      <CardContent className="p-4">
-                        <h3 className="font-semibold line-clamp-2 mb-2">{gist.headline}</h3>
-                        <p className="text-sm text-muted-foreground line-clamp-2">{gist.context}</p>
-                        <Badge variant="secondary" className="mt-2 text-xs">
-                          {gist.topic}
-                        </Badge>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
 
+            {/* Combined Feed */}
             <div className="space-y-6">
               {combinedFeed.length === 0 ? (
                 <Card className="p-12 text-center">
-                  <p className="text-muted-foreground mb-4">No content available yet</p>
-                  <Button onClick={() => window.location.href = '/admin'}>
+                  <p className="text-muted-foreground mb-4">
+                    No content available yet
+                  </p>
+                  <Button onClick={() => (window.location.href = "/admin")}>
                     Go to Admin Panel
                   </Button>
                 </Card>
               ) : (
-                combinedFeed.map((item, idx) =>
-                  item.type === 'gist' ? (
+                combinedFeed.map((item) =>
+                  item.type === "gist" ? (
                     <FeedCardWithSocial
                       key={`gist-${item.data.id}`}
                       id={item.data.id}
                       imageUrl={item.data.image_url || undefined}
-                      headline={searchQuery ? highlightText(item.data.headline, searchQuery) as any : item.data.headline}
-                      context={searchQuery ? highlightText(item.data.context, searchQuery) as any : item.data.context}
+                      headline={
+                        searchQuery
+                          ? (highlightText(
+                              item.data.headline,
+                              searchQuery
+                            ) as any)
+                          : item.data.headline
+                      }
+                      context={
+                        searchQuery
+                          ? (highlightText(
+                              item.data.context,
+                              searchQuery
+                            ) as any)
+                          : item.data.context
+                      }
                       author="Fluxa"
                       timeAgo="2h ago"
                       category={item.data.topic}
@@ -740,8 +819,12 @@ const Feed = () => {
                       views={item.data.analytics?.views || 0}
                       plays={item.data.analytics?.plays || 0}
                       shares={item.data.analytics?.shares || 0}
-                      isPlaying={currentPlayingId === item.data.id && isPlaying}
-                      onPlay={() => handlePlay(item.data.id, item.data.audio_url)}
+                      isPlaying={
+                        currentPlayingId === item.data.id && isPlaying
+                      }
+                      onPlay={() =>
+                        handlePlay(item.data.id, item.data.audio_url)
+                      }
                       onComment={() => handleTellMore(item.data)}
                       onShare={() => handleShare(item.data)}
                     />
@@ -757,11 +840,16 @@ const Feed = () => {
                       imageUrl={item.data.image}
                       category={item.data.category}
                       entityName={item.data.entityName}
-                      isPlaying={currentPlayingNewsId === item.data.id && isNewsPlaying}
+                      isPlaying={
+                        currentPlayingNewsId === item.data.id && isNewsPlaying
+                      }
                       isLiked={likedGists.includes(item.data.id)}
                       isBookmarked={bookmarkedGists.includes(item.data.id)}
                       onPlay={async (audioUrl?: string) => {
-                        if (currentPlayingNewsId === item.data.id && isNewsPlaying) {
+                        if (
+                          currentPlayingNewsId === item.data.id &&
+                          isNewsPlaying
+                        ) {
                           newsAudioRef.current?.pause();
                           setIsNewsPlaying(false);
                           setCurrentPlayingNewsId(null);
@@ -782,7 +870,7 @@ const Feed = () => {
                               setCurrentPlayingNewsId(null);
                             };
                           } else {
-                            toast.error('Audio not available');
+                            toast.error("Audio not available");
                           }
                         }
                       }}
@@ -792,7 +880,7 @@ const Feed = () => {
                       onShare={() => {
                         if (item.data.url) {
                           navigator.clipboard.writeText(item.data.url);
-                          toast.success('Link copied!');
+                          toast.success("Link copied!");
                         }
                       }}
                     />
@@ -808,13 +896,14 @@ const Feed = () => {
                   </div>
                 )}
                 {!hasMore && gists.length > 0 && (
-                  <p className="text-muted-foreground text-sm">You've reached the end!</p>
+                  <p className="text-muted-foreground text-sm">
+                    You've reached the end!
+                  </p>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Right rail */}
           <DesktopRightWidgets
             trendingGists={!searchQuery ? trendingGists : undefined}
             currentPlayingId={currentPlayingId}
@@ -822,10 +911,10 @@ const Feed = () => {
           />
         </div>
       </div>
+
       <BottomNavigation />
       <FloatingActionButtons />
 
-      {/* Share Dialog */}
       {selectedGist && (
         <ShareDialog
           open={shareDialogOpen}
