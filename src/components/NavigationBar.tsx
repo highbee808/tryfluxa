@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useDarkMode } from "@/hooks/useDarkMode";
 import { NotificationCenter } from "./NotificationCenter";
+import { FluxaLogo } from "./FluxaLogo";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/feed", id: "home" },
@@ -23,8 +24,8 @@ export const NavigationBar = () => {
           <div className="frosted-nav flex items-center justify-between gap-6 px-6 py-3">
           {/* Logo */}
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/feed")}>
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-primary-foreground" />
+            <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center">
+              <FluxaLogo size={20} fillColor="hsl(var(--primary-foreground))" />
             </div>
             <span className="font-bold text-xl">Fluxa</span>
           </div>

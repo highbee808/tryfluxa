@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
+import { FluxaLogo } from "./FluxaLogo";
 
 interface FluxaGreetingProps {
   greeting: string;
@@ -57,10 +58,10 @@ export const FluxaGreeting = ({ greeting, isLoading }: FluxaGreetingProps) => {
       
       <div className="relative flex items-center gap-4">
         {/* Animated Fluxa avatar */}
-        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary via-accent to-secondary flex items-center justify-center text-white font-bold text-xl animate-float"
+        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary via-accent to-secondary flex items-center justify-center animate-float"
           style={{ boxShadow: "var(--shadow-glow)" }}
         >
-          F
+          <FluxaLogo size={28} fillColor="hsl(var(--primary-foreground))" />
         </div>
 
         {/* Greeting text with typing animation */}
