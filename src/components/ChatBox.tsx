@@ -12,21 +12,42 @@ type Message = {
   content: string;
 };
 
+type ChatContext = {
+  topic: string;
+  summary: string;
+  requestId?: string;
+};
+
 interface ChatBoxProps {
-  initialContext?: {
-    topic: string;
-    summary: string;
-  };
+  initialContext?: ChatContext;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export const ChatBox = ({ initialContext }: ChatBoxProps) => {
-  const [isOpen, setIsOpen] = useState(false);
+export const ChatBox = ({ initialContext, isOpen: controlledOpen, onOpenChange }: ChatBoxProps) => {
+  const [internalOpen, setInternalOpen] = useState(controlledOpen ?? false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastContextRequestId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (typeof controlledOpen === "boolean") {
+      setInternalOpen(controlledOpen);
+    }
+  }, [controlledOpen]);
+
+  const isOpen = typeof controlledOpen === "boolean" ? controlledOpen : internalOpen;
+
+  const setOpen = (value: boolean) => {
+    if (typeof controlledOpen !== "boolean") {
+      setInternalOpen(value);
+    }
+    onOpenChange?.(value);
+  };
 
   // Load chat history from localStorage
   useEffect(() => {
@@ -51,7 +72,13 @@ export const ChatBox = ({ initialContext }: ChatBoxProps) => {
   // Handle initial context (when "Ask Fluxa" is clicked)
   useEffect(() => {
     if (initialContext && isOpen) {
-      const contextMessage = `Tell me more about: ${initialContext.topic}`;
+      const requestKey = initialContext.requestId || `${initialContext.topic}-${initialContext.summary}`;
+      if (lastContextRequestId.current === requestKey) {
+        return;
+      }
+
+      lastContextRequestId.current = requestKey;
+      const contextMessage = `I'm reading "${initialContext.topic}". Here's what Fluxa wrote: ${initialContext.summary}. Can you give me more context?`;
       handleSend(contextMessage);
     }
   }, [initialContext, isOpen]);
@@ -61,6 +88,14 @@ export const ChatBox = ({ initialContext }: ChatBoxProps) => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (!isOpen && currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+      setIsSpeaking(false);
+    }
+  }, [isOpen]);
 
   const playFluxaVoice = async (text: string) => {
     setIsSpeaking(true);
@@ -106,11 +141,13 @@ export const ChatBox = ({ initialContext }: ChatBoxProps) => {
     if (!messageText) setInput("");
     setIsLoading(true);
 
+    const conversationHistory = [...messages.slice(-4), userMessage];
+
     try {
       const { data, error } = await supabase.functions.invoke("fluxa-chat", {
-        body: { 
+        body: {
           message: userMessage.content,
-          conversationHistory: messages.slice(-5)
+          conversationHistory
         }
       });
 
@@ -144,7 +181,7 @@ export const ChatBox = ({ initialContext }: ChatBoxProps) => {
       {/* Floating Button */}
       {!isOpen && (
         <button
-          onClick={() => setIsOpen(true)}
+          onClick={() => setOpen(true)}
           className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:scale-110 transition-transform flex items-center justify-center z-50"
           aria-label="Open chat"
         >
@@ -171,7 +208,7 @@ export const ChatBox = ({ initialContext }: ChatBoxProps) => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsOpen(false)}
+              onClick={() => setOpen(false)}
               className="h-8 w-8"
             >
               <X className="w-4 h-4" />

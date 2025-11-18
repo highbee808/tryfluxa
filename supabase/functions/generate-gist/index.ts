@@ -2,9 +2,130 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 import "https://deno.land/x/xhr@0.1.0/mod.ts"
 
+interface Article {
+  title: string
+  description?: string
+  content?: string
+  url?: string
+  image?: string
+  source?: string
+  published_at?: string
+}
+
+const MAX_ARTICLE_TEXT_LENGTH = 4000
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+const sanitizeArticleText = (text?: string) => {
+  if (!text) return ''
+  return text
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+async function fetchNewsApiArticles(topic: string): Promise<Article[]> {
+  const apiKey = Deno.env.get('NEWSAPI_KEY')
+  if (!apiKey) return []
+
+  try {
+    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&language=en&sortBy=publishedAt&pageSize=5&apiKey=${apiKey}`
+    const response = await fetch(url)
+    if (!response.ok) {
+      console.log('⚠️ NewsAPI error:', response.status)
+      return []
+    }
+
+    const data = await response.json()
+    return (data.articles || []).map((article: any) => ({
+      title: article.title,
+      description: article.description,
+      content: article.content,
+      url: article.url,
+      image: article.urlToImage,
+      source: article.source?.name || 'NewsAPI',
+      published_at: article.publishedAt,
+    }))
+  } catch (error) {
+    console.error('NewsAPI fetch failed:', error)
+    return []
+  }
+}
+
+async function fetchGuardianArticles(topic: string): Promise<Article[]> {
+  const apiKey = Deno.env.get('GUARDIAN_API_KEY')
+  if (!apiKey) return []
+
+  try {
+    const url = `https://content.guardianapis.com/search?q=${encodeURIComponent(topic)}&order-by=newest&page-size=5&show-fields=trailText,bodyText,thumbnail&api-key=${apiKey}`
+    const response = await fetch(url)
+    if (!response.ok) {
+      console.log('⚠️ Guardian API error:', response.status)
+      return []
+    }
+
+    const data = await response.json()
+    const results = data.response?.results || []
+    return results.map((article: any) => ({
+      title: article.webTitle,
+      description: article.fields?.trailText,
+      content: article.fields?.bodyText,
+      url: article.webUrl,
+      image: article.fields?.thumbnail,
+      source: 'The Guardian',
+      published_at: article.webPublicationDate,
+    }))
+  } catch (error) {
+    console.error('Guardian fetch failed:', error)
+    return []
+  }
+}
+
+async function fetchMediastackArticles(topic: string): Promise<Article[]> {
+  const apiKey = Deno.env.get('MEDIASTACK_KEY')
+  if (!apiKey) return []
+
+  try {
+    const url = `http://api.mediastack.com/v1/news?access_key=${apiKey}&keywords=${encodeURIComponent(topic)}&languages=en&limit=5&sort=published_desc`
+    const response = await fetch(url)
+    if (!response.ok) {
+      console.log('⚠️ Mediastack error:', response.status)
+      return []
+    }
+
+    const data = await response.json()
+    return (data.data || []).map((article: any) => ({
+      title: article.title,
+      description: article.description,
+      content: article.description,
+      url: article.url,
+      image: article.image,
+      source: article.source || 'Mediastack',
+      published_at: article.published_at,
+    }))
+  } catch (error) {
+    console.error('Mediastack fetch failed:', error)
+    return []
+  }
+}
+
+async function fetchArticlesFromApis(topic: string): Promise<Article[]> {
+  const [newsapi, guardian, mediastack] = await Promise.all([
+    fetchNewsApiArticles(topic),
+    fetchGuardianArticles(topic),
+    fetchMediastackArticles(topic),
+  ])
+
+  return [...newsapi, ...guardian, ...mediastack]
+    .filter((article) => !!article.title)
+    .sort((a, b) => {
+      const aTime = a.published_at ? new Date(a.published_at).getTime() : 0
+      const bTime = b.published_at ? new Date(b.published_at).getTime() : 0
+      return bTime - aTime
+    })
 }
 
 // Input validation schema
@@ -50,6 +171,28 @@ serve(async (req) => {
 
     console.log('📝 Topic received:', topic)
     console.log('📏 Topic length:', topic.length, 'chars')
+
+    console.log('📰 Fetching existing coverage from APIs...')
+    const articles = await fetchArticlesFromApis(topic)
+    const selectedArticle = articles[0]
+    const usingApiContent = Boolean(selectedArticle)
+
+    if (usingApiContent) {
+      console.log('✅ Using API article from', selectedArticle?.source)
+    } else {
+      console.log('⚠️ No API article found, falling back to creative generation')
+    }
+
+    const articleText = selectedArticle
+      ? sanitizeArticleText([
+          selectedArticle.title,
+          selectedArticle.description,
+          selectedArticle.content,
+        ]
+          .filter(Boolean)
+          .join('\n\n'))
+          .slice(0, MAX_ARTICLE_TEXT_LENGTH)
+      : ''
     
     // Check API key
     const apiKey = Deno.env.get('OPENAI_API_KEY')
@@ -71,6 +214,42 @@ serve(async (req) => {
     })
     console.log('📅 Current date:', currentDate, '/', currentTime)
 
+    const baseSystemPrompt = `You are Fluxa, a witty gossip companion who turns real articles into short, confident updates.
+Today's date is ${currentTime}.
+
+CRITICAL RULES:
+- ALWAYS respond with valid JSON containing: headline, context, narration, image_keyword.
+- Narration must be a 60-90 word energetic script with one playful interjection (e.g., "Haha!") and a natural mention of "Fluxa".
+- If ARTICLE_TEXT is provided, rely strictly on those facts. Do not invent information or mention limitations.
+- Keep context punchy (under 200 characters) and globally understandable.
+- Never include sensitive accusations or disclaimers about missing data.`
+
+    const articleNarrative = usingApiContent
+      ? (articleText || sanitizeArticleText(selectedArticle?.description || selectedArticle?.title || ''))
+      : ''
+
+    const messages = usingApiContent
+      ? [
+          { role: 'system', content: baseSystemPrompt + '\nYou have verified ARTICLE_TEXT from our content APIs. Summarize it like a premium news anchor.' },
+          {
+            role: 'user',
+            content: `TOPIC: ${topic}
+SOURCE: ${selectedArticle?.source || 'Unknown'}
+PUBLISHED_AT: ${selectedArticle?.published_at || 'Unknown'}
+URL: ${selectedArticle?.url || 'Unknown'}
+
+ARTICLE_TEXT:
+${articleNarrative}`,
+          },
+        ]
+      : [
+          { role: 'system', content: baseSystemPrompt + '\nNo article text is available. Craft a plausible, timely update anyway.' },
+          {
+            role: 'user',
+            content: `Create an engaging gist about: ${topic}. Make it exciting and plausible, focusing on their current season/projects/activity. Be confident and specific.`,
+          },
+        ]
+
     // Use OpenAI gpt-4o-mini for more current and accurate news
     console.log('🤖 Calling OpenAI API (gpt-4o-mini)...')
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -81,46 +260,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `You are Fluxa, a witty gossip companion who creates engaging content about trending topics.
-Today's date is ${currentTime}.
-
-IMPORTANT: Even if you don't have breaking news from the last 24 hours, create engaging, plausible content about the topic.
-For sports teams, discuss their current season, recent form, or upcoming matches.
-For celebrities/artists, discuss their current projects, tour dates, or recent social media activity.
-
-CRITICAL CONTEXT RULES:
-- When topic mentions sports teams (e.g., "Barcelona", "Real Madrid"), interpret as THE SPORTS TEAM, not the city
-- When topic mentions artists (e.g., "Lamine Yamal", "Drake"), focus on their career/performance
-- Create realistic, engaging content even without access to real-time news
-- NEVER say "I can't pull live headlines" or similar disclaimers
-- Be confident and create plausible, exciting gist content
-
-Your tone is playful, positive, expressive, and globally understandable.
-You must return valid JSON with these exact fields:
-{
-  "headline": "catchy emoji-enhanced headline (max 80 chars)",
-  "context": "brief engaging summary (max 200 chars) - NO disclaimers about lack of real-time data",
-  "narration": "40-60 second conversational script with occasional 'Haha!' and mention 'Fluxa' once naturally",
-  "image_keyword": "descriptive 2-4 word phrase for image search"
-}
-
-Rules:
-- Keep it playful, positive, short, and globally understandable
-- Create exciting, plausible content about the topic
-- No accusations, sensitive info, or real names in negative contexts
-- Narration length: conversational, 40-60 seconds when spoken
-- Add laughs like "Haha!" occasionally
-- Include "Fluxa" naturally in narration once
-- image_keyword should be visually descriptive and specific`
-          },
-          {
-            role: 'user',
-            content: `Create an engaging gist about: ${topic}. Make it exciting and plausible, focusing on their current season/projects/activity. Be confident and specific.`
-          }
-        ],
+        messages,
         response_format: { type: 'json_object' }
       }),
     })
@@ -210,6 +350,13 @@ Rules:
         image_keyword: content.image_keyword || 'trending news',
         ai_generated_image: generatedImageUrl,
         is_celebrity: isCelebrity,
+        source_url: selectedArticle?.url || null,
+        source_title: selectedArticle?.title || null,
+        source_excerpt: selectedArticle?.description || null,
+        source_name: selectedArticle?.source || null,
+        source_published_at: selectedArticle?.published_at || null,
+        source_image_url: selectedArticle?.image || null,
+        used_api_article: usingApiContent,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
