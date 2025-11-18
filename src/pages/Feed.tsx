@@ -624,10 +624,10 @@ const Feed = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <div className="grid gap-8 lg:grid-cols-[240px_minmax(0,1fr)_300px]">
+      <div className="container mx-auto px-4 py-6 max-w-6xl">
+        <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px]">
           {/* Left rail */}
-          <div className="hidden lg:flex flex-col gap-6">
+          <div className="hidden lg:flex flex-col gap-6 sticky top-28 self-start">
             <Card className="glass rounded-3xl border-glass-border-light">
               <CardContent className="p-5 flex flex-col gap-4">
                 <div className="flex items-center gap-3">
@@ -670,19 +670,8 @@ const Feed = () => {
           </div>
 
           {/* Main column */}
-          <div className="space-y-8">
-            <div className="glass-light rounded-3xl px-5 py-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">Currently viewing</p>
-                <h1 className="text-2xl font-bold">
-                  {selectedTab === "foryou" ? "For You" : selectedTab === "bookmarks" ? "Bookmarks" : "Latest"}
-                </h1>
-                <p className="text-sm text-muted-foreground">Fresh drops curated for your listening queue.</p>
-              </div>
-              <Badge variant="secondary" className="self-start sm:self-auto">{activeTab}</Badge>
-            </div>
-
-            <div className="glass-light rounded-3xl px-4 py-5 space-y-4">
+          <div className="space-y-6">
+            <div className="rounded-3xl border border-glass-border-light glass-light px-4 py-5 space-y-4">
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -760,14 +749,6 @@ const Feed = () => {
                 ))}
               </div>
             </div>
-
-            {trendingGists.length > 0 && !searchQuery && selectedTab !== "bookmarks" && (
-              <TrendingCarousel
-                gists={trendingGists}
-                onPlay={handlePlay}
-                currentPlayingId={currentPlayingId}
-              />
-            )}
 
             {recommendedGists.length > 0 && !searchQuery && selectedTab === "foryou" && (
               <div>
@@ -905,63 +886,45 @@ const Feed = () => {
           </div>
 
           {/* Right rail */}
-          <div className="hidden lg:block space-y-6">
-            <div className="sticky top-28 space-y-6">
-              <Card className="shadow-glass border-glass-border-light glass">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <TrendingUp className="w-5 h-5 text-blue-600" />
-                    <h3 className="text-lg font-semibold">Trending Topics</h3>
-                  </div>
-                  <div className="space-y-3">
-                    {[
-                      { topic: "AI Revolution", posts: "1.2k posts" },
-                      { topic: "Audio Content", posts: "856 posts" },
-                      { topic: "Digital Wellness", posts: "643 posts" },
-                      { topic: "Voice Tech", posts: "521 posts" },
-                      { topic: "Productivity", posts: "412 posts" },
-                    ].map((item, i) => (
-                      <div
-                       key={i}
-                        className="p-3 bg-secondary/50 rounded-lg hover:bg-secondary/70 cursor-pointer transition-colors"
-                      >
-                        <p className="text-sm font-medium">{item.topic}</p>
-                        <p className="text-xs text-muted-foreground">{item.posts}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+          <div className="hidden lg:flex flex-col gap-6 sticky top-28 self-start">
+            <Card className="shadow-glass border-glass-border-light glass">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <TrendingUp className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-lg font-semibold">Trending Topics</h3>
+                </div>
+                <div className="space-y-3">
+                  {[
+                    { topic: "AI Revolution", posts: "1.2k posts" },
+                    { topic: "Audio Content", posts: "856 posts" },
+                    { topic: "Digital Wellness", posts: "643 posts" },
+                    { topic: "Voice Tech", posts: "521 posts" },
+                    { topic: "Productivity", posts: "412 posts" },
+                  ].map((item, i) => (
+                    <div
+                      key={i}
+                      className="p-3 bg-secondary/50 rounded-lg hover:bg-secondary/70 cursor-pointer transition-colors"
+                    >
+                      <p className="text-sm font-medium">{item.topic}</p>
+                      <p className="text-xs text-muted-foreground">{item.posts}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
 
+            {trendingGists.length > 0 && !searchQuery && (
               <Card className="glass rounded-3xl border-glass-border-light">
-                <CardContent className="p-6 space-y-4">
-                  <h3 className="text-lg font-semibold">Your Activity</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Articles Read</p>
-                        <p className="text-2xl font-bold">247</p>
-                      </div>
-                      <Badge variant="secondary">+18%</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Hours Listened</p>
-                        <p className="text-2xl font-bold">18.5</p>
-                      </div>
-                      <Badge variant="secondary">+5%</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Bookmarks</p>
-                        <p className="text-2xl font-bold">{bookmarkedGists.length}</p>
-                      </div>
-                      <Badge variant="secondary">Live</Badge>
-                    </div>
-                  </div>
+                <CardContent className="p-4">
+                  <TrendingCarousel
+                    gists={trendingGists}
+                    onPlay={handlePlay}
+                    currentPlayingId={currentPlayingId}
+                    fullWidth
+                  />
                 </CardContent>
               </Card>
-            </div>
+            )}
           </div>
         </div>
       </div>
