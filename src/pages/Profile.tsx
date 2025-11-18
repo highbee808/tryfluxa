@@ -13,6 +13,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, MapPin, Calendar, Link as LinkIcon, Heart, Play, Volume2, MoreHorizontal, Settings, Trash2, Mic, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { UserBadges } from "@/components/UserBadges";
+import { DesktopNavigationWidget } from "@/components/DesktopNavigationWidget";
+import { DesktopRightWidgets } from "@/components/DesktopRightWidgets";
 
 interface Gist {
   id: string;
@@ -150,50 +152,53 @@ const Profile = () => {
   const username = userEmail.split("@")[0];
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Profile Header - X.com Style */}
-      <div className="max-w-[600px] mx-auto border-x border-border min-h-screen pb-20 md:mt-16">
-        {/* Top Nav */}
-        <div className="sticky top-0 z-20 px-4 pt-4 pb-2 bg-transparent">
-          <div className="frosted-nav flex items-center gap-4 px-4 py-3">
-            <button
-              type="button"
-              onClick={() => navigate("/feed")}
-              className="frosted-icon-button"
-              aria-label="Back to feed"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="flex-1 min-w-0">
-              <h1 className="font-bold text-xl truncate">{username}</h1>
-              <p className="text-xs text-muted-foreground">{favorites.length} favorites</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => navigate("/settings")}
-                className="frosted-icon-button"
-                aria-label="Open settings"
-              >
-                <Settings className="w-5 h-5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditModalOpen(true)}
-                className="frosted-icon-button"
-                aria-label="Profile actions"
-              >
-                <MoreHorizontal className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-background pb-24">
+      <div className="container mx-auto px-4 lg:pt-10">
+        <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px] items-start">
+          <DesktopNavigationWidget />
 
-        {/* Cover Photo */}
-        <div className="h-[200px] bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500" />
+          <div className="w-full max-w-[600px] mx-auto lg:mx-0 border-x border-border min-h-screen pb-20 md:mt-16">
+            {/* Top Nav */}
+            <div className="sticky top-0 z-20 px-4 pt-4 pb-2 bg-transparent">
+              <div className="frosted-nav flex items-center gap-4 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => navigate("/feed")}
+                  className="frosted-icon-button"
+                  aria-label="Back to feed"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div className="flex-1 min-w-0">
+                  <h1 className="font-bold text-xl truncate">{username}</h1>
+                  <p className="text-xs text-muted-foreground">{favorites.length} favorites</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/settings")}
+                    className="frosted-icon-button"
+                    aria-label="Open settings"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditModalOpen(true)}
+                    className="frosted-icon-button"
+                    aria-label="Profile actions"
+                  >
+                    <MoreHorizontal className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
 
-        {/* Profile Info */}
-        <div className="px-4">
+            {/* Cover Photo */}
+            <div className="h-[200px] bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500" />
+
+            {/* Profile Info */}
+            <div className="px-4">
           {/* Avatar */}
           <div className="flex justify-between items-start -mt-16 mb-4">
             <Avatar className="w-[133px] h-[133px] border-4 border-background">
@@ -417,6 +422,10 @@ const Profile = () => {
               </div>
             </TabsContent>
           </Tabs>
+        </div>
+      </div>
+
+          <DesktopRightWidgets />
         </div>
       </div>
 

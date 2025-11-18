@@ -6,6 +6,8 @@ import { NewsCard } from "@/components/NewsCard";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { ShareDialog } from "@/components/ShareDialog";
 import { TrendingCarousel } from "@/components/TrendingCarousel";
+import { DesktopNavigationWidget } from "@/components/DesktopNavigationWidget";
+import { DesktopRightWidgets } from "@/components/DesktopRightWidgets";
 import { FloatingActionButtons } from "@/components/FloatingActionButtons";
 import { useFluxaMemory } from "@/hooks/useFluxaMemory";
 import { useDarkMode } from "@/hooks/useDarkMode";
@@ -15,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { TrendingUp, Sparkles, Bookmark, User, Settings, LogOut, Moon, Sun, RefreshCw, Home, Radio, Trophy, Search } from "lucide-react";
+import { Sparkles, User, Settings, LogOut, Moon, Sun, RefreshCw } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { highlightText } from "@/lib/highlightText";
 
@@ -90,20 +92,7 @@ const Feed = () => {
   
   const fluxaMemory = useFluxaMemory();
 
-  const quickLinks = [
-    { label: "Profile", icon: User, action: () => navigate("/profile") },
-    { label: "Settings", icon: Settings, action: () => navigate("/settings") },
-    { label: "Bookmarks", icon: Bookmark, action: () => setSelectedTab("bookmarks") },
-  ];
-
-  const navMenuItems = [
-    { label: "Feed", icon: Home, path: "/feed" },
-    { label: "Fanbase", icon: Radio, path: "/fanbase-hub" },
-    { label: "Sports", icon: Trophy, path: "/sports-hub" },
-    { label: "Explore", icon: Search, path: "/universe" },
-  ];
-
-  const categories = ["All", "Technology", "Lifestyle", "Science", "Media", "Productivity"];
+  const categories = ["All", "Technology", "Lifestyle", "Science", "Media"];
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -131,6 +120,13 @@ const Feed = () => {
   useEffect(() => {
     setScrollRoot(isDesktop ? feedColumnRef.current : null);
   }, [isDesktop]);
+
+  useEffect(() => {
+    const state = location.state as { tab?: "all" | "foryou" | "bookmarks" } | null;
+    if (state?.tab) {
+      setSelectedTab(state.tab);
+    }
+  }, [location.state]);
 
   const loadGists = async (showToast = false, loadMore = false) => {
     try {
@@ -643,73 +639,7 @@ const Feed = () => {
       <div className="container mx-auto px-4 pt-4 pb-6 max-w-6xl lg:py-6 lg:h-[calc(100vh-150px)]">
         <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px] lg:h-full items-start">
           {/* Left rail */}
-          <div className="hidden lg:flex flex-col gap-6 sticky top-24 self-start">
-            <Card className="glass rounded-3xl border-glass-border-light">
-              <CardContent className="p-5 flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                  <Avatar className="w-14 h-14">
-                    <AvatarImage src="https://images.unsplash.com/photo-1504593811423-6dd665756598?auto=format&fit=crop&w=200&q=80" alt="Profile" />
-                    <AvatarFallback>AI</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Signed in as</p>
-                    <p className="text-lg font-semibold">Aileen Imagine</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  {["Posts", "Followers", "Following"].map((label, idx) => (
-                    <div key={label} className="rounded-2xl glass-light py-3">
-                      <p className="text-xs text-muted-foreground">{label}</p>
-                      <p className="text-base font-semibold">{[247, "8.2k", 982][idx]}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="glass-light rounded-3xl border-glass-border-light">
-              <CardContent className="p-4 space-y-1">
-                {navMenuItems.map(({ label, icon: Icon, path }) => {
-                  const isActive = location.pathname === path;
-                  return (
-                    <button
-                      key={label}
-                      onClick={() => navigate(path)}
-                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-colors ${
-                        isActive
-                          ? "bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-primary/30"
-                          : "hover:bg-secondary/60"
-                      }`}
-                    >
-                      <span className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        isActive ? "glass-strong shadow-glass-glow" : "glass"
-                      }`}>
-                        <Icon className="w-4 h-4" />
-                      </span>
-                      <span className="text-sm font-medium">{label}</span>
-                    </button>
-                  );
-                })}
-              </CardContent>
-            </Card>
-
-            <Card className="glass-light rounded-3xl border-glass-border-light">
-              <CardContent className="p-4 space-y-1">
-                {quickLinks.map(({ label, icon: Icon, action }) => (
-                  <button
-                    key={label}
-                    onClick={action}
-                    className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-colors hover:bg-secondary/60"
-                  >
-                    <span className="w-8 h-8 rounded-full glass flex items-center justify-center">
-                      <Icon className="w-4 h-4" />
-                    </span>
-                    <span className="text-sm font-medium">{label}</span>
-                  </button>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
+          <DesktopNavigationWidget />
 
           {/* Main column */}
           <div
@@ -869,47 +799,11 @@ const Feed = () => {
           </div>
 
           {/* Right rail */}
-          <div className="hidden lg:flex flex-col gap-6 sticky top-24 self-start">
-            <Card className="shadow-glass border-glass-border-light glass">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <TrendingUp className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-lg font-semibold">Trending Topics</h3>
-                </div>
-                <div className="space-y-3">
-                  {[
-                    { topic: "AI Revolution", posts: "1.2k posts" },
-                    { topic: "Audio Content", posts: "856 posts" },
-                    { topic: "Digital Wellness", posts: "643 posts" },
-                    { topic: "Voice Tech", posts: "521 posts" },
-                    { topic: "Productivity", posts: "412 posts" },
-                  ].map((item, i) => (
-                    <div
-                      key={i}
-                      className="p-3 bg-secondary/50 rounded-lg hover:bg-secondary/70 cursor-pointer transition-colors"
-                    >
-                      <p className="text-sm font-medium">{item.topic}</p>
-                      <p className="text-xs text-muted-foreground">{item.posts}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {trendingGists.length > 0 && !searchQuery && (
-              <Card className="glass rounded-3xl border-glass-border-light">
-                <CardContent className="p-5 pb-3">
-                  <TrendingCarousel
-                    gists={trendingGists}
-                    onPlay={handlePlay}
-                    currentPlayingId={currentPlayingId}
-                    fullWidth
-                  />
-                </CardContent>
-              </Card>
-            )}
-
-          </div>
+          <DesktopRightWidgets
+            trendingGists={!searchQuery ? trendingGists : undefined}
+            currentPlayingId={currentPlayingId}
+            onPlay={trendingGists.length > 0 ? handlePlay : undefined}
+          />
         </div>
       </div>
       <BottomNavigation />
