@@ -157,7 +157,7 @@ export const NotificationCenter = () => {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <button type="button" className="relative frosted-icon-button" aria-label="Notifications">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge
@@ -167,7 +167,7 @@ export const NotificationCenter = () => {
               {unreadCount > 9 ? '9+' : unreadCount}
             </Badge>
           )}
-        </Button>
+        </button>
       </PopoverTrigger>
       <PopoverContent className="w-80 sm:w-96 p-0" align="end">
         <div className="flex items-center justify-between p-4 border-b">

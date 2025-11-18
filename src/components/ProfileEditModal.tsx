@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, Loader2, Trash2 } from "lucide-react";
 
 interface ProfileEditModalProps {
   open: boolean;
@@ -17,9 +17,10 @@ interface ProfileEditModalProps {
     avatar_url: string | null;
   } | null;
   onUpdate: () => void;
+  onDeleteAccount?: () => void;
 }
 
-export const ProfileEditModal = ({ open, onOpenChange, profile, onUpdate }: ProfileEditModalProps) => {
+export const ProfileEditModal = ({ open, onOpenChange, profile, onUpdate, onDeleteAccount }: ProfileEditModalProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -194,14 +195,33 @@ export const ProfileEditModal = ({ open, onOpenChange, profile, onUpdate }: Prof
           </div>
         </div>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Changes
-          </Button>
+        <div className="space-y-4">
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </div>
+
+          {onDeleteAccount && (
+            <div className="border-t pt-4">
+              <p className="text-sm text-muted-foreground mb-2">Danger zone</p>
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => {
+                  onOpenChange(false);
+                  onDeleteAccount();
+                }}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Account
+              </Button>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

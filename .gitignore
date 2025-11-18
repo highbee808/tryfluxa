@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+src/tailwind.config.lov.json
 
 # Editor directories and files
 .vscode/*
