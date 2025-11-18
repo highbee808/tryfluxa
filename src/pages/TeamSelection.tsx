@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronLeft, ArrowLeft } from "lucide-react";
@@ -10,52 +9,52 @@ import { ChevronLeft, ArrowLeft } from "lucide-react";
 // Top football and basketball teams
 const TEAMS = [
   // Premier League
-  { name: "Manchester City", league: "Premier League", sport: "football" },
-  { name: "Arsenal", league: "Premier League", sport: "football" },
-  { name: "Liverpool", league: "Premier League", sport: "football" },
-  { name: "Manchester United", league: "Premier League", sport: "football" },
-  { name: "Chelsea", league: "Premier League", sport: "football" },
-  { name: "Tottenham", league: "Premier League", sport: "football" },
+  { name: "Manchester City", league: "Premier League", sport: "football", logo: "https://resources.premierleague.com/premierleague/badges/50/t43.png" },
+  { name: "Arsenal", league: "Premier League", sport: "football", logo: "https://resources.premierleague.com/premierleague/badges/50/t3.png" },
+  { name: "Liverpool", league: "Premier League", sport: "football", logo: "https://resources.premierleague.com/premierleague/badges/50/t14.png" },
+  { name: "Manchester United", league: "Premier League", sport: "football", logo: "https://resources.premierleague.com/premierleague/badges/50/t1.png" },
+  { name: "Chelsea", league: "Premier League", sport: "football", logo: "https://resources.premierleague.com/premierleague/badges/50/t8.png" },
+  { name: "Tottenham", league: "Premier League", sport: "football", logo: "https://resources.premierleague.com/premierleague/badges/50/t6.png" },
   
   // La Liga
-  { name: "Real Madrid", league: "La Liga", sport: "football" },
-  { name: "Barcelona", league: "La Liga", sport: "football" },
-  { name: "Atletico Madrid", league: "La Liga", sport: "football" },
-  { name: "Sevilla", league: "La Liga", sport: "football" },
+  { name: "Real Madrid", league: "La Liga", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg" },
+  { name: "Barcelona", league: "La Liga", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/4/47/FC_Barcelona_%28crest%29.svg" },
+  { name: "Atletico Madrid", league: "La Liga", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/f/f4/Atletico_Madrid_2017_logo.svg" },
+  { name: "Sevilla", league: "La Liga", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/3/3b/Sevilla_FC_logo.svg" },
   
   // Serie A
-  { name: "Inter Milan", league: "Serie A", sport: "football" },
-  { name: "AC Milan", league: "Serie A", sport: "football" },
-  { name: "Juventus", league: "Serie A", sport: "football" },
-  { name: "Napoli", league: "Serie A", sport: "football" },
-  { name: "Roma", league: "Serie A", sport: "football" },
+  { name: "Inter Milan", league: "Serie A", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/commons/0/05/FC_Internazionale_Milano_2021.svg" },
+  { name: "AC Milan", league: "Serie A", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/commons/d/d0/Logo_of_AC_Milan.svg" },
+  { name: "Juventus", league: "Serie A", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/commons/a/a8/Juventus_FC_-_pictogram_black_%28Italy%2C_2017%29.svg" },
+  { name: "Napoli", league: "Serie A", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/commons/2/2d/SSC_Neapel.svg" },
+  { name: "Roma", league: "Serie A", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/f/f7/AS_Roma_logo_%282017%29.svg" },
   
   // Bundesliga
-  { name: "Bayern Munich", league: "Bundesliga", sport: "football" },
-  { name: "Borussia Dortmund", league: "Bundesliga", sport: "football" },
+  { name: "Bayern Munich", league: "Bundesliga", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/commons/1/1b/FC_Bayern_M%C3%BCnchen_logo_%282017%29.svg" },
+  { name: "Borussia Dortmund", league: "Bundesliga", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/commons/6/67/Borussia_Dortmund_logo.svg" },
   
   // Ligue 1
-  { name: "Paris Saint-Germain", league: "Ligue 1", sport: "football" },
+  { name: "Paris Saint-Germain", league: "Ligue 1", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/a/a7/Paris_Saint-Germain_F.C..svg" },
   
   // Other European
-  { name: "Ajax", league: "Eredivisie", sport: "football" },
-  { name: "Porto", league: "Primeira Liga", sport: "football" },
-  { name: "Benfica", league: "Primeira Liga", sport: "football" },
+  { name: "Ajax", league: "Eredivisie", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/7/79/Ajax_Amsterdam.svg" },
+  { name: "Porto", league: "Primeira Liga", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/f/f1/FC_Porto.svg" },
+  { name: "Benfica", league: "Primeira Liga", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/a/a2/SL_Benfica_logo.svg" },
   
   // NBA
-  { name: "Los Angeles Lakers", league: "NBA", sport: "basketball" },
-  { name: "Boston Celtics", league: "NBA", sport: "basketball" },
-  { name: "Golden State Warriors", league: "NBA", sport: "basketball" },
-  { name: "Chicago Bulls", league: "NBA", sport: "basketball" },
-  { name: "Miami Heat", league: "NBA", sport: "basketball" },
-  { name: "Brooklyn Nets", league: "NBA", sport: "basketball" },
-  { name: "Milwaukee Bucks", league: "NBA", sport: "basketball" },
-  { name: "Philadelphia 76ers", league: "NBA", sport: "basketball" },
-  { name: "Phoenix Suns", league: "NBA", sport: "basketball" },
-  { name: "Dallas Mavericks", league: "NBA", sport: "basketball" },
-  { name: "New York Knicks", league: "NBA", sport: "basketball" },
-  { name: "Toronto Raptors", league: "NBA", sport: "basketball" },
-  { name: "Denver Nuggets", league: "NBA", sport: "basketball" },
+  { name: "Los Angeles Lakers", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612747/primary/L/logo.svg" },
+  { name: "Boston Celtics", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612738/primary/L/logo.svg" },
+  { name: "Golden State Warriors", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612744/primary/L/logo.svg" },
+  { name: "Chicago Bulls", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612741/primary/L/logo.svg" },
+  { name: "Miami Heat", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612748/primary/L/logo.svg" },
+  { name: "Brooklyn Nets", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612751/primary/L/logo.svg" },
+  { name: "Milwaukee Bucks", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612749/primary/L/logo.svg" },
+  { name: "Philadelphia 76ers", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612755/primary/L/logo.svg" },
+  { name: "Phoenix Suns", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612756/primary/L/logo.svg" },
+  { name: "Dallas Mavericks", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612742/primary/L/logo.svg" },
+  { name: "New York Knicks", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612752/primary/L/logo.svg" },
+  { name: "Toronto Raptors", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612761/primary/L/logo.svg" },
+  { name: "Denver Nuggets", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612743/primary/L/logo.svg" },
 ];
 
 const TeamSelection = () => {
@@ -210,20 +209,21 @@ const TeamSelection = () => {
               {filteredTeams.map((team) => (
                 <div
                   key={team.name}
-                  className={`flex items-center space-x-2 p-3 rounded-lg border cursor-pointer transition-colors ${
+                  className={`flex items-center space-x-2 p-3 rounded-lg border cursor-pointer transition-all ${
                     favoriteTeams.includes(team.name)
-                      ? "bg-primary/10 border-primary"
-                      : "hover:bg-muted"
+                      ? "bg-primary/10 border-primary shadow-md"
+                      : "hover:bg-muted border-border"
                   }`}
                   onClick={() => toggleFavorite(team.name)}
                 >
-                  <Checkbox
-                    checked={favoriteTeams.includes(team.name)}
-                    onCheckedChange={() => toggleFavorite(team.name)}
+                  <img 
+                    src={team.logo} 
+                    alt={`${team.name} logo`} 
+                    className="w-10 h-10 object-contain flex-shrink-0"
                   />
-                  <div>
-                    <div className="font-medium text-sm">{team.name}</div>
-                    <div className="text-xs text-muted-foreground">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm truncate">{team.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">
                       {team.league}
                     </div>
                   </div>
@@ -241,20 +241,21 @@ const TeamSelection = () => {
               {filteredTeams.map((team) => (
                 <div
                   key={team.name}
-                  className={`flex items-center space-x-2 p-3 rounded-lg border cursor-pointer transition-colors ${
+                  className={`flex items-center space-x-2 p-3 rounded-lg border cursor-pointer transition-all ${
                     rivalTeams.includes(team.name)
-                      ? "bg-destructive/10 border-destructive"
-                      : "hover:bg-muted"
+                      ? "bg-destructive/10 border-destructive shadow-md"
+                      : "hover:bg-muted border-border"
                   }`}
                   onClick={() => toggleRival(team.name)}
                 >
-                  <Checkbox
-                    checked={rivalTeams.includes(team.name)}
-                    onCheckedChange={() => toggleRival(team.name)}
+                  <img 
+                    src={team.logo} 
+                    alt={`${team.name} logo`} 
+                    className="w-10 h-10 object-contain flex-shrink-0"
                   />
-                  <div>
-                    <div className="font-medium text-sm">{team.name}</div>
-                    <div className="text-xs text-muted-foreground">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm truncate">{team.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">
                       {team.league}
                     </div>
                   </div>
