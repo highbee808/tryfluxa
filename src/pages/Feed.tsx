@@ -456,11 +456,27 @@ const Feed = () => {
   };
 
   const handleTellMore = (gist: Gist) => {
-    openChatWithContext(gist.headline, gist.context);
+    navigate('/fluxa-mode', {
+      state: {
+        initialContext: {
+          topic: gist.topic,
+          summary: gist.headline,
+          fullContext: gist.context
+        }
+      }
+    });
   };
 
   const handleNewsChat = (news: NewsItem) => {
-    openChatWithContext(news.title, news.description || news.title);
+    navigate('/fluxa-mode', {
+      state: {
+        initialContext: {
+          topic: news.category,
+          summary: news.title,
+          fullContext: news.description || news.title
+        }
+      }
+    });
   };
 
   const handleShare = (gist: Gist) => {
