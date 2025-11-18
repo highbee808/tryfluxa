@@ -630,7 +630,7 @@ const Feed = () => {
       </div>
 
       {trendingGists.length > 0 && !searchQuery && (
-        <div className="lg:hidden px-4 mt-2">
+        <div className="lg:hidden px-4 mt-4">
           <TrendingCarousel
             gists={trendingGists}
             onPlay={handlePlay}
@@ -714,7 +714,7 @@ const Feed = () => {
           {/* Main column */}
           <div
             ref={feedColumnRef}
-            className="space-y-6 w-full max-w-[420px] sm:max-w-[520px] md:max-w-[640px] mx-auto lg:max-w-none lg:mx-0 lg:h-full lg:overflow-y-auto lg:pr-3 lg:pb-24"
+            className="space-y-6 w-full max-w-[420px] sm:max-w-[520px] md:max-w-[640px] mx-auto scrollbar-hide lg:max-w-none lg:mx-0 lg:h-full lg:overflow-y-auto lg:pr-3 lg:pb-24"
           >
 
             <div className="hidden lg:flex flex-wrap gap-2">
@@ -895,6 +895,19 @@ const Feed = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {trendingGists.length > 0 && !searchQuery && (
+              <Card className="glass rounded-3xl border-glass-border-light">
+                <CardContent className="p-5 pb-3">
+                  <TrendingCarousel
+                    gists={trendingGists}
+                    onPlay={handlePlay}
+                    currentPlayingId={currentPlayingId}
+                    fullWidth
+                  />
+                </CardContent>
+              </Card>
+            )}
 
           </div>
         </div>

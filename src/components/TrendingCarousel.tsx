@@ -2,8 +2,8 @@ import { useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
-import { Play } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface Gist {
   id: string;
@@ -19,15 +19,16 @@ interface TrendingCarouselProps {
   onPlay: (gistId: string, audioUrl: string) => void;
   currentPlayingId: string | null;
   fullWidth?: boolean;
+  className?: string;
 }
 
-export const TrendingCarousel = ({ gists, onPlay, currentPlayingId, fullWidth = false }: TrendingCarouselProps) => {
+export const TrendingCarousel = ({ gists, onPlay, currentPlayingId, fullWidth = false, className }: TrendingCarouselProps) => {
   const autoplayPlugin = Autoplay({ delay: 4000, stopOnInteraction: false });
 
   if (gists.length === 0) return null;
 
   return (
-    <div className="mb-4">
+    <div className={cn("mb-4 trending-carousel", className)}>
       <Carousel
         opts={{
           align: "start",

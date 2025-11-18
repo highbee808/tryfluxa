@@ -154,6 +154,15 @@
   display: none;
 }
 
+.trending-carousel .overflow-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.trending-carousel .overflow-hidden::-webkit-scrollbar {
+  display: none;
+}
+
 /* Glassmorphism utilities */
 .glass {
   background: var(--glass-medium);
