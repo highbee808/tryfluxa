@@ -58,7 +58,7 @@ serve(async (req) => {
     if (!whisperRes.ok) {
       const errText = await whisperRes.text().catch(() => "");
       console.error("Whisper error:", whisperRes.status, errText);
-      return new Response(JSON.stringify({ error: "Transcription failed" }), {
+      return new Response(JSON.stringify({ error: "Audio processing failed" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -103,7 +103,7 @@ serve(async (req) => {
     if (!chatRes.ok) {
       const errText = await chatRes.text().catch(() => "");
       console.error("Chat error:", chatRes.status, errText);
-      return new Response(JSON.stringify({ error: "Failed to generate reply", userSpeech }), {
+      return new Response(JSON.stringify({ error: "Failed to generate response", userSpeech }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -178,7 +178,7 @@ serve(async (req) => {
     });
   } catch (err) {
     console.error("Unexpected error in voice-to-fluxa:", err);
-    return new Response(JSON.stringify({ error: "Server error in voice-to-fluxa" }), {
+    return new Response(JSON.stringify({ error: "An error occurred processing your request" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
