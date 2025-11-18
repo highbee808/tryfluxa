@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
@@ -10,20 +11,16 @@ interface Gist {
   context: string;
   image_url: string | null;
   topic: string;
-  play_count?: number;
-  audio_url?: string | null;
-  audio_cache_url?: string | null;
 }
 
 interface TrendingCarouselProps {
   gists: Gist[];
-  onPlay?: (gist: Gist) => void;
-  currentPlayingId?: string | null;
   fullWidth?: boolean;
   className?: string;
 }
 
-export const TrendingCarousel = ({ gists, onPlay, currentPlayingId, fullWidth = false, className }: TrendingCarouselProps) => {
+export const TrendingCarousel = ({ gists, fullWidth = false, className }: TrendingCarouselProps) => {
+  const navigate = useNavigate();
   const autoplayPlugin = Autoplay({ delay: 4000, stopOnInteraction: false });
 
   if (gists.length === 0) return null;
@@ -46,9 +43,8 @@ export const TrendingCarousel = ({ gists, onPlay, currentPlayingId, fullWidth = 
             >
               <Card
                 className="overflow-hidden border shadow-sm hover:shadow-lg transition-all duration-300 bg-card cursor-pointer group"
-                onClick={() => onPlay?.(gist)}
+                onClick={() => navigate(`/post/${gist.id}`)}
                 role="button"
-                aria-pressed={currentPlayingId === gist.id}
               >
                 <CardContent className="p-0">
                   {gist.image_url && (
@@ -60,7 +56,7 @@ export const TrendingCarousel = ({ gists, onPlay, currentPlayingId, fullWidth = 
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                       <Badge className="absolute top-3 right-3 bg-primary/90 backdrop-blur-sm">
-                        {currentPlayingId === gist.id ? '▶️ Playing' : `🔥 ${gist.play_count || 0} plays`}
+                        🔥 Trending
                       </Badge>
                     </div>
                   )}
@@ -71,6 +67,9 @@ export const TrendingCarousel = ({ gists, onPlay, currentPlayingId, fullWidth = 
                     <p className="text-sm text-muted-foreground line-clamp-2">
                       {gist.context}
                     </p>
+                    <Badge variant="outline" className="mt-3 text-xs capitalize">
+                      {gist.topic}
+                    </Badge>
                   </div>
                 </CardContent>
               </Card>

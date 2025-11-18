@@ -22,7 +22,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { highlightText } from "@/lib/highlightText";
 import type { User } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { requestGistAudio } from "@/lib/requestGistAudio";
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
@@ -63,18 +62,12 @@ interface NewsItem {
 const Feed = () => {
   const navigate = useNavigate();
   const { isDark, toggleDarkMode } = useDarkMode();
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentPlayingId, setCurrentPlayingId] = useState<string | null>(null);
   const [gists, setGists] = useState<Gist[]>([]);
   const [loading, setLoading] = useState(true);
-  const currentAudio = useRef<HTMLAudioElement | null>(null);
   const [likedGists, setLikedGists] = useState<string[]>([]);
   const [bookmarkedGists, setBookmarkedGists] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
-  const [currentPlayingNewsId, setCurrentPlayingNewsId] = useState<string | null>(null);
-  const [isNewsPlaying, setIsNewsPlaying] = useState(false);
-  const newsAudioRef = useRef<HTMLAudioElement | null>(null);
   const [selectedTab, setSelectedTab] = useState<"all" | "foryou" | "bookmarks">("foryou");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [newGistCount, setNewGistCount] = useState(0);
@@ -97,7 +90,6 @@ const Feed = () => {
   const location = useLocation();
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
-  const [pendingAudioId, setPendingAudioId] = useState<string | null>(null);
   
   const fluxaMemory = useFluxaMemory();
 
@@ -423,61 +415,8 @@ const Feed = () => {
     };
   }, [scrollRoot, hasMore, isLoadingMore, loading, loadGists]);
 
-  const handlePlay = async (targetGist: Gist) => {
-    const gistId = targetGist.id;
-
-    if (currentPlayingId === gistId && isPlaying) {
-      if (currentAudio.current) {
-        currentAudio.current.pause();
-      }
-      setIsPlaying(false);
-      setCurrentPlayingId(null);
-      return;
-    }
-
-    if (currentAudio.current) {
-      currentAudio.current.pause();
-    }
-
-    let audioUrl = targetGist.audio_cache_url || targetGist.audio_url || null;
-
-    if (!audioUrl) {
-      try {
-        setPendingAudioId(gistId);
-        const { audioUrl: generatedAudio } = await requestGistAudio(gistId);
-        audioUrl = generatedAudio || null;
-
-        if (audioUrl) {
-          setGists(prev => prev.map(g => g.id === gistId ? { ...g, audio_url: audioUrl, audio_cache_url: audioUrl } : g));
-          setTrendingGists(prev => prev.map(g => g.id === gistId ? { ...g, audio_url: audioUrl, audio_cache_url: audioUrl } : g));
-          setRecommendedGists(prev => prev.map(g => g.id === gistId ? { ...g, audio_url: audioUrl, audio_cache_url: audioUrl } : g));
-        }
-      } catch (error) {
-        console.error('Failed to generate audio', error);
-        toast.error('Fluxa Voice needs a second. Try again!');
-      } finally {
-        setPendingAudioId(null);
-      }
-    }
-
-    if (!audioUrl) {
-      return;
-    }
-
-    const audio = new Audio(audioUrl);
-    currentAudio.current = audio;
-    audio.play();
-    setIsPlaying(true);
-    setCurrentPlayingId(gistId);
-
-    audio.onended = () => {
-      setIsPlaying(false);
-      setCurrentPlayingId(null);
-    };
-  };
-
   const handleLike = (gistId: string) => {
-    setLikedGists(prev => 
+    setLikedGists(prev =>
       prev.includes(gistId) ? prev.filter(id => id !== gistId) : [...prev, gistId]
     );
   };
@@ -487,20 +426,6 @@ const Feed = () => {
     setBookmarkedGists(prev => 
       prev.includes(gistId) ? prev.filter(id => id !== gistId) : [...prev, gistId]
     );
-  };
-
-  const openFluxaMode = (payload?: { topic?: string; summary?: string; gistId?: string }) => {
-    navigate("/fluxa-mode", {
-      state: payload,
-    });
-  };
-
-  const handleTellMore = (gist: Gist) => {
-    openFluxaMode({ gistId: gist.id, topic: gist.headline, summary: gist.context });
-  };
-
-  const handleNewsChat = (news: NewsItem) => {
-    openFluxaMode({ topic: news.title, summary: news.description || news.title });
   };
 
   const handleShare = (gist: Gist) => {
@@ -720,8 +645,6 @@ const Feed = () => {
         <div className="lg:hidden px-4 mt-4">
           <TrendingCarousel
             gists={trendingGists}
-            onPlay={handlePlay}
-            currentPlayingId={currentPlayingId}
             fullWidth
           />
         </div>
@@ -768,7 +691,7 @@ const Feed = () => {
                     <Card
                       key={gist.id}
                       className="cursor-pointer glass hover:shadow-glass-glow transition-all hover:scale-105 border-glass-border-light"
-                      onClick={() => handlePlay(gist)}
+                      onClick={() => navigate(`/post/${gist.id}`)}
                     >
                       {gist.image_url && (
                         <img
@@ -807,17 +730,16 @@ const Feed = () => {
                       imageUrl={item.data.image_url || undefined}
                       headline={searchQuery ? highlightText(item.data.headline, searchQuery) as any : item.data.headline}
                       context={searchQuery ? highlightText(item.data.context, searchQuery) as any : item.data.context}
+                      headlineText={item.data.headline}
+                      contextText={item.data.context}
+                      fullContext={item.data.script || item.data.context}
                       author="Fluxa"
                       timeAgo="2h ago"
                       category={item.data.topic}
                       readTime="5 min"
                       comments={item.data.analytics?.comments || 0}
                       views={item.data.analytics?.views || 0}
-                      plays={item.data.analytics?.plays || 0}
                       shares={item.data.analytics?.shares || 0}
-                      isPlaying={currentPlayingId === item.data.id && isPlaying}
-                      onPlay={() => handlePlay(item.data)}
-                      onComment={() => handleTellMore(item.data)}
                       onShare={() => handleShare(item.data)}
                     />
                   ) : (
@@ -832,37 +754,9 @@ const Feed = () => {
                       imageUrl={item.data.image}
                       category={item.data.category}
                       entityName={item.data.entityName}
-                      isPlaying={currentPlayingNewsId === item.data.id && isNewsPlaying}
                       isLiked={likedGists.includes(item.data.id)}
                       isBookmarked={bookmarkedGists.includes(item.data.id)}
-                      onPlay={async (audioUrl?: string) => {
-                        if (currentPlayingNewsId === item.data.id && isNewsPlaying) {
-                          newsAudioRef.current?.pause();
-                          setIsNewsPlaying(false);
-                          setCurrentPlayingNewsId(null);
-                        } else {
-                          if (newsAudioRef.current) {
-                            newsAudioRef.current.pause();
-                          }
-
-                          if (audioUrl) {
-                            const audio = new Audio(audioUrl);
-                            newsAudioRef.current = audio;
-                            audio.play();
-                            setIsNewsPlaying(true);
-                            setCurrentPlayingNewsId(item.data.id);
-
-                            audio.onended = () => {
-                              setIsNewsPlaying(false);
-                              setCurrentPlayingNewsId(null);
-                            };
-                          } else {
-                            toast.error('Audio not available');
-                          }
-                        }
-                      }}
                       onLike={() => handleLike(item.data.id)}
-                      onComment={() => handleNewsChat(item.data)}
                       onBookmark={() => handleBookmark(item.data.id)}
                       onShare={() => {
                         if (item.data.url) {
@@ -870,6 +764,7 @@ const Feed = () => {
                           toast.success('Link copied!');
                         }
                       }}
+                      onCardClick={() => navigate(`/post/${item.data.id}`)}
                     />
                   )
                 )
@@ -892,8 +787,6 @@ const Feed = () => {
           {/* Right rail */}
           <DesktopRightWidgets
             trendingGists={!searchQuery ? trendingGists : undefined}
-            currentPlayingId={currentPlayingId}
-            onPlay={trendingGists.length > 0 ? handlePlay : undefined}
           />
         </div>
       </div>

@@ -12,6 +12,13 @@ interface Message {
   timestamp: Date;
 }
 
+type ChatContextState = {
+  gistId?: string;
+  topic?: string;
+  summary?: string;
+  fullContext?: string;
+};
+
 const FluxaMode = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -21,7 +28,7 @@ const FluxaMode = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [chatContext, setChatContext] = useState<{ gistId?: string; topic?: string; summary?: string } | null>(null);
+  const [chatContext, setChatContext] = useState<ChatContextState | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -42,9 +49,38 @@ const FluxaMode = () => {
   }, []);
 
   useEffect(() => {
-    const state = location.state as { gistId?: string; topic?: string; summary?: string } | null;
-    if (state && (state.gistId || state.topic || state.summary)) {
-      setChatContext(state);
+    const state = location.state as {
+      gistId?: string;
+      topic?: string;
+      summary?: string;
+      initialContext?: {
+        gistId?: string;
+        topic?: string;
+        headline?: string;
+        context?: string;
+        fullContext?: string;
+      };
+    } | null;
+
+    if (!state) return;
+
+    if (state.initialContext) {
+      const { gistId, topic, headline, context, fullContext } = state.initialContext;
+      setChatContext({
+        gistId,
+        topic: topic || headline,
+        summary: context || headline,
+        fullContext: fullContext || context || headline,
+      });
+      return;
+    }
+
+    if (state.gistId || state.topic || state.summary) {
+      setChatContext({
+        gistId: state.gistId,
+        topic: state.topic,
+        summary: state.summary,
+      });
     }
   }, [location.state]);
 
@@ -57,15 +93,16 @@ const FluxaMode = () => {
 
   useEffect(() => {
     if (!chatContext) return;
-    const signature = chatContext.gistId || `${chatContext.topic || ''}-${chatContext.summary || ''}`;
+    const signature = chatContext.gistId || `${chatContext.topic || ''}-${chatContext.summary || chatContext.fullContext || ''}`;
     if (!signature || contextSignatureRef.current === signature) return;
     contextSignatureRef.current = signature;
 
     if (chatContext.gistId) {
       const intro = `Pulling the latest receipts on ${chatContext.topic || 'this story'}...`;
       setMessages(prev => [...prev, { role: 'fluxa', content: intro, timestamp: new Date() }]);
-    } else if (chatContext.topic || chatContext.summary) {
-      const intro = `Let's chat about ${chatContext.topic || 'this topic'}${chatContext.summary ? `: ${chatContext.summary}` : ''}`;
+    } else if (chatContext.topic || chatContext.summary || chatContext.fullContext) {
+      const details = chatContext.summary || chatContext.fullContext;
+      const intro = `Let's chat about ${chatContext.topic || 'this topic'}${details ? `: ${details}` : ''}`;
       setMessages(prev => [...prev, { role: 'fluxa', content: intro.trim(), timestamp: new Date() }]);
     }
   }, [chatContext]);
@@ -90,7 +127,11 @@ const FluxaMode = () => {
         if (error) throw error;
         if (cancelled) return;
 
-        const explanation = data?.explanation || chatContext.summary || `Here's what's happening with ${chatContext.topic || 'this story'}.`;
+        const explanation =
+          data?.explanation ||
+          chatContext.fullContext ||
+          chatContext.summary ||
+          `Here's what's happening with ${chatContext.topic || 'this story'}.`;
         setMessages(prev => [...prev, { role: "fluxa", content: explanation, timestamp: new Date() }]);
 
         if (data?.audioUrl) {

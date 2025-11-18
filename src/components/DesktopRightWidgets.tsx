@@ -5,8 +5,6 @@ import { TrendingCarousel } from "@/components/TrendingCarousel";
 export type TrendingWidgetGist = {
   id: string;
   headline: string;
-  audio_url: string | null;
-  audio_cache_url?: string | null;
   image_url: string | null;
   topic?: string;
   topic_category?: string | null;
@@ -14,14 +12,10 @@ export type TrendingWidgetGist = {
 
 interface DesktopRightWidgetsProps {
   trendingGists?: TrendingWidgetGist[];
-  currentPlayingId?: string | null;
-  onPlay?: (gist: TrendingWidgetGist) => void;
 }
 
 export const DesktopRightWidgets = ({
   trendingGists,
-  currentPlayingId,
-  onPlay,
 }: DesktopRightWidgetsProps) => {
   return (
     <div className="hidden lg:flex flex-col gap-6 sticky top-24 self-start">
@@ -51,13 +45,11 @@ export const DesktopRightWidgets = ({
         </CardContent>
       </Card>
 
-      {trendingGists && trendingGists.length > 0 && onPlay && (
+      {trendingGists && trendingGists.length > 0 && (
         <Card className="glass rounded-3xl border-glass-border-light">
           <CardContent className="p-5 pb-3">
             <TrendingCarousel
               gists={trendingGists}
-              onPlay={onPlay}
-              currentPlayingId={currentPlayingId}
               fullWidth
             />
           </CardContent>

@@ -1,0 +1,14 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="fluxaGradient" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7C3AED" />
+      <stop offset="1" stop-color="#EC4899" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="28" height="28" rx="14" fill="url(#fluxaGradient)" />
+  <path
+    d="M10.5 21.5C13.1667 19.3333 18.8333 12.6667 21.5 10.5C22.5 9.66667 24 9.83333 24 11.3333V20.6667C24 22.1667 22.5 22.3333 21.5 21.5C18.8333 19.3333 13.1667 12.6667 10.5 10.5C9.5 9.66667 8 9.83333 8 11.3333V20.6667C8 22.1667 9.5 22.3333 10.5 21.5Z"
+    fill="white"
+    fill-opacity="0.95"
+  />
+</svg>
