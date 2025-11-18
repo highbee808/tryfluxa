@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Home, Radio, Trophy, Search, User as UserIcon, Settings, Bookmark } from "lucide-react";
+import { Home, Radio, Trophy, Search, User, Settings, Bookmark } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const navMenuItems = [
@@ -14,7 +14,7 @@ const navMenuItems = [
 ];
 
 const quickLinks = [
-  { label: "Profile", icon: UserIcon, path: "/profile" },
+  { label: "Profile", icon: User, path: "/profile" },
   { label: "Settings", icon: Settings, path: "/settings" },
   { label: "Bookmarks", icon: Bookmark, path: "/feed?tab=bookmarks" },
 ];
@@ -131,7 +131,7 @@ export const DesktopNavigationWidget = () => {
 
   return (
     <div className="hidden lg:flex flex-col gap-6 sticky top-24 self-start">
-
+      {/* Profile Summary */}
       <Card className="glass rounded-3xl border-glass-border-light">
         <CardContent className="p-5 flex flex-col gap-4">
           <div className="flex items-center gap-3">
@@ -148,6 +148,7 @@ export const DesktopNavigationWidget = () => {
             </div>
           </div>
 
+          {/* Stats */}
           <div className="grid grid-cols-3 gap-3 text-center">
             {([
               { label: "Posts", value: stats.posts },
@@ -165,6 +166,7 @@ export const DesktopNavigationWidget = () => {
         </CardContent>
       </Card>
 
+      {/* Main Navigation */}
       <Card className="glass-light rounded-3xl border-glass-border-light">
         <CardContent className="p-4 space-y-1">
           {navMenuItems.map(({ label, icon: Icon, path }) => {
@@ -193,6 +195,7 @@ export const DesktopNavigationWidget = () => {
         </CardContent>
       </Card>
 
+      {/* Quick Links */}
       <Card className="glass-light rounded-3xl border-glass-border-light">
         <CardContent className="p-4 space-y-1">
           {quickLinks.map(({ label, icon: Icon, path }) => (
@@ -209,7 +212,6 @@ export const DesktopNavigationWidget = () => {
           ))}
         </CardContent>
       </Card>
-
     </div>
   );
 };
