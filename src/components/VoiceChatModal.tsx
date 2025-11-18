@@ -69,7 +69,19 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
       setIsConnecting(true);
 
       // 1) Get ephemeral session from our backend edge function
-      const sessionRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/realtime-session`);
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error("Missing Supabase configuration");
+      }
+
+      const sessionRes = await fetch(`${supabaseUrl}/functions/v1/realtime-session`, {
+        headers: {
+          Authorization: `Bearer ${supabaseKey}`,
+          apikey: supabaseKey,
+        },
+      });
       if (!sessionRes.ok) {
         const errorText = await sessionRes.text();
         console.error("Session error:", errorText);
