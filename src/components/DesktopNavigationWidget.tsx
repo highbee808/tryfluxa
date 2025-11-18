@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Home, Radio, Trophy, Search, User, Settings, Bookmark } from "lucide-react";
+import { Home, Radio, Trophy, Search, User as UserIcon, Settings, Bookmark } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const navMenuItems = [
@@ -14,7 +14,7 @@ const navMenuItems = [
 ];
 
 const quickLinks = [
-  { label: "Profile", icon: User, path: "/profile" },
+  { label: "Profile", icon: UserIcon, path: "/profile" },
   { label: "Settings", icon: Settings, path: "/settings" },
   { label: "Bookmarks", icon: Bookmark, path: "/feed?tab=bookmarks" },
 ];
