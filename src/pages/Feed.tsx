@@ -631,16 +631,12 @@ const Feed = () => {
 
       {trendingGists.length > 0 && !searchQuery && (
         <div className="lg:hidden px-4 mt-4">
-          <Card className="glass rounded-3xl border-glass-border-light">
-            <CardContent className="p-4">
-              <TrendingCarousel
-                gists={trendingGists}
-                onPlay={handlePlay}
-                currentPlayingId={currentPlayingId}
-                fullWidth
-              />
-            </CardContent>
-          </Card>
+          <TrendingCarousel
+            gists={trendingGists}
+            onPlay={handlePlay}
+            currentPlayingId={currentPlayingId}
+            fullWidth
+          />
         </div>
       )}
 
@@ -900,18 +896,6 @@ const Feed = () => {
               </CardContent>
             </Card>
 
-            {trendingGists.length > 0 && !searchQuery && (
-              <Card className="glass rounded-3xl border-glass-border-light">
-                <CardContent className="p-4">
-                  <TrendingCarousel
-                    gists={trendingGists}
-                    onPlay={handlePlay}
-                    currentPlayingId={currentPlayingId}
-                    fullWidth
-                  />
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
       </div>
