@@ -7,7 +7,8 @@ export type TrendingWidgetGist = {
   headline: string;
   audio_url: string;
   image_url: string | null;
-  topic?: string;
+  context: string;
+  topic: string;
   topic_category?: string | null;
 };
 
