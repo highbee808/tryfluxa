@@ -16,7 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Filter, Headphones, TrendingUp, Play, ChevronDown, Instagram, Facebook, MessageSquare, Sparkles, Bookmark, User, Settings, LogOut, Moon, Sun } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Search, Filter, TrendingUp, ChevronDown, Instagram, Facebook, MessageSquare, Sparkles, Bookmark, User, Settings, LogOut, Moon, Sun, RefreshCw } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -90,6 +91,12 @@ const Feed = () => {
   const contentRef = useRef<HTMLDivElement>(null);
   
   const fluxaMemory = useFluxaMemory();
+
+  const quickLinks = [
+    { label: "Profile", icon: User, action: () => navigate("/profile") },
+    { label: "Settings", icon: Settings, action: () => navigate("/settings") },
+    { label: "Bookmarks", icon: Bookmark, action: () => setSelectedTab("bookmarks") },
+  ];
 
   const platforms = [
     { name: "X", icon: "𝕏" },
@@ -463,6 +470,12 @@ const Feed = () => {
     touchStartY.current = 0;
   };
 
+  const handleRefreshClick = async () => {
+    if (isRefreshing) return;
+    setNewGistCount(0);
+    await loadGists(true);
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
@@ -498,54 +511,57 @@ const Feed = () => {
         </div>
       )}
       
-      {/* Header - Frosted Navigation */}
-      <div className="sticky top-0 z-50 px-4 pt-4 pb-2">
-        <div className="max-w-5xl mx-auto">
-          <div className="frosted-nav flex items-center justify-between gap-4 px-4 py-3">
-            {/* Left: Profile Avatar Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="frosted-icon-button"
-                  aria-label="Open profile menu"
-                  type="button"
-                >
-                  <Sparkles className="w-5 h-5 text-primary" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56 glass border-glass-border-light rounded-2xl">
-                <DropdownMenuItem onClick={() => navigate("/profile")} className="rounded-xl cursor-pointer">
-                  <User className="w-4 h-4 mr-2" />
-                  View Profile
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/settings")} className="rounded-xl cursor-pointer">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Settings
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={toggleDarkMode} className="rounded-xl cursor-pointer">
-                  {isDark ? <Sun className="w-4 h-4 mr-2" /> : <Moon className="w-4 h-4 mr-2" />}
-                  {isDark ? "Light Mode" : "Dark Mode"}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-glass-border-light" />
-                <DropdownMenuItem
-                  onClick={async () => {
-                    await supabase.auth.signOut();
-                    navigate("/");
-                  }}
-                  className="rounded-xl cursor-pointer text-destructive"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+      {/* Header - Floating controls */}
+      <div className="sticky top-0 z-50 px-4 pt-4 pb-3 bg-background/85 backdrop-blur-xl border-b border-glass-border-light">
+        <div className="max-w-6xl mx-auto flex items-center gap-3">
+          {/* Left: Profile Avatar Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="frosted-icon-button overflow-hidden p-0"
+                aria-label="Open profile menu"
+                type="button"
+              >
+                <Avatar className="w-10 h-10">
+                  <AvatarImage src="https://images.unsplash.com/photo-1504593811423-6dd665756598?auto=format&fit=crop&w=200&q=80" alt="Profile" />
+                  <AvatarFallback>AI</AvatarFallback>
+                </Avatar>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56 glass border-glass-border-light rounded-2xl">
+              <DropdownMenuItem onClick={() => navigate("/profile")} className="rounded-xl cursor-pointer">
+                <User className="w-4 h-4 mr-2" />
+                View Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/settings")} className="rounded-xl cursor-pointer">
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={toggleDarkMode} className="rounded-xl cursor-pointer">
+                {isDark ? <Sun className="w-4 h-4 mr-2" /> : <Moon className="w-4 h-4 mr-2" />}
+                {isDark ? "Light Mode" : "Dark Mode"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-glass-border-light" />
+              <DropdownMenuItem
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  navigate("/");
+                }}
+                className="rounded-xl cursor-pointer text-destructive"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-            {/* Center: Filter Dropdown */}
+          {/* Center: Filter Dropdown */}
+          <div className="flex-1 flex justify-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="flex-1 max-w-[200px] h-12 rounded-full border border-glass-border-light px-5 gap-2 justify-between text-sm font-medium"
+                  className="w-full max-w-[240px] h-12 rounded-full border border-glass-border-light px-5 gap-2 justify-between text-sm font-medium"
                 >
                   <span className="truncate">{activeTab}</span>
                   <ChevronDown className="w-4 h-4" />
@@ -566,344 +582,331 @@ const Feed = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          </div>
 
-            {/* Right: Icon Buttons */}
-            <div className="flex items-center gap-3 flex-shrink-0">
-              <NotificationCenter />
-              <button
-                type="button"
-                className="frosted-icon-button"
-                onClick={() => navigate("/fluxa-mode")}
-                aria-label="Open Fluxa mode"
-              >
-                <MessageSquare className="w-5 h-5" />
-              </button>
-            </div>
+          {/* Right: Icon Buttons */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              type="button"
+              className="relative frosted-icon-button"
+              onClick={handleRefreshClick}
+              aria-label="Refresh feed"
+            >
+              {isRefreshing ? (
+                <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <RefreshCw className="w-5 h-5" />
+              )}
+              {newGistCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {newGistCount > 9 ? "9+" : newGistCount}
+                </span>
+              )}
+            </button>
+            <NotificationCenter />
+            <button
+              type="button"
+              className="frosted-icon-button"
+              onClick={() => navigate("/fluxa-mode")}
+              aria-label="Open Fluxa mode"
+            >
+              <MessageSquare className="w-5 h-5" />
+            </button>
+            <button
+              onClick={toggleDarkMode}
+              className="frosted-icon-button"
+              aria-label="Toggle dark mode"
+              type="button"
+            >
+              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Filter Tags */}
-        <div className="mb-8 glass-light rounded-surface px-4 py-4 flex flex-wrap items-center gap-4">
-          <div className="flex gap-2">
-            <Badge
-              onClick={() => setSelectedTab("all")}
-              className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 ${
-                selectedTab === "all"
-                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
-                  : "bg-secondary text-foreground border border-border"
-              }`}
-            >
-              For You
-            </Badge>
-            <Badge
-              className="cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 bg-secondary text-foreground border border-border"
-            >
-              Technology
-            </Badge>
-          </div>
-          <Button
-            onClick={() => {
-              setNewGistCount(0);
-              loadGists(true);
-            }}
-            variant="glass-light"
-            className="ml-auto relative border-glass-border-light"
-            disabled={isRefreshing}
-          >
-            {isRefreshing ? (
-              <>
-                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                Refreshing...
-              </>
-            ) : (
-              <>
-                <TrendingUp className="w-4 h-4 mr-2" />
-                Refresh
-                {newGistCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {newGistCount}
-                  </span>
-                )}
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* Header Banner */}
-        <div className="mb-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-8 md:p-12 text-white shadow-xl animate-fade-in relative overflow-hidden">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 glass-strong rounded-full flex items-center justify-center">
-                <Headphones className="w-6 h-6" />
-              </div>
-              <h1 className="text-3xl md:text-4xl font-bold">
-                {selectedTab === "foryou" 
-                  ? "Your Personalized Feed" 
-                  : selectedTab === "bookmarks"
-                  ? "Saved Gists"
-                  : "All Content"}
-              </h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="text-white [&_button]:text-white [&_button:hover]:bg-white/20">
-                <NotificationCenter />
-              </div>
-              {/* Play button - positioned in top right on mobile */}
-              <button
-                onClick={() => {
-                  const firstGist = filteredGists[0];
-                  if (firstGist) handlePlay(firstGist.id, firstGist.audio_url);
-                }}
-                className="w-14 h-14 md:w-16 md:h-16 glass-strong rounded-full flex items-center justify-center hover:glass-glow transition-all hover:scale-105 border-2 border-glass-border-strong"
-                aria-label="Play latest gist"
-              >
-                <Play className="w-7 h-7 md:w-8 md:h-8 fill-white text-white" />
-              </button>
-            </div>
-          </div>
-          <p className="text-blue-100 text-lg">
-            {selectedTab === "foryou" 
-              ? "Content curated based on your interests. Click play to listen!"
-              : selectedTab === "bookmarks"
-              ? "Your saved gists, available offline anytime!"
-              : "Explore all the latest gists and news. Click play to listen!"}
-          </p>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="mb-6 flex flex-col md:flex-row gap-4 animate-fade-in">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              placeholder="Search gists by keyword..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 glass-light h-12 border-glass-border-light hover:glass"
-            />
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium gap-1 hover:bg-secondary/50"
-                >
-                  {platforms.find(p => p.name === selectedPlatform)?.name === "X" ? (
-                    <span className="text-base font-bold">𝕏</span>
-                  ) : (
-                    (() => {
-                      const Icon = platforms.find(p => p.name === selectedPlatform)?.icon;
-                      return Icon && typeof Icon !== 'string' ? <Icon className="w-4 h-4" /> : null;
-                    })()
-                  )}
-                  <span>{selectedPlatform}</span>
-                  <ChevronDown className="w-3 h-3" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-48 p-2 bg-card border-border z-50">
-                <div className="space-y-1">
-                  {platforms.map((platform) => (
-                    <button
-                      key={platform.name}
-                      onClick={() => setSelectedPlatform(platform.name)}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
-                        selectedPlatform === platform.name
-                          ? "bg-secondary text-foreground"
-                          : "hover:bg-secondary/50"
-                      )}
-                    >
-                      {platform.name === "X" ? (
-                        <span className="text-lg font-bold">𝕏</span>
-                      ) : (
-                        (() => {
-                          const Icon = platform.icon;
-                          return typeof Icon !== 'string' ? <Icon className="w-4 h-4" /> : null;
-                        })()
-                      )}
-                      <span>{platform.name}</span>
-                    </button>
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="grid gap-8 lg:grid-cols-[240px_minmax(0,1fr)_300px]">
+          {/* Left rail */}
+          <div className="hidden lg:flex flex-col gap-6">
+            <Card className="glass rounded-3xl border-glass-border-light">
+              <CardContent className="p-5 flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <Avatar className="w-14 h-14">
+                    <AvatarImage src="https://images.unsplash.com/photo-1504593811423-6dd665756598?auto=format&fit=crop&w=200&q=80" alt="Profile" />
+                    <AvatarFallback>AI</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Signed in as</p>
+                    <p className="text-lg font-semibold">Aileen Imagine</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  {["Posts", "Followers", "Following"].map((label, idx) => (
+                    <div key={label} className="rounded-2xl glass-light py-3">
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <p className="text-base font-semibold">{[247, "8.2k", 982][idx]}</p>
+                    </div>
                   ))}
                 </div>
-              </PopoverContent>
-            </Popover>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-light rounded-3xl border-glass-border-light">
+              <CardContent className="p-4 space-y-1">
+                {quickLinks.map(({ label, icon: Icon, action }) => (
+                  <button
+                    key={label}
+                    onClick={action}
+                    className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-colors hover:bg-secondary/60"
+                  >
+                    <span className="w-8 h-8 rounded-full glass flex items-center justify-center">
+                      <Icon className="w-4 h-4" />
+                    </span>
+                    <span className="text-sm font-medium">{label}</span>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
           </div>
-          <Button variant="glass-light" className="bg-card border-glass-border-light hidden md:flex">
-            <Filter className="w-4 h-4 mr-2" />
-            Filters
-          </Button>
-        </div>
 
-        {/* Category Pills */}
-        <div className="flex gap-2 overflow-x-auto pb-4 mb-8 animate-fade-in" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-        {categories.map((category) => (
-          <Badge
-            key={category}
-            onClick={() => setSelectedCategory(category)}
-            className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 ${
-              selectedCategory === category
-                ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
-                : "bg-secondary text-foreground border border-border"
-            }`}
-          >
-            {category}
-          </Badge>
-        ))}
-        </div>
-
-        {/* Trending Carousel */}
-        {trendingGists.length > 0 && !searchQuery && selectedTab !== "bookmarks" && (
-          <TrendingCarousel 
-            gists={trendingGists}
-            onPlay={handlePlay}
-            currentPlayingId={currentPlayingId}
-          />
-        )}
-
-        {/* Personalized Recommendations */}
-        {recommendedGists.length > 0 && !searchQuery && selectedTab === "foryou" && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="w-5 h-5 text-purple-500" />
-              <h2 className="text-xl font-bold">Recommended for You</h2>
-              <Badge variant="secondary" className="ml-auto">
-                Based on your history
-              </Badge>
+          {/* Main column */}
+          <div className="space-y-8">
+            <div className="glass-light rounded-3xl px-5 py-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Currently viewing</p>
+                <h1 className="text-2xl font-bold">
+                  {selectedTab === "foryou" ? "For You" : selectedTab === "bookmarks" ? "Bookmarks" : "Latest"}
+                </h1>
+                <p className="text-sm text-muted-foreground">Fresh drops curated for your listening queue.</p>
+              </div>
+              <Badge variant="secondary" className="self-start sm:self-auto">{activeTab}</Badge>
             </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {recommendedGists.map((gist) => (
-                <Card 
-                  key={gist.id} 
-                  className="cursor-pointer glass hover:shadow-glass-glow transition-all hover:scale-105 border-glass-border-light"
-                  onClick={() => handlePlay(gist.id, gist.audio_url)}
-                >
-                  {gist.image_url && (
-                    <img 
-                      src={gist.image_url} 
-                      alt={gist.headline}
-                      className="w-full h-40 object-cover"
-                    />
-                  )}
-                  <CardContent className="p-4">
-                    <h3 className="font-semibold line-clamp-2 mb-2">{gist.headline}</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{gist.context}</p>
-                    <Badge variant="secondary" className="mt-2 text-xs">
-                      {gist.topic}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* Feed Grid */}
-        <div className="grid lg:grid-cols-[1fr_320px] gap-8">
-          {/* Main Feed */}
-          <div className="space-y-6">
-            {combinedFeed.length === 0 ? (
-              <Card className="p-12 text-center">
-                <p className="text-muted-foreground mb-4">No content available yet</p>
-                <Button onClick={() => window.location.href = '/admin'}>
-                  Go to Admin Panel
-                </Button>
-              </Card>
-            ) : (
-              combinedFeed.map((item, idx) => 
-                item.type === 'gist' ? (
-                  <FeedCardWithSocial
-                    key={`gist-${item.data.id}`}
-                    id={item.data.id}
-                    imageUrl={item.data.image_url || undefined}
-                    headline={searchQuery ? highlightText(item.data.headline, searchQuery) as any : item.data.headline}
-                    context={searchQuery ? highlightText(item.data.context, searchQuery) as any : item.data.context}
-                    author="Fluxa"
-                    timeAgo="2h ago"
-                    category={item.data.topic}
-                    readTime="5 min"
-                    comments={item.data.analytics?.comments || 0}
-                    views={item.data.analytics?.views || 0}
-                    plays={item.data.analytics?.plays || 0}
-                    shares={item.data.analytics?.shares || 0}
-                    isPlaying={currentPlayingId === item.data.id && isPlaying}
-                    onPlay={() => handlePlay(item.data.id, item.data.audio_url)}
-                    onComment={() => handleTellMore(item.data)}
-                    onShare={() => handleShare(item.data)}
+            <div className="glass-light rounded-3xl px-4 py-5 space-y-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search gists by keyword..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 glass-light h-12 border-glass-border-light hover:glass"
                   />
-                ) : (
-                  <NewsCard
-                    key={`news-${item.data.id}`}
-                    id={item.data.id}
-                    title={item.data.title}
-                    source={item.data.source}
-                    time={item.data.time}
-                    description={item.data.description}
-                    url={item.data.url}
-                    imageUrl={item.data.image}
-                    category={item.data.category}
-                    entityName={item.data.entityName}
-                    isPlaying={currentPlayingNewsId === item.data.id && isNewsPlaying}
-                    isLiked={likedGists.includes(item.data.id)}
-                    isBookmarked={bookmarkedGists.includes(item.data.id)}
-                    onPlay={async (audioUrl?: string) => {
-                      if (currentPlayingNewsId === item.data.id && isNewsPlaying) {
-                        newsAudioRef.current?.pause();
-                        setIsNewsPlaying(false);
-                        setCurrentPlayingNewsId(null);
-                      } else {
-                        if (newsAudioRef.current) {
-                          newsAudioRef.current.pause();
-                        }
-                        
-                        if (audioUrl) {
-                          const audio = new Audio(audioUrl);
-                          newsAudioRef.current = audio;
-                          audio.play();
-                          setIsNewsPlaying(true);
-                          setCurrentPlayingNewsId(item.data.id);
-
-                          audio.onended = () => {
-                            setIsNewsPlaying(false);
-                            setCurrentPlayingNewsId(null);
-                          };
-                        } else {
-                          toast.error('Audio not available');
-                        }
-                      }
-                    }}
-                    onLike={() => handleLike(item.data.id)}
-                    onComment={() => toast.info('Discussion coming soon!')}
-                    onBookmark={() => handleBookmark(item.data.id)}
-                    onShare={() => {
-                      if (item.data.url) {
-                        navigator.clipboard.writeText(item.data.url);
-                        toast.success('Link copied!');
-                      }
-                    }}
-                  />
-                )
-              )
-            )}
-            
-            {/* Infinite Scroll Trigger */}
-            <div ref={loadMoreRef} className="flex justify-center py-8">
-              {isLoadingMore && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  Loading more gists...
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium gap-1 hover:bg-secondary/50"
+                      >
+                        {platforms.find(p => p.name === selectedPlatform)?.name === "X" ? (
+                          <span className="text-base font-bold">𝕏</span>
+                        ) : (
+                          (() => {
+                            const Icon = platforms.find(p => p.name === selectedPlatform)?.icon;
+                            return Icon && typeof Icon !== 'string' ? <Icon className="w-4 h-4" /> : null;
+                          })()
+                        )}
+                        <span>{selectedPlatform}</span>
+                        <ChevronDown className="w-3 h-3" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-2 bg-card border-border z-50">
+                      <div className="space-y-1">
+                        {platforms.map((platform) => (
+                          <button
+                            key={platform.name}
+                            onClick={() => setSelectedPlatform(platform.name)}
+                            className={cn(
+                              "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                              selectedPlatform === platform.name
+                                ? "bg-secondary text-foreground"
+                                : "hover:bg-secondary/50"
+                            )}
+                          >
+                            {platform.name === "X" ? (
+                              <span className="text-lg font-bold">𝕏</span>
+                            ) : (
+                              (() => {
+                                const Icon = platform.icon;
+                                return typeof Icon !== 'string' ? <Icon className="w-4 h-4" /> : null;
+                              })()
+                            )}
+                            <span>{platform.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
+                <Button variant="glass-light" className="bg-card border-glass-border-light w-full md:w-auto">
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filters
+                </Button>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                {categories.map((category) => (
+                  <Badge
+                    key={category}
+                    onClick={() => setSelectedCategory(category)}
+                    className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 ${
+                      selectedCategory === category
+                        ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
+                        : "bg-secondary text-foreground border border-border"
+                    }`}
+                  >
+                    {category}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {trendingGists.length > 0 && !searchQuery && selectedTab !== "bookmarks" && (
+              <TrendingCarousel
+                gists={trendingGists}
+                onPlay={handlePlay}
+                currentPlayingId={currentPlayingId}
+              />
+            )}
+
+            {recommendedGists.length > 0 && !searchQuery && selectedTab === "foryou" && (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="w-5 h-5 text-purple-500" />
+                  <h2 className="text-xl font-bold">Recommended for You</h2>
+                  <Badge variant="secondary" className="ml-auto">
+                    Based on your history
+                  </Badge>
+                </div>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {recommendedGists.map((gist) => (
+                    <Card
+                      key={gist.id}
+                      className="cursor-pointer glass hover:shadow-glass-glow transition-all hover:scale-105 border-glass-border-light"
+                      onClick={() => handlePlay(gist.id, gist.audio_url)}
+                    >
+                      {gist.image_url && (
+                        <img
+                          src={gist.image_url}
+                          alt={gist.headline}
+                          className="w-full h-40 object-cover"
+                        />
+                      )}
+                      <CardContent className="p-4">
+                        <h3 className="font-semibold line-clamp-2 mb-2">{gist.headline}</h3>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{gist.context}</p>
+                        <Badge variant="secondary" className="mt-2 text-xs">
+                          {gist.topic}
+                        </Badge>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-6">
+              {combinedFeed.length === 0 ? (
+                <Card className="p-12 text-center">
+                  <p className="text-muted-foreground mb-4">No content available yet</p>
+                  <Button onClick={() => window.location.href = '/admin'}>
+                    Go to Admin Panel
+                  </Button>
+                </Card>
+              ) : (
+                combinedFeed.map((item, idx) =>
+                  item.type === 'gist' ? (
+                    <FeedCardWithSocial
+                      key={`gist-${item.data.id}`}
+                      id={item.data.id}
+                      imageUrl={item.data.image_url || undefined}
+                      headline={searchQuery ? highlightText(item.data.headline, searchQuery) as any : item.data.headline}
+                      context={searchQuery ? highlightText(item.data.context, searchQuery) as any : item.data.context}
+                      author="Fluxa"
+                      timeAgo="2h ago"
+                      category={item.data.topic}
+                      readTime="5 min"
+                      comments={item.data.analytics?.comments || 0}
+                      views={item.data.analytics?.views || 0}
+                      plays={item.data.analytics?.plays || 0}
+                      shares={item.data.analytics?.shares || 0}
+                      isPlaying={currentPlayingId === item.data.id && isPlaying}
+                      onPlay={() => handlePlay(item.data.id, item.data.audio_url)}
+                      onComment={() => handleTellMore(item.data)}
+                      onShare={() => handleShare(item.data)}
+                    />
+                  ) : (
+                    <NewsCard
+                      key={`news-${item.data.id}`}
+                      id={item.data.id}
+                      title={item.data.title}
+                      source={item.data.source}
+                      time={item.data.time}
+                      description={item.data.description}
+                      url={item.data.url}
+                      imageUrl={item.data.image}
+                      category={item.data.category}
+                      entityName={item.data.entityName}
+                      isPlaying={currentPlayingNewsId === item.data.id && isNewsPlaying}
+                      isLiked={likedGists.includes(item.data.id)}
+                      isBookmarked={bookmarkedGists.includes(item.data.id)}
+                      onPlay={async (audioUrl?: string) => {
+                        if (currentPlayingNewsId === item.data.id && isNewsPlaying) {
+                          newsAudioRef.current?.pause();
+                          setIsNewsPlaying(false);
+                          setCurrentPlayingNewsId(null);
+                        } else {
+                          if (newsAudioRef.current) {
+                            newsAudioRef.current.pause();
+                          }
+
+                          if (audioUrl) {
+                            const audio = new Audio(audioUrl);
+                            newsAudioRef.current = audio;
+                            audio.play();
+                            setIsNewsPlaying(true);
+                            setCurrentPlayingNewsId(item.data.id);
+
+                            audio.onended = () => {
+                              setIsNewsPlaying(false);
+                              setCurrentPlayingNewsId(null);
+                            };
+                          } else {
+                            toast.error('Audio not available');
+                          }
+                        }
+                      }}
+                      onLike={() => handleLike(item.data.id)}
+                      onComment={() => toast.info('Discussion coming soon!')}
+                      onBookmark={() => handleBookmark(item.data.id)}
+                      onShare={() => {
+                        if (item.data.url) {
+                          navigator.clipboard.writeText(item.data.url);
+                          toast.success('Link copied!');
+                        }
+                      }}
+                    />
+                  )
+                )
               )}
-              {!hasMore && gists.length > 0 && (
-                <p className="text-muted-foreground text-sm">You've reached the end!</p>
-              )}
+
+              <div ref={loadMoreRef} className="flex justify-center py-8">
+                {isLoadingMore && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    Loading more gists...
+                  </div>
+                )}
+                {!hasMore && gists.length > 0 && (
+                  <p className="text-muted-foreground text-sm">You've reached the end!</p>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="hidden lg:block">
-            <div className="sticky top-24 space-y-6">
-              {/* Trending Topics */}
+          {/* Right rail */}
+          <div className="hidden lg:block space-y-6">
+            <div className="sticky top-28 space-y-6">
               <Card className="shadow-glass border-glass-border-light glass">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-2 mb-4">
@@ -930,22 +933,30 @@ const Feed = () => {
                 </CardContent>
               </Card>
 
-              {/* User Stats */}
-              <Card className="shadow-lg border-0 bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                <CardContent className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Your Activity</h3>
+              <Card className="glass rounded-3xl border-glass-border-light">
+                <CardContent className="p-6 space-y-4">
+                  <h3 className="text-lg font-semibold">Your Activity</h3>
                   <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-blue-100">Articles Read</p>
-                      <p className="text-2xl font-bold">247</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Articles Read</p>
+                        <p className="text-2xl font-bold">247</p>
+                      </div>
+                      <Badge variant="secondary">+18%</Badge>
                     </div>
-                    <div>
-                      <p className="text-sm text-blue-100">Hours Listened</p>
-                      <p className="text-2xl font-bold">18.5</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Hours Listened</p>
+                        <p className="text-2xl font-bold">18.5</p>
+                      </div>
+                      <Badge variant="secondary">+5%</Badge>
                     </div>
-                    <div>
-                      <p className="text-sm text-blue-100">Bookmarks</p>
-                      <p className="text-2xl font-bold">{bookmarkedGists.length}</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Bookmarks</p>
+                        <p className="text-2xl font-bold">{bookmarkedGists.length}</p>
+                      </div>
+                      <Badge variant="secondary">Live</Badge>
                     </div>
                   </div>
                 </CardContent>
@@ -954,7 +965,6 @@ const Feed = () => {
           </div>
         </div>
       </div>
-
       <BottomNavigation />
       <FloatingActionButtons />
 

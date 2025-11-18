@@ -14,8 +14,8 @@ export const BottomNavigation = () => {
   ];
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
-      <div className="glass-strong rounded-full border border-glass-border-light shadow-md px-5 py-3">
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 md:hidden">
+      <div className="glass-strong rounded-full border border-glass-border-light shadow-md px-5 py-3 backdrop-blur-xl">
         <div className="flex items-center gap-5">
           {navItems.map(({ icon: Icon, path }) => {
             const isActive = location.pathname === path;
