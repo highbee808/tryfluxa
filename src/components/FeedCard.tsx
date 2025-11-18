@@ -102,7 +102,15 @@ export const FeedCard = ({
   };
 
   const handleCommentClick = () => {
-    navigate(`/post/${id}`);
+    navigate('/fluxa-mode', {
+      state: {
+        initialContext: {
+          topic: category,
+          summary: headline,
+          fullContext: context
+        }
+      }
+    });
   };
   return (
     <Card className="w-full overflow-hidden border-glass-border-light shadow-glass hover:shadow-glass-glow transition-all duration-300 bg-card/95 backdrop-blur-sm">
