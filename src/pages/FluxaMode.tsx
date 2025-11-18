@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Mic, Send, Volume2, VolumeX } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface Message {
   role: "user" | "fluxa";
@@ -14,15 +14,19 @@ interface Message {
 
 const FluxaMode = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [chatContext, setChatContext] = useState<{ gistId?: string; topic?: string; summary?: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const contextSignatureRef = useRef<string | null>(null);
+  const explanationFetchedRef = useRef<string | null>(null);
 
   // Load chat history from localStorage
   useEffect(() => {
@@ -37,6 +41,13 @@ const FluxaMode = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const state = location.state as { gistId?: string; topic?: string; summary?: string } | null;
+    if (state && (state.gistId || state.topic || state.summary)) {
+      setChatContext(state);
+    }
+  }, [location.state]);
+
   // Save chat history to localStorage
   useEffect(() => {
     if (messages.length > 0) {
@@ -44,10 +55,60 @@ const FluxaMode = () => {
     }
   }, [messages]);
 
+  useEffect(() => {
+    if (!chatContext) return;
+    const signature = chatContext.gistId || `${chatContext.topic || ''}-${chatContext.summary || ''}`;
+    if (!signature || contextSignatureRef.current === signature) return;
+    contextSignatureRef.current = signature;
+
+    if (chatContext.gistId) {
+      const intro = `Pulling the latest receipts on ${chatContext.topic || 'this story'}...`;
+      setMessages(prev => [...prev, { role: 'fluxa', content: intro, timestamp: new Date() }]);
+    } else if (chatContext.topic || chatContext.summary) {
+      const intro = `Let's chat about ${chatContext.topic || 'this topic'}${chatContext.summary ? `: ${chatContext.summary}` : ''}`;
+      setMessages(prev => [...prev, { role: 'fluxa', content: intro.trim(), timestamp: new Date() }]);
+    }
+  }, [chatContext]);
+
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (!chatContext?.gistId) return;
+    if (explanationFetchedRef.current === chatContext.gistId) return;
+    explanationFetchedRef.current = chatContext.gistId;
+    let cancelled = false;
+
+    const fetchExplanation = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("request-gist-audio", {
+          body: { gistId: chatContext.gistId }
+        });
+
+        if (error) throw error;
+        if (cancelled) return;
+
+        const explanation = data?.explanation || chatContext.summary || `Here's what's happening with ${chatContext.topic || 'this story'}.`;
+        setMessages(prev => [...prev, { role: "fluxa", content: explanation, timestamp: new Date() }]);
+
+        if (data?.audioUrl) {
+          await playFluxaVoice(explanation, data.audioUrl);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Failed to load explanation", error);
+          toast.error("Fluxa couldn't load that post yet.");
+        }
+      }
+    };
+
+    fetchExplanation();
+    return () => {
+      cancelled = true;
+    };
+  }, [chatContext?.gistId, chatContext?.summary, chatContext?.topic]);
 
   // Initialize speech recognition
   useEffect(() => {
@@ -101,37 +162,43 @@ const FluxaMode = () => {
     }
   };
 
-  const playFluxaVoice = async (text: string) => {
+  const playFluxaVoice = async (text: string, cachedUrl?: string | null) => {
     if (isMuted) return;
 
     setIsSpeaking(true);
     try {
-      const { data, error } = await supabase.functions.invoke("text-to-speech", {
-        body: { text, voice: "shimmer", speed: 1.0 }
-      });
+      let audioUrl = cachedUrl || null;
 
-      if (error) throw error;
+      if (!audioUrl) {
+        const { data, error } = await supabase.functions.invoke("text-to-speech", {
+          body: { text, voice: "shimmer", speed: 1.0 }
+        });
 
-      if (data?.audioUrl) {
-        // Stop any currently playing audio
+        if (error) throw error;
+        audioUrl = data?.audioUrl || null;
+      }
+
+      if (audioUrl) {
         if (currentAudioRef.current) {
           currentAudioRef.current.pause();
         }
 
-        const audio = new Audio(data.audioUrl);
+        const audio = new Audio(audioUrl);
         currentAudioRef.current = audio;
-        
+
         audio.onended = () => {
           setIsSpeaking(false);
           currentAudioRef.current = null;
         };
-        
+
         audio.onerror = () => {
           setIsSpeaking(false);
           currentAudioRef.current = null;
         };
 
         await audio.play();
+      } else {
+        setIsSpeaking(false);
       }
     } catch (error) {
       console.error("Error playing voice:", error);
@@ -155,9 +222,10 @@ const FluxaMode = () => {
     try {
       // Call Fluxa chat function
       const { data, error } = await supabase.functions.invoke("fluxa-chat", {
-        body: { 
+        body: {
           message: userMessage.content,
-          conversationHistory: messages.slice(-5) // Send last 5 messages for context
+          conversationHistory: messages.slice(-5), // Send last 5 messages for context
+          gistContext: chatContext || undefined
         }
       });
 

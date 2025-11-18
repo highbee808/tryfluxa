@@ -1,6 +1,5 @@
-import { useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
+import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -12,12 +11,14 @@ interface Gist {
   image_url: string | null;
   topic: string;
   play_count?: number;
+  audio_url?: string | null;
+  audio_cache_url?: string | null;
 }
 
 interface TrendingCarouselProps {
   gists: Gist[];
-  onPlay: (gistId: string, audioUrl: string) => void;
-  currentPlayingId: string | null;
+  onPlay?: (gist: Gist) => void;
+  currentPlayingId?: string | null;
   fullWidth?: boolean;
   className?: string;
 }
@@ -43,7 +44,12 @@ export const TrendingCarousel = ({ gists, onPlay, currentPlayingId, fullWidth = 
               key={gist.id}
               className={fullWidth ? "basis-full" : "md:basis-1/2 lg:basis-1/3"}
             >
-              <Card className="overflow-hidden border shadow-sm hover:shadow-lg transition-all duration-300 bg-card cursor-pointer group">
+              <Card
+                className="overflow-hidden border shadow-sm hover:shadow-lg transition-all duration-300 bg-card cursor-pointer group"
+                onClick={() => onPlay?.(gist)}
+                role="button"
+                aria-pressed={currentPlayingId === gist.id}
+              >
                 <CardContent className="p-0">
                   {gist.image_url && (
                     <div className="relative overflow-hidden">
@@ -54,7 +60,7 @@ export const TrendingCarousel = ({ gists, onPlay, currentPlayingId, fullWidth = 
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                       <Badge className="absolute top-3 right-3 bg-primary/90 backdrop-blur-sm">
-                        🔥 {gist.play_count || 0} plays
+                        {currentPlayingId === gist.id ? '▶️ Playing' : `🔥 ${gist.play_count || 0} plays`}
                       </Badge>
                     </div>
                   )}

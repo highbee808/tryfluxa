@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { message, conversationHistory } = await req.json()
+    const { message, conversationHistory, gistContext } = await req.json()
     console.log('📥 User message received')
 
     // Input validation
@@ -78,8 +78,22 @@ serve(async (req) => {
       .limit(3)
 
     let contextInfo = ''
+    if (gistContext?.gistId) {
+      const { data: focusGist } = await supabase
+        .from('gists')
+        .select('headline, context, script')
+        .eq('id', gistContext.gistId)
+        .single()
+
+      if (focusGist) {
+        contextInfo += `\n\nPriority topic:\n- ${focusGist.headline}: ${focusGist.context}\n- Extended notes: ${focusGist.script || focusGist.context}`
+      }
+    } else if (gistContext?.summary || gistContext?.topic) {
+      contextInfo += `\n\nPriority topic:\n- ${gistContext.topic || 'Selected post'}: ${gistContext.summary || 'Use general knowledge'}`
+    }
+
     if (gists && gists.length > 0) {
-      contextInfo = '\n\nRelevant gists I know about:\n' + 
+      contextInfo += '\n\nRelevant gists I know about:\n' +
         gists.map(g => `- ${g.headline}: ${g.context}`).join('\n')
       console.log('✅ Found', gists.length, 'relevant gists')
     }

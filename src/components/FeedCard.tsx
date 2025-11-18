@@ -194,7 +194,7 @@ export const FeedCard = ({
               >
                 <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-all" />
                 <span className="text-sm font-medium">
-                  {onComment ? 'Chat' : comments}
+                  {onComment ? 'Ask Fluxa' : comments}
                 </span>
               </button>
 

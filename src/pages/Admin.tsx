@@ -276,22 +276,15 @@ const Admin = () => {
       }
 
       addLog("🚀 generate-gist successful");
-      addLog("🎤 text-to-speech successful");
+      addLog("🧠 summary cached for on-demand audio");
       addLog("🗄️ gist saved to database");
 
       // Step 3: Verify gist fields
       const gist = data.gist;
       addLog(`Headline: ${gist.headline ? '✓' : '✗ MISSING'}`);
       addLog(`Context: ${gist.context ? '✓' : '✗ MISSING'}`);
-      addLog(`Audio URL: ${gist.audio_url ? '✓' : '✗ MISSING'}`);
+      addLog(`Audio cached: ${gist.audio_url ? 'ready' : 'on-demand'}`);
       addLog(`Status: ${gist.status === 'published' ? '✓ published' : '✗ ' + gist.status}`);
-
-      // Step 4: Verify audio URL format
-      if (gist.audio_url && gist.audio_url.startsWith('https://')) {
-        addLog("Audio URL format valid (starts with https://)");
-      } else {
-        addLog("Audio URL format invalid", false);
-      }
 
       // Step 5: Fetch from database to confirm
       addLog("Verifying gist in database...");
@@ -496,19 +489,25 @@ const Admin = () => {
               </div>
               <div>
                 <span className="font-medium">Audio:</span>
-                <div className="flex items-center gap-2 mt-1">
-                  <audio controls src={lastGist.audio_url} className="w-full" />
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={() => {
-                      const audio = new Audio(lastGist.audio_url);
-                      audio.play();
-                    }}
-                  >
-                    <Play className="h-4 w-4" />
-                  </Button>
-                </div>
+                {lastGist.audio_url ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <audio controls src={lastGist.audio_url} className="w-full" />
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => {
+                        const audio = new Audio(lastGist.audio_url);
+                        audio.play();
+                      }}
+                    >
+                      <Play className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Audio will be generated the first time a user asks Fluxa to explain this post.
+                  </p>
+                )}
               </div>
             </div>
           </Card>

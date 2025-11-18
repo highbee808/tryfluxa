@@ -22,6 +22,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { highlightText } from "@/lib/highlightText";
 import type { User } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { requestGistAudio } from "@/lib/requestGistAudio";
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
@@ -29,12 +30,14 @@ interface Gist {
   id: string;
   headline: string;
   context: string;
-  audio_url: string;
+  audio_url: string | null;
+  audio_cache_url?: string | null;
   image_url: string | null;
   topic: string;
   topic_category: string | null;
   published_at?: string;
   play_count?: number;
+  script?: string | null;
   analytics?: {
     views: number;
     likes: number;
@@ -78,13 +81,13 @@ const Feed = () => {
   const [searchQuery] = useState("");
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [page, setPage] = useState(0);
   const [trendingGists, setTrendingGists] = useState<Gist[]>([]);
   const [recommendedGists, setRecommendedGists] = useState<Gist[]>([]);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedGist, setSelectedGist] = useState<Gist | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const feedColumnRef = useRef<HTMLDivElement>(null);
+  const pageRef = useRef(0);
   const [isPulling, setIsPulling] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const touchStartY = useRef(0);
@@ -94,6 +97,7 @@ const Feed = () => {
   const location = useLocation();
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [pendingAudioId, setPendingAudioId] = useState<string | null>(null);
   
   const fluxaMemory = useFluxaMemory();
 
@@ -182,21 +186,22 @@ const Feed = () => {
     };
   }, [fetchProfile]);
 
-  const loadGists = async (showToast = false, loadMore = false) => {
+  const loadGists = useCallback(async (
+    { showToast = false, append = false }: { showToast?: boolean; append?: boolean } = {}
+  ) => {
     try {
       if (showToast) setIsRefreshing(true);
-      if (loadMore) setIsLoadingMore(true);
-      
+      if (append) setIsLoadingMore(true);
+
       const { data: { user } } = await supabase.auth.getUser();
-      
-      // Get user's interests to filter content
+
       let userTopics: string[] = [];
       if (user) {
         const { data: subniches } = await supabase
           .from("user_subniches")
           .select("main_topic, sub_niches")
           .eq("user_id", user.id);
-        
+
         if (subniches && subniches.length > 0) {
           userTopics = [
             ...subniches.map(s => s.main_topic),
@@ -206,9 +211,9 @@ const Feed = () => {
       }
 
       const pageSize = 20;
-      const offset = loadMore ? (page + 1) * pageSize : 0;
+      const nextPage = append ? pageRef.current + 1 : 0;
+      const offset = nextPage * pageSize;
 
-      // Fetch gists - filter by user topics if available
       let query = supabase
         .from("gists")
         .select("*")
@@ -225,11 +230,9 @@ const Feed = () => {
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
 
       if (data) {
-        // Fetch analytics for all gists
         const gistIds = data.map(g => g.id);
         const { data: analyticsData } = await supabase
           .from("post_analytics")
@@ -251,18 +254,16 @@ const Feed = () => {
           }
         }));
 
-        if (loadMore) {
+        if (append) {
           setGists(prev => [...prev, ...gistsWithAnalytics]);
-          setPage(prev => prev + 1);
         } else {
           setGists(gistsWithAnalytics);
-          setPage(0);
         }
+        pageRef.current = nextPage;
         setHasMore(data.length === pageSize);
       }
 
-      // Load trending gists (top by likes/plays in last 24 hours)
-      if (!loadMore) {
+      if (!append) {
         const { data: trending } = await supabase
           .from("gists")
           .select("*")
@@ -270,10 +271,9 @@ const Feed = () => {
           .gte("published_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
           .order("play_count", { ascending: false })
           .limit(5);
-        
+
         if (trending) setTrendingGists(trending);
 
-        // Load personalized recommendations based on user history
         if (user) {
           const { data: memory } = await supabase
             .from("fluxa_memory")
@@ -282,8 +282,7 @@ const Feed = () => {
             .single();
 
           if (memory) {
-            // Get topics from history and favorites
-            const historyTopics = Array.isArray(memory.gist_history) 
+            const historyTopics = Array.isArray(memory.gist_history)
               ? memory.gist_history.map((h: any) => h.topic).filter(Boolean)
               : [];
             const favoriteTopics = memory.favorite_topics || [];
@@ -309,74 +308,72 @@ const Feed = () => {
         }
       }
 
-      const { data: gistData, error: gistError } = await query;
+      if (user && !append) {
+        const { data: favorites } = await supabase
+          .from("user_favorites")
+          .select("gist_id")
+          .eq("user_id", user.id);
 
-        // Load user's bookmarked gists
-        if (user && !loadMore) {
-          const { data: favorites } = await supabase
-            .from("user_favorites")
-            .select("gist_id")
-            .eq("user_id", user.id);
-          
-          if (favorites) {
-            setBookmarkedGists(favorites.map(f => f.gist_id));
-          }
-        }
-
-        // Load news from followed entities
-        if (user) {
-          const { data: follows } = await supabase
-            .from("fan_follows")
-            .select("entity_id")
-            .eq("user_id", user.id);
-
-          if (follows && follows.length > 0) {
-            const entityIds = follows.map(f => f.entity_id);
-            const { data: entities } = await supabase
-              .from("fan_entities")
-              .select("id, name, category, news_feed, background_url")
-              .in("id", entityIds);
-
-            if (entities) {
-              const allNews: NewsItem[] = [];
-              entities.forEach(entity => {
-                if (entity.news_feed && Array.isArray(entity.news_feed)) {
-                  entity.news_feed.slice(0, 3).forEach((news: any, idx: number) => {
-                    allNews.push({
-                      id: `news-${entity.id}-${idx}`,
-                      title: news.title,
-                      source: news.source,
-                      time: news.time || '1h ago',
-                      description: news.description || `Latest news about ${entity.name}`,
-                      url: news.url,
-                      image: news.image || entity.background_url,
-                      category: entity.category,
-                      entityName: entity.name,
-                      entityId: entity.id
-                    });
-                  });
-                }
-              });
-              setNewsItems(allNews);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error loading gists:", error);
-        toast.error("Failed to load feed");
-      } finally {
-        setLoading(false);
-        setIsLoadingMore(false);
-        if (showToast) {
-          setIsRefreshing(false);
-          toast.success("Feed refreshed!");
+        if (favorites) {
+          setBookmarkedGists(favorites.map(f => f.gist_id));
         }
       }
-    };
+
+      if (user && !append) {
+        const { data: follows } = await supabase
+          .from("fan_follows")
+          .select("entity_id")
+          .eq("user_id", user.id);
+
+        if (follows && follows.length > 0) {
+          const entityIds = follows.map(f => f.entity_id);
+          const { data: entities } = await supabase
+            .from("fan_entities")
+            .select("id, name, category, news_feed, background_url")
+            .in("id", entityIds);
+
+          if (entities) {
+            const allNews: NewsItem[] = [];
+            entities.forEach(entity => {
+              if (entity.news_feed && Array.isArray(entity.news_feed)) {
+                entity.news_feed.slice(0, 3).forEach((news: any, idx: number) => {
+                  allNews.push({
+                    id: `news-${entity.id}-${idx}`,
+                    title: news.title,
+                    source: news.source,
+                    time: news.time || '1h ago',
+                    description: news.description || `Latest news about ${entity.name}`,
+                    url: news.url,
+                    image: news.image || entity.background_url,
+                    category: entity.category,
+                    entityName: entity.name,
+                    entityId: entity.id
+                  });
+                });
+              }
+            });
+            setNewsItems(allNews);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error loading gists:", error);
+      toast.error("Failed to load feed");
+    } finally {
+      setLoading(false);
+      setIsLoadingMore(false);
+      if (showToast) {
+        setIsRefreshing(false);
+        toast.success("Feed refreshed!");
+      }
+    }
+  }, [selectedTab]);
 
   useEffect(() => {
+    pageRef.current = 0;
+    setHasMore(true);
     loadGists();
-  }, [selectedTab]);
+  }, [loadGists]);
 
   useEffect(() => {
     const channel = supabase
@@ -406,7 +403,7 @@ const Feed = () => {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading) {
-          loadGists(false, true);
+          loadGists({ append: true });
         }
       },
       {
@@ -424,33 +421,59 @@ const Feed = () => {
         observer.unobserve(loadMoreRef.current);
       }
     };
-  }, [scrollRoot, hasMore, isLoadingMore, loading]);
+  }, [scrollRoot, hasMore, isLoadingMore, loading, loadGists]);
 
-  const handlePlay = async (gistId: string, audioUrl: string) => {
+  const handlePlay = async (targetGist: Gist) => {
+    const gistId = targetGist.id;
+
     if (currentPlayingId === gistId && isPlaying) {
-      // Pause current
       if (currentAudio.current) {
         currentAudio.current.pause();
       }
       setIsPlaying(false);
       setCurrentPlayingId(null);
-    } else {
-      // Stop previous and play new
-      if (currentAudio.current) {
-        currentAudio.current.pause();
-      }
-      
-      const audio = new Audio(audioUrl);
-      currentAudio.current = audio;
-      audio.play();
-      setIsPlaying(true);
-      setCurrentPlayingId(gistId);
-
-      audio.onended = () => {
-        setIsPlaying(false);
-        setCurrentPlayingId(null);
-      };
+      return;
     }
+
+    if (currentAudio.current) {
+      currentAudio.current.pause();
+    }
+
+    let audioUrl = targetGist.audio_cache_url || targetGist.audio_url || null;
+
+    if (!audioUrl) {
+      try {
+        setPendingAudioId(gistId);
+        const { audioUrl: generatedAudio } = await requestGistAudio(gistId);
+        audioUrl = generatedAudio || null;
+
+        if (audioUrl) {
+          setGists(prev => prev.map(g => g.id === gistId ? { ...g, audio_url: audioUrl, audio_cache_url: audioUrl } : g));
+          setTrendingGists(prev => prev.map(g => g.id === gistId ? { ...g, audio_url: audioUrl, audio_cache_url: audioUrl } : g));
+          setRecommendedGists(prev => prev.map(g => g.id === gistId ? { ...g, audio_url: audioUrl, audio_cache_url: audioUrl } : g));
+        }
+      } catch (error) {
+        console.error('Failed to generate audio', error);
+        toast.error('Fluxa Voice needs a second. Try again!');
+      } finally {
+        setPendingAudioId(null);
+      }
+    }
+
+    if (!audioUrl) {
+      return;
+    }
+
+    const audio = new Audio(audioUrl);
+    currentAudio.current = audio;
+    audio.play();
+    setIsPlaying(true);
+    setCurrentPlayingId(gistId);
+
+    audio.onended = () => {
+      setIsPlaying(false);
+      setCurrentPlayingId(null);
+    };
   };
 
   const handleLike = (gistId: string) => {
@@ -466,18 +489,18 @@ const Feed = () => {
     );
   };
 
-  const openFluxaMode = (topic?: string, summary?: string) => {
+  const openFluxaMode = (payload?: { topic?: string; summary?: string; gistId?: string }) => {
     navigate("/fluxa-mode", {
-      state: topic || summary ? { topic, summary } : undefined,
+      state: payload,
     });
   };
 
   const handleTellMore = (gist: Gist) => {
-    openFluxaMode(gist.headline, gist.context);
+    openFluxaMode({ gistId: gist.id, topic: gist.headline, summary: gist.context });
   };
 
   const handleNewsChat = (news: NewsItem) => {
-    openFluxaMode(news.title, news.description || news.title);
+    openFluxaMode({ topic: news.title, summary: news.description || news.title });
   };
 
   const handleShare = (gist: Gist) => {
@@ -551,7 +574,7 @@ const Feed = () => {
         navigator.vibrate(50);
       }
       setIsRefreshing(true);
-      await loadGists(true);
+      await loadGists({ showToast: true });
       setIsRefreshing(false);
     }
     
@@ -563,7 +586,7 @@ const Feed = () => {
   const handleRefreshClick = async () => {
     if (isRefreshing) return;
     setNewGistCount(0);
-    await loadGists(true);
+    await loadGists({ showToast: true });
   };
 
   if (loading) {
@@ -745,7 +768,7 @@ const Feed = () => {
                     <Card
                       key={gist.id}
                       className="cursor-pointer glass hover:shadow-glass-glow transition-all hover:scale-105 border-glass-border-light"
-                      onClick={() => handlePlay(gist.id, gist.audio_url)}
+                      onClick={() => handlePlay(gist)}
                     >
                       {gist.image_url && (
                         <img
@@ -793,7 +816,7 @@ const Feed = () => {
                       plays={item.data.analytics?.plays || 0}
                       shares={item.data.analytics?.shares || 0}
                       isPlaying={currentPlayingId === item.data.id && isPlaying}
-                      onPlay={() => handlePlay(item.data.id, item.data.audio_url)}
+                      onPlay={() => handlePlay(item.data)}
                       onComment={() => handleTellMore(item.data)}
                       onShare={() => handleShare(item.data)}
                     />

@@ -138,6 +138,8 @@ serve(async (req) => {
         source_name: generatedSourceName,
         source_published_at: generatedSourcePublishedAt,
         source_image_url: generatedSourceImageUrl,
+        topic_category: generatedTopicCategory,
+        normalized_article,
         used_api_article,
       } = generateResponse.data
       console.log('📋 Headline:', headline?.slice(0, 50))
@@ -148,49 +150,20 @@ serve(async (req) => {
       console.log('📰 Used API article:', used_api_article ? 'Yes' : 'No')
       console.log('🖼️ Fluxa created custom image:', ai_generated_image ? 'Yes' : 'No')
 
-      // Step 2: Convert narration to speech
-      console.log('🎙️ Step 2/4: Converting narration to speech...')
-      console.log('🔊 Narration length:', narration?.length || 0, 'characters')
-      
       if (!narration) {
-        throw new Error('No narration text to convert to speech')
+        throw new Error('No narration text returned from generator')
       }
-      
-      const ttsResponse = await supabase.functions.invoke('text-to-speech', {
-        body: { text: narration, voice: 'shimmer', speed: 0.94 }
-      })
-
-      console.log('📨 Text-to-speech response:', ttsResponse.error ? 'ERROR' : 'SUCCESS')
-      console.log('📨 TTS response data:', ttsResponse.data ? JSON.stringify(ttsResponse.data) : 'No data')
-      
-      if (ttsResponse.error) {
-        console.error('[PIPELINE] Audio generation failed:', ttsResponse.error)
-        throw new Error('Audio generation failed')
-      }
-
-      if (!ttsResponse.data) {
-        console.log('❌ Text-to-speech returned no data')
-        throw new Error('Audio generation returned no data')
-      }
-
-      if (!ttsResponse.data.audioUrl) {
-        console.log('❌ Text-to-speech data:', JSON.stringify(ttsResponse.data))
-        throw new Error('Audio generation returned no URL')
-      }
-
-      console.log('✅ Audio generated and uploaded')
-      console.log('🔗 Audio URL:', ttsResponse.data.audioUrl)
-      const { audioUrl } = ttsResponse.data
 
       const metaPayload: Record<string, unknown> = {}
       if (generatedSourceTitle) metaPayload.source_title = generatedSourceTitle
       if (generatedSourceExcerpt) metaPayload.source_excerpt = generatedSourceExcerpt
       if (generatedSourceName) metaPayload.source_name = generatedSourceName
       if (generatedSourceImageUrl) metaPayload.source_image_url = generatedSourceImageUrl
+      if (normalized_article) metaPayload.normalized_article = normalized_article
       if (used_api_article) metaPayload.used_api_article = true
 
-      // Step 3: Get image URL (AI-generated with local placeholder fallback)
-      console.log('🖼️ Step 3/4: Preparing image URL...')
+      // Step 2: Get image URL (favor provided/source imagery)
+      console.log('🖼️ Step 2/3: Preparing image URL...')
       let finalImageUrl = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800' // Default placeholder
 
       if (ai_generated_image) {
@@ -244,27 +217,31 @@ serve(async (req) => {
       } else if (generatedSourceImageUrl) {
         finalImageUrl = generatedSourceImageUrl
         console.log('📌 Using source article image URL')
+      } else if (normalized_article?.image_url) {
+        finalImageUrl = normalized_article.image_url
+        console.log('📌 Using normalized article image URL')
       } else {
         // Use local placeholder - no Unsplash fallback
         finalImageUrl = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800'
         console.log('📌 No AI image available, using placeholder')
       }
-      
+
       console.log('✅ Final image URL:', finalImageUrl)
 
-      // Step 4: Save to database
-      console.log('💾 Step 4/4: Saving to database...')
+      // Step 3: Save to database
+      console.log('💾 Step 3/3: Saving to database...')
       const gistData: Record<string, any> = {
         headline,
         context,
         script: narration,
         narration,
-        audio_url: audioUrl,
+        audio_url: null,
+        audio_cache_url: null,
         topic,
-        topic_category: topicCategory || 'Trending',
+        topic_category: topicCategory || generatedTopicCategory || 'Trending',
         image_url: finalImageUrl,
-        source_url: sourceUrl || generatedSourceUrl || null,
-        news_published_at: newsPublishedAt || generatedSourcePublishedAt || null,
+        source_url: sourceUrl || generatedSourceUrl || normalized_article?.source_url || null,
+        news_published_at: newsPublishedAt || generatedSourcePublishedAt || normalized_article?.published_at || null,
         status: 'published',
         published_at: new Date().toISOString(),
       }
@@ -315,7 +292,6 @@ serve(async (req) => {
       const errorMessage = stepError instanceof Error ? stepError.message : 'Unknown error'
       let failedStage = 'unknown'
       if (errorMessage.includes('generate-gist') || errorMessage.includes('Content generation')) failedStage = 'generate-gist'
-      else if (errorMessage.includes('text-to-speech') || errorMessage.includes('Audio generation')) failedStage = 'text-to-speech'
       else if (errorMessage.includes('Database') || errorMessage.includes('save')) failedStage = 'database'
       
       // If any step fails, mark gist as failed if we created one

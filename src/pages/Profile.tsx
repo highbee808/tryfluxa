@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,13 +13,15 @@ import { UserBadges } from "@/components/UserBadges";
 import { DesktopNavigationWidget } from "@/components/DesktopNavigationWidget";
 import { DesktopRightWidgets } from "@/components/DesktopRightWidgets";
 import type { User } from "@supabase/supabase-js";
+import { requestGistAudio } from "@/lib/requestGistAudio";
 
 interface Gist {
   id: string;
   headline: string;
   topic: string;
   topic_category: string;
-  audio_url: string;
+  audio_url: string | null;
+  audio_cache_url?: string | null;
   image_url: string | null;
   published_at: string;
 }
@@ -39,6 +41,7 @@ const Profile = () => {
   const [gamificationStats, setGamificationStats] = useState<any>(null);
   const [postsCount, setPostsCount] = useState(0);
   const [authUser, setAuthUser] = useState<User | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     loadProfile();
@@ -160,9 +163,38 @@ const Profile = () => {
     }
   };
 
-  const playGist = (audioUrl: string) => {
-    const audio = new Audio(audioUrl);
-    audio.play();
+  const playGist = async (gist: Gist) => {
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+
+      let audioUrl = gist.audio_cache_url || gist.audio_url || null;
+
+      if (!audioUrl) {
+        try {
+          const { audioUrl: generatedAudio } = await requestGistAudio(gist.id);
+          audioUrl = generatedAudio || null;
+          if (audioUrl) {
+            setFavorites(prev => prev.map(item => item.id === gist.id ? { ...item, audio_url: audioUrl, audio_cache_url: audioUrl } : item));
+          }
+        } catch (error) {
+          console.error('Failed to generate profile audio', error);
+          toast.error('Fluxa Voice needs a moment. Try again!');
+        }
+      }
+
+      if (!audioUrl) {
+        return;
+      }
+
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      await audio.play();
+    } catch (error) {
+      console.error('Unable to play gist', error);
+      toast.error('Unable to play this gist');
+    }
   };
 
   const username = userEmail.split("@")[0];
@@ -404,7 +436,7 @@ const Profile = () => {
                               variant="ghost"
                               size="sm"
                               className="rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
-                              onClick={() => playGist(gist.audio_url)}
+                              onClick={() => playGist(gist)}
                             >
                               <Play className="w-4 h-4 mr-2" />
                               Play

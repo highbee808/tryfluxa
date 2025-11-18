@@ -787,7 +787,8 @@ export type Database = {
       }
       gists: {
         Row: {
-          audio_url: string
+          audio_cache_url: string | null
+          audio_url: string | null
           context: string
           created_at: string | null
           favorite_count: number | null
@@ -806,7 +807,8 @@ export type Database = {
           topic_category: string | null
         }
         Insert: {
-          audio_url: string
+          audio_cache_url?: string | null
+          audio_url?: string | null
           context: string
           created_at?: string | null
           favorite_count?: number | null
@@ -825,7 +827,8 @@ export type Database = {
           topic_category?: string | null
         }
         Update: {
-          audio_url?: string
+          audio_cache_url?: string | null
+          audio_url?: string | null
           context?: string
           created_at?: string | null
           favorite_count?: number | null
@@ -1010,25 +1013,34 @@ export type Database = {
       }
       news_cache: {
         Row: {
+          audio_cache: Json | null
           cached_at: string
           created_at: string
           entity: string
           id: string
           news_data: Json
+          raw_payload: Json | null
+          summary_payload: Json | null
         }
         Insert: {
+          audio_cache?: Json | null
           cached_at?: string
           created_at?: string
           entity: string
           id?: string
           news_data: Json
+          raw_payload?: Json | null
+          summary_payload?: Json | null
         }
         Update: {
+          audio_cache?: Json | null
           cached_at?: string
           created_at?: string
           entity?: string
           id?: string
           news_data?: Json
+          raw_payload?: Json | null
+          summary_payload?: Json | null
         }
         Relationships: []
       }

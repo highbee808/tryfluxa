@@ -5,7 +5,8 @@ import { TrendingCarousel } from "@/components/TrendingCarousel";
 export type TrendingWidgetGist = {
   id: string;
   headline: string;
-  audio_url: string;
+  audio_url: string | null;
+  audio_cache_url?: string | null;
   image_url: string | null;
   topic?: string;
   topic_category?: string | null;
@@ -14,7 +15,7 @@ export type TrendingWidgetGist = {
 interface DesktopRightWidgetsProps {
   trendingGists?: TrendingWidgetGist[];
   currentPlayingId?: string | null;
-  onPlay?: (gistId: string, audioUrl: string) => void;
+  onPlay?: (gist: TrendingWidgetGist) => void;
 }
 
 export const DesktopRightWidgets = ({
