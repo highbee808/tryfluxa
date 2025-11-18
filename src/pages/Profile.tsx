@@ -2,17 +2,17 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { ProfileEditModal } from "@/components/ProfileEditModal";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
-import VoiceChatModal from "@/components/VoiceChatModal";
-import { FollowButton } from "@/components/FollowButton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, MapPin, Calendar, Link as LinkIcon, Heart, Play, Volume2, MoreHorizontal, Settings, Trash2, Mic, Trophy } from "lucide-react";
+import { ArrowLeft, Calendar, Heart, Play, Volume2, MoreHorizontal, Settings, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { UserBadges } from "@/components/UserBadges";
+import { DesktopNavigationWidget } from "@/components/DesktopNavigationWidget";
+import { DesktopRightWidgets } from "@/components/DesktopRightWidgets";
+import type { User } from "@supabase/supabase-js";
 
 interface Gist {
   id: string;
@@ -34,10 +34,11 @@ const Profile = () => {
   const [profile, setProfile] = useState<any>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [voiceChatOpen, setVoiceChatOpen] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [gamificationStats, setGamificationStats] = useState<any>(null);
+  const [postsCount, setPostsCount] = useState(0);
+  const [authUser, setAuthUser] = useState<User | null>(null);
 
   useEffect(() => {
     loadProfile();
@@ -54,6 +55,7 @@ const Profile = () => {
 
       setUserId(user.id);
       setUserEmail(user.email || "");
+      setAuthUser(user);
 
       // Load profile
       const { data: profileData } = await supabase
@@ -65,18 +67,34 @@ const Profile = () => {
       setProfile(profileData);
 
       // Load follower/following counts
-      const { count: followers } = await supabase
+      const followersPromise = supabase
         .from("user_follows")
         .select("*", { count: "exact", head: true })
         .eq("following_id", user.id);
 
-      const { count: following } = await supabase
+      const followingPromise = supabase
         .from("user_follows")
         .select("*", { count: "exact", head: true })
         .eq("follower_id", user.id);
 
-      setFollowerCount(followers || 0);
-      setFollowingCount(following || 0);
+      const postsPromise = supabase
+        .from("fan_posts")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id);
+
+      const [followersResponse, followingResponse, postsResponse] = await Promise.all([
+        followersPromise,
+        followingPromise,
+        postsPromise,
+      ]);
+
+      if (followersResponse.error) throw followersResponse.error;
+      if (followingResponse.error) throw followingResponse.error;
+      if (postsResponse.error) throw postsResponse.error;
+
+      setFollowerCount(followersResponse.count || 0);
+      setFollowingCount(followingResponse.count || 0);
+      setPostsCount(postsResponse.count || 0);
 
       // Load gamification stats
       const { data: statsData } = await supabase
@@ -148,98 +166,122 @@ const Profile = () => {
   };
 
   const username = userEmail.split("@")[0];
+  const displayName =
+    profile?.display_name ||
+    authUser?.user_metadata?.full_name ||
+    authUser?.user_metadata?.name ||
+    username;
+  const avatarUrl = profile?.avatar_url || authUser?.user_metadata?.avatar_url || "";
+  const joinedDateSource = profile?.created_at || authUser?.created_at;
+  const joinedDate = joinedDateSource
+    ? new Date(joinedDateSource).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    : new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+  const formatNumber = (value: number) => {
+    if (value >= 1000) {
+      const formatted = (value / 1000).toFixed(1);
+      return `${formatted.endsWith(".0") ? formatted.slice(0, -2) : formatted}k`;
+    }
+    return value.toString();
+  };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Profile Header - X.com Style */}
-      <div className="max-w-[600px] mx-auto border-x border-border min-h-screen pb-20 md:mt-16">
-        {/* Top Nav */}
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
-          <div className="flex items-center gap-8 px-4 h-[53px]">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate("/feed")}
-              className="rounded-full"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="font-bold text-xl">{username}</h1>
-              <p className="text-xs text-muted-foreground">{favorites.length} favorites</p>
-            </div>
-          </div>
-        </div>
+    <div className="min-h-screen bg-background pb-24">
+      <div className="mx-auto w-full max-w-6xl px-0 sm:px-4 lg:px-8 lg:pt-10">
+        <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px] items-start">
+          <DesktopNavigationWidget />
 
-        {/* Cover Photo */}
-        <div className="h-[200px] bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500" />
-
-        {/* Profile Info */}
-        <div className="px-4">
-          {/* Avatar */}
-          <div className="flex justify-between items-start -mt-16 mb-4">
-            <Avatar className="w-[133px] h-[133px] border-4 border-background">
-              <AvatarImage src={profile?.avatar_url || ""} alt="Profile" />
-              <AvatarFallback className="text-5xl bg-gradient-to-br from-blue-400 to-purple-600 text-white">
-                {(profile?.display_name || username).charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex gap-2 mt-3">
-              <Button
-                variant="outline"
-                className="rounded-full font-bold px-4 hover:bg-secondary/50 transition-colors"
-                onClick={() => setVoiceChatOpen(true)}
-              >
-                <Mic className="w-4 h-4 mr-2" />
-                Voice Chat
-              </Button>
-              <Button
-                variant="outline"
-                className="rounded-full font-bold px-4 hover:bg-secondary/50 transition-colors"
-                onClick={() => setEditModalOpen(true)}
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Edit
-              </Button>
-            </div>
-          </div>
-          <div className="px-4 mb-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => setDeleteDialogOpen(true)}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete Account
-            </Button>
-          </div>
-
-          {/* User Info */}
-          <div className="mb-4">
-            <h2 className="text-xl font-bold">{profile?.display_name || username}</h2>
-            <p className="text-muted-foreground text-sm">@{username}</p>
-            
-            {profile?.bio && (
-              <p className="text-foreground/90 mt-3">{profile.bio}</p>
-            )}
-            
-            <div className="flex flex-wrap gap-3 mt-3 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <Calendar className="w-4 h-4" />
-                <span>Joined {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+          <div className="w-full sm:max-w-[600px] mx-auto lg:max-w-none lg:mx-0 lg:border-x border-border min-h-screen pb-24 md:mt-16">
+            {/* Top Nav */}
+            <div className="sticky top-0 z-20 px-4 pt-4 pb-2 bg-transparent">
+              <div className="frosted-nav flex items-center gap-4 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => navigate("/feed")}
+                  className="frosted-icon-button"
+                  aria-label="Back to feed"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <div className="flex-1 min-w-0">
+                  <h1 className="font-bold text-xl truncate">{displayName}</h1>
+                  <p className="text-xs text-muted-foreground">{favorites.length} favorites</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/settings")}
+                    className="frosted-icon-button"
+                    aria-label="Open settings"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditModalOpen(true)}
+                    className="frosted-icon-button"
+                    aria-label="Profile actions"
+                  >
+                    <MoreHorizontal className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="flex gap-4 mt-3 text-sm">
-              <button className="hover:underline">
-                <span className="font-bold text-foreground">{followingCount}</span>{" "}
-                <span className="text-muted-foreground">Following</span>
-              </button>
-              <button className="hover:underline">
-                <span className="font-bold text-foreground">{followerCount}</span>{" "}
-                <span className="text-muted-foreground">Followers</span>
-              </button>
+            {/* Cover Photo */}
+            <div className="h-[200px] bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500" />
+
+            {/* Profile Info */}
+            <div className="px-4 sm:px-6">
+          {/* Avatar */}
+            <div className="flex justify-between items-start -mt-16 mb-4">
+              <Avatar className="w-[133px] h-[133px] border-4 border-background shadow-md">
+                <AvatarImage src={avatarUrl} alt={displayName || "Profile"} />
+                <AvatarFallback className="text-5xl bg-gradient-to-br from-blue-400 to-purple-600 text-white">
+                  {(displayName || username).charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex gap-2 mt-3">
+                <Button
+                  variant="outline"
+                  className="rounded-full font-bold px-4 hover:bg-secondary/50 transition-colors"
+                  onClick={() => setEditModalOpen(true)}
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+              </div>
+            </div>
+
+          {/* User Info */}
+          <div className="mb-4">
+            <h2 className="text-xl font-bold">{displayName}</h2>
+            <p className="text-muted-foreground text-sm">@{username}</p>
+
+            {profile?.bio && (
+              <p className="text-foreground/90 mt-3">{profile.bio}</p>
+            )}
+
+            <div className="flex flex-wrap gap-3 mt-3 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Calendar className="w-4 h-4" />
+                <span>Joined {joinedDate}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 text-center mt-6">
+              {(
+                [
+                  { label: "Posts", value: postsCount },
+                  { label: "Followers", value: followerCount },
+                  { label: "Following", value: followingCount },
+                ] as const
+              ).map(({ label, value }) => (
+                <div key={label} className="rounded-2xl glass-light py-4">
+                  <p className="text-xs text-muted-foreground">{label}</p>
+                  <p className="text-lg font-semibold">{formatNumber(value)}</p>
+                </div>
+              ))}
             </div>
 
             {/* Gamification Stats & Badges */}
@@ -402,22 +444,22 @@ const Profile = () => {
         </div>
       </div>
 
+          <DesktopRightWidgets />
+        </div>
+      </div>
+
       <ProfileEditModal
         open={editModalOpen}
         onOpenChange={setEditModalOpen}
         profile={profile}
         onUpdate={loadProfile}
+        onDeleteAccount={() => setDeleteDialogOpen(true)}
       />
 
       <DeleteAccountDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         userEmail={userEmail}
-      />
-
-      <VoiceChatModal
-        open={voiceChatOpen}
-        onOpenChange={setVoiceChatOpen}
       />
 
       <BottomNavigation />
