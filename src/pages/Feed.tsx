@@ -11,15 +11,12 @@ import { useFluxaMemory } from "@/hooks/useFluxaMemory";
 import { useDarkMode } from "@/hooks/useDarkMode";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, Filter, TrendingUp, ChevronDown, Instagram, Facebook, MessageSquare, Sparkles, Bookmark, User, Settings, LogOut, Moon, Sun, RefreshCw } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { TrendingUp, Sparkles, Bookmark, User, Settings, LogOut, Moon, Sun, RefreshCw } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 import { highlightText } from "@/lib/highlightText";
 
 interface Gist {
@@ -66,7 +63,6 @@ const Feed = () => {
   const [likedGists, setLikedGists] = useState<string[]>([]);
   const [bookmarkedGists, setBookmarkedGists] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [selectedPlatform, setSelectedPlatform] = useState("X");
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [currentPlayingNewsId, setCurrentPlayingNewsId] = useState<string | null>(null);
   const [isNewsPlaying, setIsNewsPlaying] = useState(false);
@@ -74,7 +70,7 @@ const Feed = () => {
   const [selectedTab, setSelectedTab] = useState<"all" | "foryou" | "bookmarks">("foryou");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [newGistCount, setNewGistCount] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery] = useState("");
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
@@ -97,13 +93,6 @@ const Feed = () => {
     { label: "Profile", icon: User, action: () => navigate("/profile") },
     { label: "Settings", icon: Settings, action: () => navigate("/settings") },
     { label: "Bookmarks", icon: Bookmark, action: () => setSelectedTab("bookmarks") },
-  ];
-
-  const platforms = [
-    { name: "X", icon: "𝕏" },
-    { name: "Instagram", icon: Instagram },
-    { name: "Facebook", icon: Facebook },
-    { name: "Threads", icon: MessageSquare },
   ];
 
   const categories = ["All", "Technology", "Lifestyle", "Science", "Media", "Productivity"];
@@ -614,6 +603,24 @@ const Feed = () => {
         </div>
       </div>
 
+      <div className="lg:hidden px-4 pt-4">
+        <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          {categories.map((category) => (
+            <Badge
+              key={`${category}-mobile`}
+              onClick={() => setSelectedCategory(category)}
+              className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 ${
+                selectedCategory === category
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
+                  : "bg-secondary text-foreground border border-border"
+              }`}
+            >
+              {category}
+            </Badge>
+          ))}
+        </div>
+      </div>
+
       <div className="container mx-auto px-4 py-6 max-w-6xl lg:h-[calc(100vh-150px)]">
         <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px] lg:h-full items-start">
           {/* Left rail */}
@@ -662,86 +669,8 @@ const Feed = () => {
           {/* Main column */}
           <div
             ref={feedColumnRef}
-            className="space-y-6 w-full max-w-2xl mx-auto lg:max-w-none lg:mx-0 lg:h-full lg:overflow-y-auto lg:pr-3 lg:pb-24"
+            className="space-y-6 w-full max-w-[420px] sm:max-w-[520px] md:max-w-[640px] mx-auto lg:max-w-none lg:mx-0 lg:h-full lg:overflow-y-auto lg:pr-3 lg:pb-24"
           >
-            <div className="rounded-3xl border border-glass-border-light glass-light px-4 py-5 space-y-4 lg:hidden">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <Input
-                    placeholder="Search gists by keyword..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 glass-light h-12 border-glass-border-light hover:glass"
-                  />
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium gap-1 hover:bg-secondary/50"
-                      >
-                        {platforms.find(p => p.name === selectedPlatform)?.name === "X" ? (
-                          <span className="text-base font-bold">𝕏</span>
-                        ) : (
-                          (() => {
-                            const Icon = platforms.find(p => p.name === selectedPlatform)?.icon;
-                            return Icon && typeof Icon !== 'string' ? <Icon className="w-4 h-4" /> : null;
-                          })()
-                        )}
-                        <span>{selectedPlatform}</span>
-                        <ChevronDown className="w-3 h-3" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-48 p-2 bg-card border-border z-50">
-                      <div className="space-y-1">
-                        {platforms.map((platform) => (
-                          <button
-                            key={platform.name}
-                            onClick={() => setSelectedPlatform(platform.name)}
-                            className={cn(
-                              "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
-                              selectedPlatform === platform.name
-                                ? "bg-secondary text-foreground"
-                                : "hover:bg-secondary/50"
-                            )}
-                          >
-                            {platform.name === "X" ? (
-                              <span className="text-lg font-bold">𝕏</span>
-                            ) : (
-                              (() => {
-                                const Icon = platform.icon;
-                                return typeof Icon !== 'string' ? <Icon className="w-4 h-4" /> : null;
-                              })()
-                            )}
-                            <span>{platform.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <Button variant="glass-light" className="bg-card border-glass-border-light w-full md:w-auto">
-                  <Filter className="w-4 h-4 mr-2" />
-                  Filters
-                </Button>
-              </div>
-              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                {categories.map((category) => (
-                  <Badge
-                    key={`${category}-mobile`}
-                    onClick={() => setSelectedCategory(category)}
-                    className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 ${
-                      selectedCategory === category
-                        ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
-                        : "bg-secondary text-foreground border border-border"
-                    }`}
-                  >
-                    {category}
-                  </Badge>
-                ))}
-              </div>
-            </div>
 
             <div className="hidden lg:flex flex-wrap gap-2">
               {categories.map((category) => (
