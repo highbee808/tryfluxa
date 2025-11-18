@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { FeedCardWithSocial } from "@/components/FeedCardWithSocial";
 import { NewsCard } from "@/components/NewsCard";
 import { BottomNavigation } from "@/components/BottomNavigation";
-import { NotificationCenter } from "@/components/NotificationCenter";
 import { ShareDialog } from "@/components/ShareDialog";
 import { TrendingCarousel } from "@/components/TrendingCarousel";
 import { FloatingActionButtons } from "@/components/FloatingActionButtons";
@@ -62,7 +61,6 @@ const Feed = () => {
   const [currentPlayingId, setCurrentPlayingId] = useState<string | null>(null);
   const [gists, setGists] = useState<Gist[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("All Updates");
   const currentAudio = useRef<HTMLAudioElement | null>(null);
   const [chatContext, setChatContext] = useState<{ topic: string; summary: string } | undefined>(undefined);
   const [likedGists, setLikedGists] = useState<string[]>([]);
@@ -85,10 +83,13 @@ const Feed = () => {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedGist, setSelectedGist] = useState<Gist | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const feedColumnRef = useRef<HTMLDivElement>(null);
   const [isPulling, setIsPulling] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const touchStartY = useRef(0);
   const contentRef = useRef<HTMLDivElement>(null);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [scrollRoot, setScrollRoot] = useState<Element | null>(null);
   
   const fluxaMemory = useFluxaMemory();
 
@@ -106,6 +107,33 @@ const Feed = () => {
   ];
 
   const categories = ["All", "Technology", "Lifestyle", "Science", "Media", "Productivity"];
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const handleMediaChange = () => setIsDesktop(mediaQuery.matches);
+
+    handleMediaChange();
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", handleMediaChange);
+    } else {
+      mediaQuery.addListener(handleMediaChange);
+    }
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener("change", handleMediaChange);
+      } else {
+        mediaQuery.removeListener(handleMediaChange);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    setScrollRoot(isDesktop ? feedColumnRef.current : null);
+  }, [isDesktop]);
 
   const loadGists = async (showToast = false, loadMore = false) => {
     try {
@@ -301,8 +329,9 @@ const Feed = () => {
 
   useEffect(() => {
     loadGists();
+  }, [selectedTab]);
 
-    // Set up realtime subscription for new gists
+  useEffect(() => {
     const channel = supabase
       .channel('gists-changes')
       .on(
@@ -321,14 +350,22 @@ const Feed = () => {
       )
       .subscribe();
 
-    // Set up intersection observer for infinite scroll
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading) {
           loadGists(false, true);
         }
       },
-      { threshold: 0.1 }
+      {
+        threshold: 0.1,
+        root: scrollRoot ?? null
+      }
     );
 
     if (loadMoreRef.current) {
@@ -336,12 +373,11 @@ const Feed = () => {
     }
 
     return () => {
-      supabase.removeChannel(channel);
       if (loadMoreRef.current) {
         observer.unobserve(loadMoreRef.current);
       }
     };
-  }, [selectedTab, hasMore, isLoadingMore, loading]);
+  }, [scrollRoot, hasMore, isLoadingMore, loading]);
 
   const handlePlay = async (gistId: string, audioUrl: string) => {
     if (currentPlayingId === gistId && isPlaying) {
@@ -486,12 +522,12 @@ const Feed = () => {
   }
 
   return (
-    <div 
+    <div
       ref={contentRef}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="min-h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 pb-28 animate-fade-in overflow-y-auto"
+      className="min-h-screen lg:h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 pb-28 animate-fade-in overflow-y-auto lg:overflow-hidden"
     >
       {/* Pull-to-refresh indicator */}
       {isPulling && (
@@ -513,7 +549,7 @@ const Feed = () => {
       
       {/* Header - Floating controls */}
       <div className="sticky top-0 z-50 px-4 pt-4 pb-3 bg-background/85 backdrop-blur-xl border-b border-glass-border-light">
-        <div className="max-w-6xl mx-auto flex items-center gap-3">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
           {/* Left: Profile Avatar Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -555,37 +591,8 @@ const Feed = () => {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Center: Filter Dropdown */}
-          <div className="flex-1 flex justify-center">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="w-full max-w-[240px] h-12 rounded-full border border-glass-border-light px-5 gap-2 justify-between text-sm font-medium"
-                >
-                  <span className="truncate">{activeTab}</span>
-                  <ChevronDown className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="w-48 glass border-glass-border-light rounded-2xl">
-                <DropdownMenuItem onClick={() => setActiveTab("All Updates")} className="rounded-xl cursor-pointer">
-                  All Updates
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveTab("Following")} className="rounded-xl cursor-pointer">
-                  Following
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveTab("Trending")} className="rounded-xl cursor-pointer">
-                  Trending
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveTab("Saved")} className="rounded-xl cursor-pointer">
-                  Saved
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
           {/* Right: Icon Buttons */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               className="relative frosted-icon-button"
@@ -603,31 +610,14 @@ const Feed = () => {
                 </span>
               )}
             </button>
-            <NotificationCenter />
-            <button
-              type="button"
-              className="frosted-icon-button"
-              onClick={() => navigate("/fluxa-mode")}
-              aria-label="Open Fluxa mode"
-            >
-              <MessageSquare className="w-5 h-5" />
-            </button>
-            <button
-              onClick={toggleDarkMode}
-              className="frosted-icon-button"
-              aria-label="Toggle dark mode"
-              type="button"
-            >
-              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-6 max-w-6xl">
-        <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px]">
+      <div className="container mx-auto px-4 py-6 max-w-6xl lg:h-[calc(100vh-150px)]">
+        <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px] lg:h-full items-start">
           {/* Left rail */}
-          <div className="hidden lg:flex flex-col gap-6 sticky top-28 self-start">
+          <div className="hidden lg:flex flex-col gap-6 sticky top-24 self-start">
             <Card className="glass rounded-3xl border-glass-border-light">
               <CardContent className="p-5 flex flex-col gap-4">
                 <div className="flex items-center gap-3">
@@ -670,8 +660,11 @@ const Feed = () => {
           </div>
 
           {/* Main column */}
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-glass-border-light glass-light px-4 py-5 space-y-4">
+          <div
+            ref={feedColumnRef}
+            className="space-y-6 w-full max-w-2xl mx-auto lg:max-w-none lg:mx-0 lg:h-full lg:overflow-y-auto lg:pr-3 lg:pb-24"
+          >
+            <div className="rounded-3xl border border-glass-border-light glass-light px-4 py-5 space-y-4 lg:hidden">
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -736,7 +729,7 @@ const Feed = () => {
               <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 {categories.map((category) => (
                   <Badge
-                    key={category}
+                    key={`${category}-mobile`}
                     onClick={() => setSelectedCategory(category)}
                     className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 ${
                       selectedCategory === category
@@ -748,6 +741,22 @@ const Feed = () => {
                   </Badge>
                 ))}
               </div>
+            </div>
+
+            <div className="hidden lg:flex flex-wrap gap-2">
+              {categories.map((category) => (
+                <Badge
+                  key={`${category}-desktop`}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all ${
+                    selectedCategory === category
+                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
+                      : "bg-secondary text-foreground border border-border"
+                  }`}
+                >
+                  {category}
+                </Badge>
+              ))}
             </div>
 
             {recommendedGists.length > 0 && !searchQuery && selectedTab === "foryou" && (
@@ -886,7 +895,7 @@ const Feed = () => {
           </div>
 
           {/* Right rail */}
-          <div className="hidden lg:flex flex-col gap-6 sticky top-28 self-start">
+          <div className="hidden lg:flex flex-col gap-6 sticky top-24 self-start">
             <Card className="shadow-glass border-glass-border-light glass">
               <CardContent className="p-6">
                 <div className="flex items-center gap-2 mb-4">
