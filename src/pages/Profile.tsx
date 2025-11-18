@@ -154,19 +154,37 @@ const Profile = () => {
       {/* Profile Header - X.com Style */}
       <div className="max-w-[600px] mx-auto border-x border-border min-h-screen pb-20 md:mt-16">
         {/* Top Nav */}
-        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b border-border">
-          <div className="flex items-center gap-8 px-4 h-[53px]">
-            <Button
-              variant="ghost"
-              size="icon"
+        <div className="sticky top-0 z-20 px-4 pt-4 pb-2 bg-transparent">
+          <div className="frosted-nav flex items-center gap-4 px-4 py-3">
+            <button
+              type="button"
               onClick={() => navigate("/feed")}
-              className="rounded-full"
+              className="frosted-icon-button"
+              aria-label="Back to feed"
             >
               <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="font-bold text-xl">{username}</h1>
+            </button>
+            <div className="flex-1 min-w-0">
+              <h1 className="font-bold text-xl truncate">{username}</h1>
               <p className="text-xs text-muted-foreground">{favorites.length} favorites</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => navigate("/settings")}
+                className="frosted-icon-button"
+                aria-label="Open settings"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditModalOpen(true)}
+                className="frosted-icon-button"
+                aria-label="Profile actions"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>

@@ -498,88 +498,94 @@ const Feed = () => {
         </div>
       )}
       
-      {/* Header - Reference Style */}
-      <div className="sticky top-0 z-50 glass border-b border-glass-border-light backdrop-blur-xl">
-        <div className="flex items-center justify-between px-4 py-3 gap-3">
-          {/* Left: Profile Avatar Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center shadow-md glass-strong flex-shrink-0 transition-transform hover:scale-105">
-                <Sparkles className="w-6 h-6 text-primary-foreground" />
+      {/* Header - Frosted Navigation */}
+      <div className="sticky top-0 z-50 px-4 pt-4 pb-2">
+        <div className="max-w-5xl mx-auto">
+          <div className="frosted-nav flex items-center justify-between gap-4 px-4 py-3">
+            {/* Left: Profile Avatar Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="frosted-icon-button"
+                  aria-label="Open profile menu"
+                  type="button"
+                >
+                  <Sparkles className="w-5 h-5 text-primary" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56 glass border-glass-border-light rounded-2xl">
+                <DropdownMenuItem onClick={() => navigate("/profile")} className="rounded-xl cursor-pointer">
+                  <User className="w-4 h-4 mr-2" />
+                  View Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/settings")} className="rounded-xl cursor-pointer">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={toggleDarkMode} className="rounded-xl cursor-pointer">
+                  {isDark ? <Sun className="w-4 h-4 mr-2" /> : <Moon className="w-4 h-4 mr-2" />}
+                  {isDark ? "Light Mode" : "Dark Mode"}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-glass-border-light" />
+                <DropdownMenuItem
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    navigate("/");
+                  }}
+                  className="rounded-xl cursor-pointer text-destructive"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Center: Filter Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex-1 max-w-[200px] h-12 rounded-full border border-glass-border-light px-5 gap-2 justify-between text-sm font-medium"
+                >
+                  <span className="truncate">{activeTab}</span>
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-48 glass border-glass-border-light rounded-2xl">
+                <DropdownMenuItem onClick={() => setActiveTab("All Updates")} className="rounded-xl cursor-pointer">
+                  All Updates
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab("Following")} className="rounded-xl cursor-pointer">
+                  Following
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab("Trending")} className="rounded-xl cursor-pointer">
+                  Trending
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setActiveTab("Saved")} className="rounded-xl cursor-pointer">
+                  Saved
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Right: Icon Buttons */}
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <NotificationCenter />
+              <button
+                type="button"
+                className="frosted-icon-button"
+                onClick={() => navigate("/fluxa-mode")}
+                aria-label="Open Fluxa mode"
+              >
+                <MessageSquare className="w-5 h-5" />
               </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 glass border-glass-border-light rounded-2xl">
-              <DropdownMenuItem onClick={() => navigate("/profile")} className="rounded-xl cursor-pointer">
-                <User className="w-4 h-4 mr-2" />
-                View Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate("/settings")} className="rounded-xl cursor-pointer">
-                <Settings className="w-4 h-4 mr-2" />
-                Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={toggleDarkMode} className="rounded-xl cursor-pointer">
-                {isDark ? <Sun className="w-4 h-4 mr-2" /> : <Moon className="w-4 h-4 mr-2" />}
-                {isDark ? "Light Mode" : "Dark Mode"}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-glass-border-light" />
-              <DropdownMenuItem 
-                onClick={async () => {
-                  await supabase.auth.signOut();
-                  navigate("/");
-                }}
-                className="rounded-xl cursor-pointer text-destructive"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
-          {/* Center: Filter Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="glass-light" 
-                className="rounded-full px-4 py-2 h-10 flex items-center gap-2 flex-1 max-w-[140px] transition-transform hover:scale-105"
-              >
-                <span className="text-sm font-medium truncate">{activeTab}</span>
-                <ChevronDown className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="w-48 glass border-glass-border-light rounded-2xl">
-              <DropdownMenuItem onClick={() => setActiveTab("All Updates")} className="rounded-xl cursor-pointer">
-                All Updates
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setActiveTab("Following")} className="rounded-xl cursor-pointer">
-                Following
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setActiveTab("Trending")} className="rounded-xl cursor-pointer">
-                Trending
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setActiveTab("Saved")} className="rounded-xl cursor-pointer">
-                Saved
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
-          {/* Right: Icon Buttons */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <NotificationCenter />
-            <Button
-              variant="glass-light"
-              size="icon"
-              className="w-10 h-10 rounded-full transition-transform hover:scale-105"
-              onClick={() => navigate("/fluxa-mode")}
-            >
-              <MessageSquare className="w-5 h-5" />
-            </Button>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Filter Tags */}
-        <div className="mb-6 flex items-center gap-4">
+        <div className="mb-8 glass-light rounded-surface px-4 py-4 flex flex-wrap items-center gap-4">
           <div className="flex gap-2">
             <Badge
               onClick={() => setSelectedTab("all")}
