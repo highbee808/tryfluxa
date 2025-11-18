@@ -129,7 +129,7 @@ export const FeedCard = ({
                   <AvatarImage src={authorAvatar} alt={author} />
                 ) : (
                   <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm">
-                    {author?.substring(0, 2).toUpperCase()}
+                    {(author || "F").substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 )}
               </Avatar>
@@ -195,7 +195,7 @@ export const FeedCard = ({
               <button
                 onClick={(event) => {
                   event.stopPropagation();
-                  handleCommentClick();
+                  onComment ? onComment() : handleCommentClick();
                 }}
                 className="flex items-center gap-2 text-muted-foreground hover:text-blue-500 transition-colors group"
               >
@@ -235,7 +235,7 @@ export const FeedCard = ({
               className="ml-auto rounded-full bg-primary/10 border border-primary/20 p-2 hover:bg-primary/20 transition-colors"
               aria-label="Open Fluxa Mode"
             >
-              <img src={FluxaIcon} alt="Fluxa" className="w-6 h-6 opacity-80" />
+              <img src={FluxaIcon} alt="Fluxa" className="w-5 h-5 opacity-80" />
             </button>
           </div>
         </div>
