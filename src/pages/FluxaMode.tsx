@@ -5,6 +5,7 @@ import { Mic, Send, Volume2, VolumeX } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate, useLocation } from "react-router-dom";
+import { FluxaLogo } from "@/components/FluxaLogo";
 
 interface Message {
   role: "user" | "fluxa";
@@ -290,8 +291,8 @@ const FluxaMode = () => {
         <div className="max-w-3xl mx-auto space-y-4">
           {messages.length === 0 && (
             <div className="text-center py-12 space-y-3 animate-fade-in">
-              <div className="w-24 h-24 mx-auto rounded-full bg-primary/20 flex items-center justify-center text-5xl animate-bounce">
-                💅
+              <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-primary via-accent to-secondary flex items-center justify-center animate-bounce shadow-glow">
+                <FluxaLogo size={48} fillColor="hsl(var(--primary-foreground))" />
               </div>
               <h2 className="text-2xl font-bold text-foreground">Hey bestie! 👋</h2>
               <p className="text-muted-foreground">
@@ -314,7 +315,9 @@ const FluxaMode = () => {
               >
                 {msg.role === "fluxa" && (
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-lg">💅</span>
+                    <div className="w-5 h-5 flex items-center justify-center">
+                      <FluxaLogo size={16} fillColor="hsl(var(--primary))" />
+                    </div>
                     <span className="text-xs font-semibold text-primary">Fluxa</span>
                   </div>
                 )}
