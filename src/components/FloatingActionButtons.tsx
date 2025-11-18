@@ -1,23 +1,25 @@
 import { Mic, Sparkles, MessageSquare } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import VoiceChatModal from "./VoiceChatModal";
 import { cn } from "@/lib/utils";
 
 export const FloatingActionButtons = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showVoiceChat, setShowVoiceChat] = useState(false);
+  const navigate = useNavigate();
 
   const actions = [
-    { 
-      icon: Mic, 
-      label: "Voice Chat", 
+    {
+      icon: Mic,
+      label: "Voice Chat",
       onClick: () => setShowVoiceChat(true),
       gradient: "from-purple-500 to-pink-500"
     },
-    { 
-      icon: MessageSquare, 
-      label: "Chat", 
-      onClick: () => console.log("Chat"),
+    {
+      icon: MessageSquare,
+      label: "Chat",
+      onClick: () => navigate("/fluxa-mode"),
       gradient: "from-blue-500 to-cyan-500"
     },
   ];

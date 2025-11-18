@@ -105,7 +105,7 @@ export const FeedCard = ({
     navigate(`/post/${id}`);
   };
   return (
-    <Card className="overflow-hidden border-glass-border-light shadow-glass hover:shadow-glass-glow transition-all duration-300 bg-card/95 backdrop-blur-sm">
+    <Card className="w-full overflow-hidden border-glass-border-light shadow-glass hover:shadow-glass-glow transition-all duration-300 bg-card/95 backdrop-blur-sm">
       <CardContent className="p-0">
         {/* Author Info */}
         <div className="p-4 flex items-center justify-between">
@@ -189,11 +189,13 @@ export const FeedCard = ({
               </button>
 
               <button
-                onClick={() => navigate(`/post/${id}`)}
+                onClick={onComment ?? handleCommentClick}
                 className="flex items-center gap-2 text-muted-foreground hover:text-blue-500 transition-colors group"
               >
                 <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-all" />
-                <span className="text-sm font-medium">{comments}</span>
+                <span className="text-sm font-medium">
+                  {onComment ? 'Chat' : comments}
+                </span>
               </button>
 
               <button
