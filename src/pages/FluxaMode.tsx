@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Mic, Send, Volume2, VolumeX } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 interface Message {
   role: "user" | "fluxa";
@@ -14,6 +14,7 @@ interface Message {
 
 const FluxaMode = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
@@ -24,7 +25,7 @@ const FluxaMode = () => {
   const recognitionRef = useRef<any>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Load chat history from localStorage
+  // Load chat history from localStorage and handle initial context
   useEffect(() => {
     const saved = localStorage.getItem("fluxa_chat");
     if (saved) {
@@ -35,7 +36,16 @@ const FluxaMode = () => {
         console.error("Failed to load chat history:", e);
       }
     }
-  }, []);
+
+    // If there's initial context from navigation, add it as user message
+    const initialContext = (location.state as any)?.initialContext;
+    if (initialContext) {
+      const contextMessage = `Tell me about: ${initialContext.summary}`;
+      setInput(contextMessage);
+      // Clear the navigation state
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   // Save chat history to localStorage
   useEffect(() => {
