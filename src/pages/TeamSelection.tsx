@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ArrowLeft } from "lucide-react";
+import { ChevronLeft, ArrowLeft, Search, X } from "lucide-react";
 
 // Top football and basketball teams
 const TEAMS = [
@@ -61,10 +62,19 @@ const TeamSelection = () => {
   const [sportType, setSportType] = useState<'football' | 'basketball' | null>(null);
   const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
   const [rivalTeams, setRivalTeams] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const filteredTeams = sportType ? TEAMS.filter(team => team.sport === sportType) : TEAMS;
+  const filteredTeams = TEAMS.filter(team => {
+    if (sportType && team.sport !== sportType) return false;
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      return team.name.toLowerCase().includes(query) || 
+             team.league.toLowerCase().includes(query);
+    }
+    return true;
+  });
 
   const toggleFavorite = (team: string) => {
     if (rivalTeams.includes(team)) {
@@ -126,7 +136,7 @@ const TeamSelection = () => {
       <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--gradient-hero)" }}>
         <div className="max-w-4xl w-full space-y-8 animate-fade-in">
           <div className="text-center space-y-4">
-            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+            <h1 className="text-5xl md:text-6xl font-bold text-foreground">
               Choose Your Sport
             </h1>
             <p className="text-xl text-foreground font-medium">
@@ -189,13 +199,79 @@ const TeamSelection = () => {
           </Button>
 
           <div className="text-center">
-            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
+            <h1 className="text-5xl md:text-6xl font-bold text-foreground">
               Pick Your {sportType === 'football' ? 'Football' : 'Basketball'} Teams {sportType === 'football' ? '⚽' : '🏀'}
             </h1>
             <p className="text-xl text-foreground font-medium mt-4">
               Choose your favorite and rival teams
             </p>
           </div>
+        </div>
+
+        {/* Summary Banner */}
+        {(favoriteTeams.length > 0 || rivalTeams.length > 0) && (
+          <Card className="p-4 bg-background/80 backdrop-blur">
+            <div className="flex flex-wrap gap-4">
+              {favoriteTeams.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-primary">❤️ Favorites:</span>
+                  <div className="flex flex-wrap gap-2">
+                    {favoriteTeams.map((teamName) => {
+                      const team = TEAMS.find(t => t.name === teamName);
+                      return (
+                        <div key={teamName} className="flex items-center gap-1 px-2 py-1 bg-primary/10 border border-primary rounded-md">
+                          {team && <img src={team.logo} alt={teamName} className="w-4 h-4 object-contain" />}
+                          <span className="text-xs font-medium">{teamName}</span>
+                          <X 
+                            className="w-3 h-3 cursor-pointer hover:text-destructive" 
+                            onClick={() => toggleFavorite(teamName)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {rivalTeams.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-destructive">😤 Rivals:</span>
+                  <div className="flex flex-wrap gap-2">
+                    {rivalTeams.map((teamName) => {
+                      const team = TEAMS.find(t => t.name === teamName);
+                      return (
+                        <div key={teamName} className="flex items-center gap-1 px-2 py-1 bg-destructive/10 border border-destructive rounded-md">
+                          {team && <img src={team.logo} alt={teamName} className="w-4 h-4 object-contain" />}
+                          <span className="text-xs font-medium">{teamName}</span>
+                          <X 
+                            className="w-3 h-3 cursor-pointer hover:text-destructive" 
+                            onClick={() => toggleRival(teamName)}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search teams or leagues..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-10 h-12 text-base"
+          />
+          {searchQuery && (
+            <X 
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground cursor-pointer hover:text-foreground" 
+              onClick={() => setSearchQuery("")}
+            />
+          )}
         </div>
 
         {/* Team Selection */}
