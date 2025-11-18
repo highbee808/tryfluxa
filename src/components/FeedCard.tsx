@@ -189,11 +189,13 @@ export const FeedCard = ({
               </button>
 
               <button
-                onClick={() => navigate(`/post/${id}`)}
+                onClick={onComment ?? handleCommentClick}
                 className="flex items-center gap-2 text-muted-foreground hover:text-blue-500 transition-colors group"
               >
                 <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-all" />
-                <span className="text-sm font-medium">{comments}</span>
+                <span className="text-sm font-medium">
+                  {onComment ? 'Chat' : comments}
+                </span>
               </button>
 
               <button

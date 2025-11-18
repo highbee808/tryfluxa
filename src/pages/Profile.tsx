@@ -6,9 +6,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { ProfileEditModal } from "@/components/ProfileEditModal";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
-import { FollowButton } from "@/components/FollowButton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Calendar, Heart, Play, Volume2, MoreHorizontal, Settings, Trophy } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  Heart,
+  Play,
+  Volume2,
+  MoreHorizontal,
+  Settings,
+  Trophy
+} from "lucide-react";
 import { toast } from "sonner";
 import { UserBadges } from "@/components/UserBadges";
 import { DesktopNavigationWidget } from "@/components/DesktopNavigationWidget";
@@ -165,11 +173,22 @@ const Profile = () => {
     authUser?.user_metadata?.name ||
     username;
 
-  const avatarUrl = profile?.avatar_url || authUser?.user_metadata?.avatar_url || "";
+  const avatarUrl =
+    profile?.avatar_url ||
+    authUser?.user_metadata?.avatar_url ||
+    "";
+
   const joinedDateSource = profile?.created_at || authUser?.created_at;
+
   const joinedDate = joinedDateSource
-    ? new Date(joinedDateSource).toLocaleDateString("en-US", { month: "long", year: "numeric" })
-    : new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    ? new Date(joinedDateSource).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      })
+    : new Date().toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      });
 
   const formatNumber = (value: number) => {
     if (value >= 1000) {
@@ -183,26 +202,42 @@ const Profile = () => {
     <div className="min-h-screen bg-background pb-24">
       <div className="mx-auto w-full max-w-6xl px-0 sm:px-4 lg:px-8 lg:pt-10">
         <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px] items-start">
+
           <DesktopNavigationWidget />
 
           <div className="w-full sm:max-w-[600px] mx-auto lg:max-w-none lg:mx-0 lg:border-x border-border min-h-screen pb-24 md:mt-16">
+
             {/* Top Nav */}
             <div className="sticky top-0 z-20 px-4 pt-4 pb-2 bg-transparent">
               <div className="frosted-nav flex items-center gap-4 px-4 py-3">
-                <button onClick={() => navigate("/feed")} className="frosted-icon-button">
+                <button
+                  type="button"
+                  onClick={() => navigate("/feed")}
+                  className="frosted-icon-button"
+                >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
 
                 <div className="flex-1 min-w-0">
                   <h1 className="font-bold text-xl truncate">{displayName}</h1>
-                  <p className="text-xs text-muted-foreground">{favorites.length} favorites</p>
+                  <p className="text-xs text-muted-foreground">
+                    {favorites.length} favorites
+                  </p>
                 </div>
 
-                <button onClick={() => navigate("/settings")} className="frosted-icon-button">
+                <button
+                  type="button"
+                  onClick={() => navigate("/settings")}
+                  className="frosted-icon-button"
+                >
                   <Settings className="w-5 h-5" />
                 </button>
 
-                <button onClick={() => setEditModalOpen(true)} className="frosted-icon-button">
+                <button
+                  type="button"
+                  onClick={() => setEditModalOpen(true)}
+                  className="frosted-icon-button"
+                >
                   <MoreHorizontal className="w-5 h-5" />
                 </button>
               </div>
@@ -224,7 +259,7 @@ const Profile = () => {
                 <div className="flex gap-2 mt-3">
                   <Button
                     variant="outline"
-                    className="rounded-full font-bold px-4 hover:bg-secondary/50"
+                    className="rounded-full font-bold px-4 hover:bg-secondary/50 transition-colors"
                     onClick={() => setEditModalOpen(true)}
                   >
                     <Settings className="w-4 h-4 mr-2" />
@@ -233,7 +268,6 @@ const Profile = () => {
                 </div>
               </div>
 
-              {/* User Info */}
               <div className="mb-4">
                 <h2 className="text-xl font-bold">{displayName}</h2>
                 <p className="text-muted-foreground text-sm">@{username}</p>
@@ -270,21 +304,27 @@ const Profile = () => {
                           <Trophy className="w-4 h-4 text-yellow-500" />
                           <div className="text-sm">
                             <p className="font-semibold">Level {gamificationStats.level}</p>
-                            <p className="text-xs text-muted-foreground">{gamificationStats.total_points} points</p>
+                            <p className="text-xs text-muted-foreground">
+                              {gamificationStats.total_points} points
+                            </p>
                           </div>
                         </div>
 
                         <div className="border-l border-border" />
 
                         <div className="text-sm">
-                          <p className="font-semibold">{gamificationStats.comments_count}</p>
+                          <p className="font-semibold">
+                            {gamificationStats.comments_count}
+                          </p>
                           <p className="text-xs text-muted-foreground">Comments</p>
                         </div>
 
                         <div className="border-l border-border" />
 
                         <div className="text-sm">
-                          <p className="font-semibold">{gamificationStats.likes_given}</p>
+                          <p className="font-semibold">
+                            {gamificationStats.likes_given}
+                          </p>
                           <p className="text-xs text-muted-foreground">Likes</p>
                         </div>
                       </div>
@@ -293,14 +333,20 @@ const Profile = () => {
                 )}
               </div>
 
-              {/* TABS */}
+              {/* Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="w-full justify-around h-[53px] rounded-none border-b border-border bg-transparent p-0">
-                  <TabsTrigger value="favorites" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary font-semibold">
+                  <TabsTrigger
+                    value="favorites"
+                    className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary font-semibold"
+                  >
                     Favorites
                   </TabsTrigger>
 
-                  <TabsTrigger value="activity" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary font-semibold">
+                  <TabsTrigger
+                    value="activity"
+                    className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary font-semibold"
+                  >
                     Activity
                   </TabsTrigger>
                 </TabsList>
@@ -334,7 +380,9 @@ const Profile = () => {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between mb-1">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <span className="font-bold truncate hover:underline">Fluxa</span>
+                                  <span className="font-bold truncate hover:underline">
+                                    Fluxa
+                                  </span>
                                   <span className="text-muted-foreground truncate">@fluxa</span>
                                   <span className="text-muted-foreground">·</span>
                                   <span className="text-muted-foreground text-sm">
@@ -342,7 +390,11 @@ const Profile = () => {
                                   </span>
                                 </div>
 
-                                <Button variant="ghost" size="icon" className="rounded-full -mt-1 -mr-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="rounded-full -mt-1 -mr-2"
+                                >
                                   <MoreHorizontal className="w-5 h-5" />
                                 </Button>
                               </div>
@@ -354,22 +406,37 @@ const Profile = () => {
 
                                 <h3 className="font-bold text-base mt-2">{gist.headline}</h3>
 
-                                <p className="text-sm text-muted-foreground mt-1">{gist.topic}</p>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {gist.topic}
+                                </p>
                               </div>
 
                               {gist.image_url && (
                                 <div className="rounded-2xl overflow-hidden border border-border mb-3">
-                                  <img src={gist.image_url} alt={gist.topic} className="w-full h-auto" />
+                                  <img
+                                    src={gist.image_url}
+                                    alt={gist.topic}
+                                    className="w-full h-auto"
+                                  />
                                 </div>
                               )}
 
                               <div className="flex items-center justify-between max-w-md mt-3">
-                                <Button variant="ghost" size="sm" className="rounded-full hover:bg-primary/10" onClick={() => playGist(gist.audio_url)}>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="rounded-full hover:bg-primary/10"
+                                  onClick={() => playGist(gist.audio_url)}
+                                >
                                   <Play className="w-4 h-4 mr-2" />
                                   Play
                                 </Button>
 
-                                <Button variant="ghost" size="sm" className="rounded-full hover:bg-green-600/10">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="rounded-full hover:bg-green-600/10"
+                                >
                                   <Volume2 className="w-4 h-4 mr-2" />
                                   Listen
                                 </Button>

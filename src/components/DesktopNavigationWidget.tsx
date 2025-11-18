@@ -64,13 +64,17 @@ export const DesktopNavigationWidget = () => {
           .select("*", { count: "exact", head: true })
           .eq("user_id", data.user.id);
 
-        const [profileResponse, followersResponse, followingResponse, postsResponse] =
-          await Promise.all([
-            profilePromise,
-            followersPromise,
-            followingPromise,
-            postsPromise,
-          ]);
+        const [
+          profileResponse,
+          followersResponse,
+          followingResponse,
+          postsResponse,
+        ] = await Promise.all([
+          profilePromise,
+          followersPromise,
+          followingPromise,
+          postsPromise,
+        ]);
 
         if (!isMounted) return;
 
@@ -93,6 +97,7 @@ export const DesktopNavigationWidget = () => {
     };
 
     loadProfile();
+
     return () => {
       isMounted = false;
     };
@@ -126,7 +131,7 @@ export const DesktopNavigationWidget = () => {
 
   return (
     <div className="hidden lg:flex flex-col gap-6 sticky top-24 self-start">
-      {/* Profile Summary */}
+
       <Card className="glass rounded-3xl border-glass-border-light">
         <CardContent className="p-5 flex flex-col gap-4">
           <div className="flex items-center gap-3">
@@ -143,7 +148,6 @@ export const DesktopNavigationWidget = () => {
             </div>
           </div>
 
-          {/* Stats */}
           <div className="grid grid-cols-3 gap-3 text-center">
             {([
               { label: "Posts", value: stats.posts },
@@ -161,7 +165,6 @@ export const DesktopNavigationWidget = () => {
         </CardContent>
       </Card>
 
-      {/* Main Navigation */}
       <Card className="glass-light rounded-3xl border-glass-border-light">
         <CardContent className="p-4 space-y-1">
           {navMenuItems.map(({ label, icon: Icon, path }) => {
@@ -190,7 +193,6 @@ export const DesktopNavigationWidget = () => {
         </CardContent>
       </Card>
 
-      {/* Quick Links */}
       <Card className="glass-light rounded-3xl border-glass-border-light">
         <CardContent className="p-4 space-y-1">
           {quickLinks.map(({ label, icon: Icon, path }) => (
@@ -207,6 +209,7 @@ export const DesktopNavigationWidget = () => {
           ))}
         </CardContent>
       </Card>
+
     </div>
   );
 };

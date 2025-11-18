@@ -125,12 +125,27 @@ serve(async (req) => {
 
       console.log('✅ Gist content generated successfully')
       console.log('📄 Data keys:', Object.keys(generateResponse.data))
-      const { headline, context, narration, image_keyword, ai_generated_image, is_celebrity } = generateResponse.data
+      const {
+        headline,
+        context,
+        narration,
+        image_keyword,
+        ai_generated_image,
+        is_celebrity,
+        source_url: generatedSourceUrl,
+        source_title: generatedSourceTitle,
+        source_excerpt: generatedSourceExcerpt,
+        source_name: generatedSourceName,
+        source_published_at: generatedSourcePublishedAt,
+        source_image_url: generatedSourceImageUrl,
+        used_api_article,
+      } = generateResponse.data
       console.log('📋 Headline:', headline?.slice(0, 50))
       console.log('📋 Context:', context?.slice(0, 50))
       console.log('📋 Narration length:', narration?.length, 'chars')
       console.log('📋 Image keyword:', image_keyword)
       console.log('👤 Is celebrity:', is_celebrity)
+      console.log('📰 Used API article:', used_api_article ? 'Yes' : 'No')
       console.log('🖼️ Fluxa created custom image:', ai_generated_image ? 'Yes' : 'No')
 
       // Step 2: Convert narration to speech
@@ -167,10 +182,17 @@ serve(async (req) => {
       console.log('🔗 Audio URL:', ttsResponse.data.audioUrl)
       const { audioUrl } = ttsResponse.data
 
+      const metaPayload: Record<string, unknown> = {}
+      if (generatedSourceTitle) metaPayload.source_title = generatedSourceTitle
+      if (generatedSourceExcerpt) metaPayload.source_excerpt = generatedSourceExcerpt
+      if (generatedSourceName) metaPayload.source_name = generatedSourceName
+      if (generatedSourceImageUrl) metaPayload.source_image_url = generatedSourceImageUrl
+      if (used_api_article) metaPayload.used_api_article = true
+
       // Step 3: Get image URL (AI-generated with local placeholder fallback)
       console.log('🖼️ Step 3/4: Preparing image URL...')
       let finalImageUrl = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800' // Default placeholder
-      
+
       if (ai_generated_image) {
         // Download and re-upload Fluxa-generated image to our storage
         console.log('📤 Downloading and uploading AI-generated image to storage...')
@@ -219,6 +241,9 @@ serve(async (req) => {
         // Use provided image URL
         finalImageUrl = imageUrl
         console.log('📌 Using provided image URL')
+      } else if (generatedSourceImageUrl) {
+        finalImageUrl = generatedSourceImageUrl
+        console.log('📌 Using source article image URL')
       } else {
         // Use local placeholder - no Unsplash fallback
         finalImageUrl = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800'
@@ -229,7 +254,7 @@ serve(async (req) => {
 
       // Step 4: Save to database
       console.log('💾 Step 4/4: Saving to database...')
-      const gistData = {
+      const gistData: Record<string, any> = {
         headline,
         context,
         script: narration,
@@ -238,10 +263,14 @@ serve(async (req) => {
         topic,
         topic_category: topicCategory || 'Trending',
         image_url: finalImageUrl,
-        source_url: sourceUrl || null,
-        news_published_at: newsPublishedAt || null,
+        source_url: sourceUrl || generatedSourceUrl || null,
+        news_published_at: newsPublishedAt || generatedSourcePublishedAt || null,
         status: 'published',
         published_at: new Date().toISOString(),
+      }
+
+      if (Object.keys(metaPayload).length > 0) {
+        gistData.meta = metaPayload
       }
       console.log('📄 Gist data keys:', Object.keys(gistData))
       console.log('📄 Topic:', gistData.topic)
