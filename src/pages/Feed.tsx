@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { FeedCardWithSocial } from "@/components/FeedCardWithSocial";
 import { NewsCard } from "@/components/NewsCard";
 import { BottomNavigation } from "@/components/BottomNavigation";
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { TrendingUp, Sparkles, Bookmark, User, Settings, LogOut, Moon, Sun, RefreshCw } from "lucide-react";
+import { TrendingUp, Sparkles, Bookmark, User, Settings, LogOut, Moon, Sun, RefreshCw, Home, Radio, Trophy, Search } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { highlightText } from "@/lib/highlightText";
 
@@ -86,6 +86,7 @@ const Feed = () => {
   const contentRef = useRef<HTMLDivElement>(null);
   const [isDesktop, setIsDesktop] = useState(false);
   const [scrollRoot, setScrollRoot] = useState<Element | null>(null);
+  const location = useLocation();
   
   const fluxaMemory = useFluxaMemory();
 
@@ -93,6 +94,13 @@ const Feed = () => {
     { label: "Profile", icon: User, action: () => navigate("/profile") },
     { label: "Settings", icon: Settings, action: () => navigate("/settings") },
     { label: "Bookmarks", icon: Bookmark, action: () => setSelectedTab("bookmarks") },
+  ];
+
+  const navMenuItems = [
+    { label: "Feed", icon: Home, path: "/feed" },
+    { label: "Fanbase", icon: Radio, path: "/fanbase-hub" },
+    { label: "Sports", icon: Trophy, path: "/sports-hub" },
+    { label: "Explore", icon: Search, path: "/universe" },
   ];
 
   const categories = ["All", "Technology", "Lifestyle", "Science", "Media", "Productivity"];
@@ -621,6 +629,21 @@ const Feed = () => {
         </div>
       </div>
 
+      {trendingGists.length > 0 && !searchQuery && (
+        <div className="lg:hidden px-4 mt-4">
+          <Card className="glass rounded-3xl border-glass-border-light">
+            <CardContent className="p-4">
+              <TrendingCarousel
+                gists={trendingGists}
+                onPlay={handlePlay}
+                currentPlayingId={currentPlayingId}
+                fullWidth
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="container mx-auto px-4 py-6 max-w-6xl lg:h-[calc(100vh-150px)]">
         <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px] lg:h-full items-start">
           {/* Left rail */}
@@ -645,6 +668,32 @@ const Feed = () => {
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-light rounded-3xl border-glass-border-light">
+              <CardContent className="p-4 space-y-1">
+                {navMenuItems.map(({ label, icon: Icon, path }) => {
+                  const isActive = location.pathname === path;
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => navigate(path)}
+                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-colors ${
+                        isActive
+                          ? "bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-primary/30"
+                          : "hover:bg-secondary/60"
+                      }`}
+                    >
+                      <span className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        isActive ? "glass-strong shadow-glass-glow" : "glass"
+                      }`}>
+                        <Icon className="w-4 h-4" />
+                      </span>
+                      <span className="text-sm font-medium">{label}</span>
+                    </button>
+                  );
+                })}
               </CardContent>
             </Card>
 
