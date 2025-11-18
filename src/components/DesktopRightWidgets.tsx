@@ -5,11 +5,11 @@ import { TrendingCarousel } from "@/components/TrendingCarousel";
 export type TrendingWidgetGist = {
   id: string;
   headline: string;
-  audio_url: string;
   image_url: string | null;
-  context: string;
-  topic: string;
+  topic?: string;
   topic_category?: string | null;
+  audio_url?: string;
+  context?: string;
 };
 
 interface DesktopRightWidgetsProps {
@@ -25,12 +25,14 @@ export const DesktopRightWidgets = ({
 }: DesktopRightWidgetsProps) => {
   return (
     <div className="hidden lg:flex flex-col gap-6 sticky top-24 self-start">
+      {/* Trending Topics Static Widget */}
       <Card className="shadow-glass border-glass-border-light glass">
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="w-5 h-5 text-blue-600" />
             <h3 className="text-lg font-semibold">Trending Topics</h3>
           </div>
+
           <div className="space-y-3">
             {[
               { topic: "AI Revolution", posts: "1.2k posts" },
@@ -51,6 +53,7 @@ export const DesktopRightWidgets = ({
         </CardContent>
       </Card>
 
+      {/* Trending Gists Carousel */}
       {trendingGists && trendingGists.length > 0 && onPlay && (
         <Card className="glass rounded-3xl border-glass-border-light">
           <CardContent className="p-5 pb-3">

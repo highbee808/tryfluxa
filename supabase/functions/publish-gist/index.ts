@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Input validation schema - now flexible to accept any category string
+// Input validation schema - flexible to accept any category string
 const publishSchema = z.object({
   topic: z.string().trim().min(1, 'Topic is required').max(500, 'Topic too long (max 500 characters)'),
   imageUrl: z.string().url('Invalid URL format').optional(),
@@ -33,10 +33,9 @@ serve(async (req) => {
     console.log('🔐 Checking authentication...')
     const authHeader = req.headers.get('Authorization')
     
-    // Check if using service role key (for auto-generation)
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    const isServiceRole = authHeader?.includes(serviceKey || 'never-match')
-    
+    const isServiceRole = serviceKey && authHeader?.includes(serviceKey)
+
     if (isServiceRole) {
       console.log('✅ Service role authentication detected (auto-generation)')
     } else {
@@ -66,10 +65,13 @@ serve(async (req) => {
       validated = publishSchema.parse(body)
     } catch (validationError: any) {
       console.log('❌ Validation failed:', validationError.message)
-      return new Response(JSON.stringify({ success: false, error: `Invalid input: ${validationError.message}` }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
+      return new Response(
+        JSON.stringify({ success: false, error: `Invalid input: ${validationError.message}` }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
     }
     
     const { topic, imageUrl, topicCategory, sourceUrl, newsPublishedAt } = validated
@@ -85,12 +87,13 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
     
-    const missingVars = []
+    const missingVars: string[] = []
     if (!supabaseUrl) missingVars.push('SUPABASE_URL')
+    if (!serviceKey) missingVars.push('SUPABASE_SERVICE_ROLE_KEY')
     if (!openaiApiKey) missingVars.push('OPENAI_API_KEY')
     
     if (missingVars.length > 0) {
-      console.error('[CONFIG] Missing required environment variables')
+      console.error('[CONFIG] Missing required environment variables:', missingVars.join(', '))
       return new Response(
         JSON.stringify({ success: false, error: 'Service configuration error' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -98,20 +101,20 @@ serve(async (req) => {
     }
 
     // Use service role key for database operations
-    const supabase = createClient(supabaseUrl ?? '', serviceKey ?? '')
+    const supabase = createClient(supabaseUrl!, serviceKey!)
 
     let gistId: string | null = null
 
     try {
-      // Step 1: Generate gist content
-      console.log('📝 Step 1/4: Generating gist content...')
+      // Step 1: Generate gist content (no audio here)
+      console.log('📝 Step 1/3: Generating gist content...')
       console.log('🤖 Calling generate-gist with topic:', topic)
       
       const generateResponse = await supabase.functions.invoke('generate-gist', {
         body: { topic }
       })
 
-      console.log('📨 Generate-gist response:', generateResponse.error ? 'ERROR' : 'SUCCESS')
+      console.log('📨 generate-gist response:', generateResponse.error ? 'ERROR' : 'SUCCESS')
       
       if (generateResponse.error) {
         console.error('[PIPELINE] Content generation failed:', generateResponse.error)
@@ -119,12 +122,13 @@ serve(async (req) => {
       }
 
       if (!generateResponse.data) {
-        console.log('❌ Generate-gist returned no data')
+        console.log('❌ generate-gist returned no data')
         throw new Error('Content generation returned no data')
       }
 
       console.log('✅ Gist content generated successfully')
-      console.log('📄 Data keys:', Object.keys(generateResponse.data))
+      console.log('📄 Data keys from generate-gist:', Object.keys(generateResponse.data))
+
       const {
         headline,
         context,
@@ -138,8 +142,11 @@ serve(async (req) => {
         source_name: generatedSourceName,
         source_published_at: generatedSourcePublishedAt,
         source_image_url: generatedSourceImageUrl,
+        topic_category: generatedTopicCategory,
+        normalized_article,
         used_api_article,
       } = generateResponse.data
+
       console.log('📋 Headline:', headline?.slice(0, 50))
       console.log('📋 Context:', context?.slice(0, 50))
       console.log('📋 Narration length:', narration?.length, 'chars')
@@ -148,56 +155,26 @@ serve(async (req) => {
       console.log('📰 Used API article:', used_api_article ? 'Yes' : 'No')
       console.log('🖼️ Fluxa created custom image:', ai_generated_image ? 'Yes' : 'No')
 
-      // Step 2: Convert narration to speech
-      console.log('🎙️ Step 2/4: Converting narration to speech...')
-      console.log('🔊 Narration length:', narration?.length || 0, 'characters')
-      
       if (!narration) {
-        throw new Error('No narration text to convert to speech')
+        throw new Error('No narration text returned from generator')
       }
-      
-      const ttsResponse = await supabase.functions.invoke('text-to-speech', {
-        body: { text: narration, voice: 'shimmer', speed: 0.94 }
-      })
-
-      console.log('📨 Text-to-speech response:', ttsResponse.error ? 'ERROR' : 'SUCCESS')
-      console.log('📨 TTS response data:', ttsResponse.data ? JSON.stringify(ttsResponse.data) : 'No data')
-      
-      if (ttsResponse.error) {
-        console.error('[PIPELINE] Audio generation failed:', ttsResponse.error)
-        throw new Error('Audio generation failed')
-      }
-
-      if (!ttsResponse.data) {
-        console.log('❌ Text-to-speech returned no data')
-        throw new Error('Audio generation returned no data')
-      }
-
-      if (!ttsResponse.data.audioUrl) {
-        console.log('❌ Text-to-speech data:', JSON.stringify(ttsResponse.data))
-        throw new Error('Audio generation returned no URL')
-      }
-
-      console.log('✅ Audio generated and uploaded')
-      console.log('🔗 Audio URL:', ttsResponse.data.audioUrl)
-      const { audioUrl } = ttsResponse.data
 
       const metaPayload: Record<string, unknown> = {}
       if (generatedSourceTitle) metaPayload.source_title = generatedSourceTitle
       if (generatedSourceExcerpt) metaPayload.source_excerpt = generatedSourceExcerpt
       if (generatedSourceName) metaPayload.source_name = generatedSourceName
       if (generatedSourceImageUrl) metaPayload.source_image_url = generatedSourceImageUrl
+      if (normalized_article) metaPayload.normalized_article = normalized_article
       if (used_api_article) metaPayload.used_api_article = true
 
-      // Step 3: Get image URL (AI-generated with local placeholder fallback)
-      console.log('🖼️ Step 3/4: Preparing image URL...')
+      // Step 2: Get image URL (favor provided/source/normalized imagery)
+      console.log('🖼️ Step 2/3: Preparing image URL...')
       let finalImageUrl = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800' // Default placeholder
 
       if (ai_generated_image) {
         // Download and re-upload Fluxa-generated image to our storage
         console.log('📤 Downloading and uploading AI-generated image to storage...')
         try {
-          // Download the image from OpenAI URL
           const imageResponse = await fetch(ai_generated_image)
           if (!imageResponse.ok) {
             throw new Error(`Failed to download image: ${imageResponse.status}`)
@@ -206,11 +183,9 @@ serve(async (req) => {
           const imageBlob = await imageResponse.arrayBuffer()
           const imageBuffer = new Uint8Array(imageBlob)
           
-          // Generate unique filename
           const filename = `gist-images/${Date.now()}-${Math.random().toString(36).substring(7)}.png`
           
-          // Upload to storage bucket
-          const { data: uploadData, error: uploadError } = await supabase.storage
+          const { error: uploadError } = await supabase.storage
             .from('gist-audio')
             .upload(filename, imageBuffer, {
               contentType: 'image/png',
@@ -219,11 +194,9 @@ serve(async (req) => {
           
           if (uploadError) {
             console.log('⚠️ Failed to upload AI image to storage:', uploadError.message)
-            // Keep using placeholder
             finalImageUrl = ai_generated_image
             console.log('🖼️ Using OpenAI URL directly:', ai_generated_image)
           } else {
-            // Get public URL
             const { data: urlData } = supabase.storage
               .from('gist-audio')
               .getPublicUrl(filename)
@@ -232,39 +205,43 @@ serve(async (req) => {
             console.log('🧠 Fluxa custom image uploaded and URL generated:', finalImageUrl)
           }
         } catch (uploadError) {
-          console.log('⚠️ Error processing custom image:', uploadError instanceof Error ? uploadError.message : 'Unknown error')
-          // Use the OpenAI URL directly as fallback
+          console.log(
+            '⚠️ Error processing custom image:',
+            uploadError instanceof Error ? uploadError.message : 'Unknown error'
+          )
           finalImageUrl = ai_generated_image
           console.log('🖼️ Using OpenAI URL as fallback:', ai_generated_image)
         }
       } else if (imageUrl) {
-        // Use provided image URL
         finalImageUrl = imageUrl
         console.log('📌 Using provided image URL')
       } else if (generatedSourceImageUrl) {
         finalImageUrl = generatedSourceImageUrl
         console.log('📌 Using source article image URL')
+      } else if (normalized_article?.image_url) {
+        finalImageUrl = normalized_article.image_url
+        console.log('📌 Using normalized article image URL')
       } else {
-        // Use local placeholder - no Unsplash fallback
         finalImageUrl = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800'
-        console.log('📌 No AI image available, using placeholder')
+        console.log('📌 No AI/source image available, using placeholder')
       }
-      
+
       console.log('✅ Final image URL:', finalImageUrl)
 
-      // Step 4: Save to database
-      console.log('💾 Step 4/4: Saving to database...')
+      // Step 3: Save to database
+      console.log('💾 Step 3/3: Saving to database...')
       const gistData: Record<string, any> = {
         headline,
         context,
         script: narration,
         narration,
-        audio_url: audioUrl,
+        audio_url: null,
+        audio_cache_url: null,
         topic,
-        topic_category: topicCategory || 'Trending',
+        topic_category: topicCategory || generatedTopicCategory || 'Trending',
         image_url: finalImageUrl,
-        source_url: sourceUrl || generatedSourceUrl || null,
-        news_published_at: newsPublishedAt || generatedSourcePublishedAt || null,
+        source_url: sourceUrl || generatedSourceUrl || normalized_article?.source_url || null,
+        news_published_at: newsPublishedAt || generatedSourcePublishedAt || normalized_article?.published_at || null,
         status: 'published',
         published_at: new Date().toISOString(),
       }
@@ -272,6 +249,7 @@ serve(async (req) => {
       if (Object.keys(metaPayload).length > 0) {
         gistData.meta = metaPayload
       }
+
       console.log('📄 Gist data keys:', Object.keys(gistData))
       console.log('📄 Topic:', gistData.topic)
       console.log('📄 Status:', gistData.status)
@@ -302,7 +280,7 @@ serve(async (req) => {
           success: true, 
           gist,
           headline: gist.headline,
-          audio_url: gist.audio_url
+          audio_url: gist.audio_url // will be null by design (no audio)
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -311,14 +289,14 @@ serve(async (req) => {
     } catch (stepError) {
       console.error('[PIPELINE] Step failed:', stepError)
       
-      // Determine which stage failed
       const errorMessage = stepError instanceof Error ? stepError.message : 'Unknown error'
-      let failedStage = 'unknown'
-      if (errorMessage.includes('generate-gist') || errorMessage.includes('Content generation')) failedStage = 'generate-gist'
-      else if (errorMessage.includes('text-to-speech') || errorMessage.includes('Audio generation')) failedStage = 'text-to-speech'
-      else if (errorMessage.includes('Database') || errorMessage.includes('save')) failedStage = 'database'
+      let failedStage: 'generate-gist' | 'database' | 'unknown' = 'unknown'
+      if (errorMessage.includes('generate-gist') || errorMessage.includes('Content generation')) {
+        failedStage = 'generate-gist'
+      } else if (errorMessage.includes('Database') || errorMessage.includes('save')) {
+        failedStage = 'database'
+      }
       
-      // If any step fails, mark gist as failed if we created one
       if (gistId) {
         await supabase
           .from('gists')

@@ -3,7 +3,15 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Home, Radio, Trophy, Search, User as UserIcon, Settings, Bookmark } from "lucide-react";
+import {
+  Home,
+  Radio,
+  Trophy,
+  Search,
+  User as UserIcon,
+  Settings,
+  Bookmark,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const navMenuItems = [
@@ -90,14 +98,16 @@ export const DesktopNavigationWidget = () => {
           following: followingResponse.count || 0,
         });
       } catch (error) {
-        console.error("Failed to load desktop navigation widget profile", error);
+        console.error(
+          "Failed to load desktop navigation widget profile",
+          error
+        );
       } finally {
         if (isMounted) setIsLoading(false);
       }
     };
 
     loadProfile();
-
     return () => {
       isMounted = false;
     };
@@ -150,11 +160,11 @@ export const DesktopNavigationWidget = () => {
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3 text-center">
-            {([
+            {[
               { label: "Posts", value: stats.posts },
               { label: "Followers", value: stats.followers },
               { label: "Following", value: stats.following },
-            ] as const).map(({ label, value }) => (
+            ].map(({ label, value }) => (
               <div key={label} className="rounded-2xl glass-light py-3">
                 <p className="text-xs text-muted-foreground">{label}</p>
                 <p className="text-base font-semibold">

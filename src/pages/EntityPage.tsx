@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -58,9 +58,6 @@ const EntityPage = () => {
   const [sortBy, setSortBy] = useState<'latest' | 'top'>('latest');
   const [showLiveRoom, setShowLiveRoom] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [currentPlayingNewsId, setCurrentPlayingNewsId] = useState<string | null>(null);
-  const [isNewsPlaying, setIsNewsPlaying] = useState(false);
-  const newsAudioRef = useRef<HTMLAudioElement | null>(null);
   const [likedNews, setLikedNews] = useState<string[]>([]);
   const [bookmarkedNews, setBookmarkedNews] = useState<string[]>([]);
   const [cachedNews, setCachedNews] = useState<any[]>([]);
@@ -625,51 +622,10 @@ const EntityPage = () => {
                         imageUrl={news.image || entity.background_url || undefined}
                         category={entity.category}
                         entityName={entity.name}
-                        isPlaying={currentPlayingNewsId === newsId && isNewsPlaying}
                         isLiked={likedNews.includes(newsId)}
                         isBookmarked={bookmarkedNews.includes(newsId)}
-                        onPlay={async () => {
-                          if (currentPlayingNewsId === newsId && isNewsPlaying) {
-                            newsAudioRef.current?.pause();
-                            setIsNewsPlaying(false);
-                            setCurrentPlayingNewsId(null);
-                          } else {
-                            if (newsAudioRef.current) {
-                              newsAudioRef.current.pause();
-                            }
-                            
-                            try {
-                              const narrationText = `${news.title}. ${news.description || news.source}`;
-                              const { data, error } = await supabase.functions.invoke('text-to-speech', {
-                                body: { 
-                                  text: narrationText,
-                                  voice: 'nova',
-                                  speed: 1.0
-                                }
-                              });
-
-                              if (error) throw error;
-                              
-                              if (data?.url) {
-                                const audio = new Audio(data.url);
-                                newsAudioRef.current = audio;
-                                audio.play();
-                                setIsNewsPlaying(true);
-                                setCurrentPlayingNewsId(newsId);
-
-                                audio.onended = () => {
-                                  setIsNewsPlaying(false);
-                                  setCurrentPlayingNewsId(null);
-                                };
-                              }
-                            } catch (error) {
-                              console.error('Failed to play news audio:', error);
-                              toast.error('Failed to play audio');
-                            }
-                          }
-                        }}
                         onLike={() => {
-                          setLikedNews(prev => 
+                          setLikedNews(prev =>
                             prev.includes(newsId) ? prev.filter(id => id !== newsId) : [...prev, newsId]
                           );
                         }}
@@ -677,7 +633,7 @@ const EntityPage = () => {
                           toast.info('Open discussion coming soon!');
                         }}
                         onBookmark={() => {
-                          setBookmarkedNews(prev => 
+                          setBookmarkedNews(prev =>
                             prev.includes(newsId) ? prev.filter(id => id !== newsId) : [...prev, newsId]
                           );
                           toast.success(bookmarkedNews.includes(newsId) ? 'Removed from bookmarks' : 'Bookmarked!');
@@ -688,6 +644,13 @@ const EntityPage = () => {
                             toast.success('Link copied to clipboard!');
                           } else {
                             toast.success('Shared!');
+                          }
+                        }}
+                        onCardClick={() => {
+                          if (news.url) {
+                            window.open(news.url, '_blank', 'noopener,noreferrer');
+                          } else {
+                            toast.info('No article link available yet');
                           }
                         }}
                       />

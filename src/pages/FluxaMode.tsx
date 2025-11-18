@@ -13,53 +13,65 @@ interface Message {
   timestamp: Date;
 }
 
+type ChatContextState = {
+  gistId?: string;
+  topic?: string;
+  summary?: string;
+  fullContext?: string;
+};
+
 const FluxaMode = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+
+  const [chatContext, setChatContext] = useState<ChatContextState | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Load chat history from localStorage and handle initial context
+  const contextSignatureRef = useRef<string | null>(null);
+  const explanationFetchedRef = useRef<string | null>(null);
+
+  // Load chat history + auto message from initialContext
   useEffect(() => {
     const saved = localStorage.getItem("fluxa_chat");
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setMessages(parsed.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) })));
-      } catch (e) {
-        console.error("Failed to load chat history:", e);
-      }
+        setMessages(parsed.map((m: any) => ({
+          ...m,
+          timestamp: new Date(m.timestamp),
+        })));
+      } catch {}
     }
 
-    // If there's initial context from navigation, automatically send it
     const initialContext = (location.state as any)?.initialContext;
     if (initialContext) {
       const contextMessage = `Tell me about: ${initialContext.summary}`;
-      
-      // Automatically send the message
+
       const sendInitialMessage = async () => {
         const userMessage: Message = {
           role: "user",
           content: contextMessage,
-          timestamp: new Date()
+          timestamp: new Date(),
         };
-
-        setMessages(prev => [...prev, userMessage]);
+        setMessages((prev) => [...prev, userMessage]);
         setIsLoading(true);
 
         try {
           const { data, error } = await supabase.functions.invoke("fluxa-chat", {
-            body: { 
+            body: {
               message: contextMessage,
-              conversationHistory: []
-            }
+              conversationHistory: [],
+            },
           });
 
           if (error) throw error;
@@ -67,17 +79,15 @@ const FluxaMode = () => {
           const fluxaMessage: Message = {
             role: "fluxa",
             content: data.reply,
-            timestamp: new Date()
+            timestamp: new Date(),
           };
 
-          setMessages(prev => [...prev, fluxaMessage]);
-          
-          // Automatically play the voice response
+          setMessages((prev) => [...prev, fluxaMessage]);
+
           if (!isMuted) {
             await playFluxaVoice(data.reply);
           }
-        } catch (error) {
-          console.error("Error sending initial message:", error);
+        } catch {
           toast.error("Failed to analyze content! 😢");
         } finally {
           setIsLoading(false);
@@ -85,63 +95,87 @@ const FluxaMode = () => {
       };
 
       sendInitialMessage();
-      
-      // Clear the navigation state
       window.history.replaceState({}, document.title);
     }
   }, [location]);
 
-  // Save chat history to localStorage
+  // Load context (from Feed → FluxaMode)
+  useEffect(() => {
+    const state = location.state as {
+      initialContext?: ChatContextState;
+    } | null;
+
+    if (state?.initialContext) {
+      setChatContext(state.initialContext);
+    }
+  }, [location.state]);
+
+  // Save chat history
   useEffect(() => {
     if (messages.length > 0) {
       localStorage.setItem("fluxa_chat", JSON.stringify(messages));
     }
   }, [messages]);
 
-  // Auto-scroll to bottom
+  // Show intro message based on context
+  useEffect(() => {
+    if (!chatContext) return;
+
+    const signature =
+      chatContext.gistId ||
+      `${chatContext.topic || ""}-${chatContext.summary || chatContext.fullContext || ""}`;
+
+    if (!signature || contextSignatureRef.current === signature) return;
+    contextSignatureRef.current = signature;
+
+    const intro =
+      `Let's chat about ${chatContext.topic || "this"}` +
+      (chatContext.summary ? `: ${chatContext.summary}` : "");
+
+    setMessages((prev) => [
+      ...prev,
+      { role: "fluxa", content: intro.trim(), timestamp: new Date() },
+    ]);
+  }, [chatContext]);
+
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Initialize speech recognition
+  // Speech recognition setup
   useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    const SpeechRecognition =
+      (window as any).webkitSpeechRecognition ||
+      (window as any).SpeechRecognition;
+
+    if (SpeechRecognition) {
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = false;
-      recognitionRef.current.lang = 'en-US';
+      recognitionRef.current.lang = "en-US";
 
       recognitionRef.current.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setInput(transcript);
+        setInput(event.results[0][0].transcript);
         setIsListening(false);
       };
 
-      recognitionRef.current.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
+      recognitionRef.current.onerror = () => {
         setIsListening(false);
-        toast.error("Couldn't hear you clearly! Try again? 🎤");
-      };
-
-      recognitionRef.current.onend = () => {
-        setIsListening(false);
+        toast.error("Couldn't hear you clearly! 🎤");
       };
     }
 
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-      }
-      if (currentAudioRef.current) {
-        currentAudioRef.current.pause();
-      }
+      recognitionRef.current?.abort();
+      currentAudioRef.current?.pause();
     };
   }, []);
 
+  // Voice input
   const handleVoiceInput = () => {
     if (!recognitionRef.current) {
-      toast.error("Voice input not supported in your browser 😢");
+      toast.error("Your browser does not support voice input 😢");
       return;
     }
 
@@ -155,64 +189,63 @@ const FluxaMode = () => {
     }
   };
 
-  const playFluxaVoice = async (text: string) => {
+  // Fluxa voice playback
+  const playFluxaVoice = async (text: string, cachedUrl?: string | null) => {
     if (isMuted) return;
 
     setIsSpeaking(true);
+
     try {
-      const { data, error } = await supabase.functions.invoke("text-to-speech", {
-        body: { text, voice: "shimmer", speed: 1.0 }
-      });
+      let audioUrl = cachedUrl || null;
 
-      if (error) throw error;
+      if (!audioUrl) {
+        const { data } = await supabase.functions.invoke("text-to-speech", {
+          body: { text, voice: "shimmer", speed: 1.0 },
+        });
 
-      if (data?.audioUrl) {
-        // Stop any currently playing audio
-        if (currentAudioRef.current) {
-          currentAudioRef.current.pause();
-        }
+        audioUrl = data?.audioUrl;
+      }
 
-        const audio = new Audio(data.audioUrl);
+      if (audioUrl) {
+        currentAudioRef.current?.pause();
+        const audio = new Audio(audioUrl);
         currentAudioRef.current = audio;
-        
+
         audio.onended = () => {
-          setIsSpeaking(false);
-          currentAudioRef.current = null;
-        };
-        
-        audio.onerror = () => {
           setIsSpeaking(false);
           currentAudioRef.current = null;
         };
 
         await audio.play();
+      } else {
+        setIsSpeaking(false);
       }
-    } catch (error) {
-      console.error("Error playing voice:", error);
+    } catch {
       setIsSpeaking(false);
     }
   };
 
+  // Send message
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
     const userMessage: Message = {
       role: "user",
       content: input.trim(),
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
 
     try {
-      // Call Fluxa chat function
       const { data, error } = await supabase.functions.invoke("fluxa-chat", {
-        body: { 
+        body: {
           message: userMessage.content,
-          conversationHistory: messages.slice(-5) // Send last 5 messages for context
-        }
+          conversationHistory: messages.slice(-5),
+          gistContext: chatContext ?? undefined,
+        },
       });
 
       if (error) throw error;
@@ -220,23 +253,20 @@ const FluxaMode = () => {
       const fluxaMessage: Message = {
         role: "fluxa",
         content: data.reply,
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
-      setMessages(prev => [...prev, fluxaMessage]);
+      setMessages((prev) => [...prev, fluxaMessage]);
 
-      // Play Fluxa's voice response
       await playFluxaVoice(data.reply);
-
-    } catch (error) {
-      console.error("Error sending message:", error);
-      toast.error("Oops! Fluxa got distracted for a sec 😅");
+    } catch {
+      toast.error("Fluxa got distracted 😅");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e: any) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -246,7 +276,7 @@ const FluxaMode = () => {
   const clearChat = () => {
     setMessages([]);
     localStorage.removeItem("fluxa_chat");
-    toast.success("Chat cleared! Start fresh 💫");
+    toast.success("Chat cleared! 💫");
   };
 
   return (
@@ -254,17 +284,13 @@ const FluxaMode = () => {
       {/* Header */}
       <div className="p-6 border-b border-border/20 bg-card/50 backdrop-blur">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate("/feed")}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              ← Back
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">Hey Fluxa 💬</h1>
-            </div>
-          </div>
+          <button
+            onClick={() => navigate("/feed")}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Back
+          </button>
+
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -272,78 +298,69 @@ const FluxaMode = () => {
               onClick={() => setIsMuted(!isMuted)}
               className="rounded-full"
             >
-              {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+              {isMuted ? <VolumeX /> : <Volume2 />}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={clearChat}
-              className="rounded-full"
-            >
+
+            <Button variant="outline" size="sm" className="rounded-full" onClick={clearChat}>
               Clear Chat
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Messages Area */}
+      {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-3xl mx-auto space-y-4">
+
+          {/* Empty State */}
           {messages.length === 0 && (
-            <div className="text-center py-12 space-y-3 animate-fade-in">
-              <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-primary via-accent to-secondary flex items-center justify-center animate-bounce shadow-glow">
+            <div className="text-center py-12 space-y-3">
+              <div className="w-24 h-24 mx-auto rounded-full bg-primary/30 flex items-center justify-center animate-bounce shadow-glow">
                 <FluxaLogo size={48} fillColor="hsl(var(--primary-foreground))" />
               </div>
-              <h2 className="text-2xl font-bold text-foreground">Hey bestie! 👋</h2>
+              <h2 className="text-xl font-bold">Hey bestie! 👋</h2>
               <p className="text-muted-foreground">
-                Ask me about trending gossip, celebrities, or what's hot right now!
+                Ask me anything about trending gist.
               </p>
             </div>
           )}
 
-          {messages.map((msg, idx) => (
+          {/* Messages */}
+          {messages.map((msg, i) => (
             <div
-              key={idx}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-fade-in-up`}
+              key={i}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
                 className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                   msg.role === "user"
                     ? "bg-primary text-primary-foreground"
-                    : "bg-card text-foreground shadow-soft"
+                    : "bg-card shadow-soft"
                 }`}
               >
                 {msg.role === "fluxa" && (
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="w-5 h-5 flex items-center justify-center">
-                      <FluxaLogo size={16} fillColor="hsl(var(--primary))" />
-                    </div>
+                    <FluxaLogo size={16} fillColor="hsl(var(--primary))" />
                     <span className="text-xs font-semibold text-primary">Fluxa</span>
                   </div>
                 )}
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
               </div>
             </div>
           ))}
 
           {isLoading && (
-            <div className="flex justify-start animate-fade-in-up">
-              <div className="bg-card text-foreground rounded-2xl px-4 py-3 shadow-soft">
-                <div className="flex items-center gap-2">
-                  <div className="loader" style={{ width: '20px', height: '20px', borderWidth: '3px' }} />
-                  <span className="text-sm text-muted-foreground">Fluxa is typing...</span>
-                </div>
+            <div className="flex justify-start">
+              <div className="bg-card rounded-2xl px-4 py-3 shadow-soft">
+                <span className="text-sm text-muted-foreground">Fluxa is typing...</span>
               </div>
             </div>
           )}
 
           {isSpeaking && (
             <div className="flex justify-start">
-              <div className="bg-accent/20 text-foreground rounded-2xl px-4 py-2 shadow-soft">
-                <div className="flex items-center gap-2">
-                  <span className="animate-pulse">🎙️</span>
-                  <span className="text-xs text-muted-foreground">Speaking...</span>
-                </div>
+              <div className="bg-accent/20 rounded-2xl px-3 py-2">
+                <span className="text-xs">🎙️ Speaking...</span>
               </div>
             </div>
           )}
@@ -353,37 +370,36 @@ const FluxaMode = () => {
       </div>
 
       {/* Input Area */}
-      <div className="p-6 border-t border-border/20 bg-card/50 backdrop-blur">
+      <div className="p-6 border-t border-border/20 bg-card/50">
         <div className="max-w-3xl mx-auto flex gap-3">
           <Button
             variant={isListening ? "default" : "outline"}
             size="icon"
             onClick={handleVoiceInput}
-            className="shrink-0 rounded-full"
             disabled={isLoading}
+            className="rounded-full"
           >
-            <Mic className={`w-5 h-5 ${isListening ? "animate-pulse" : ""}`} />
+            <Mic className={isListening ? "animate-pulse" : ""} />
           </Button>
+
           <Input
+            placeholder="Ask Fluxa what's trending... 💬"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ask Fluxa what's trending... 💬"
+            onKeyDown={handleKeyPress}
             disabled={isLoading || isListening}
-            className="flex-1 rounded-2xl"
+            className="rounded-2xl"
           />
+
           <Button
+            size="icon"
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            size="icon"
-            className="shrink-0 rounded-full"
+            className="rounded-full"
           >
-            <Send className="w-5 h-5" />
+            <Send />
           </Button>
         </div>
-        <p className="text-xs text-center text-muted-foreground mt-3">
-          Type your question or tap the mic to speak 🎤
-        </p>
       </div>
     </div>
   );
