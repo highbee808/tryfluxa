@@ -62,7 +62,7 @@ export const NewsCard = ({
   };
 
   return (
-    <Card className="overflow-hidden border-glass-border-light shadow-glass hover:shadow-glass-glow transition-all duration-300 bg-card/95 backdrop-blur-sm hover-glow">
+    <Card className="w-full overflow-hidden border-glass-border-light shadow-glass hover:shadow-glass-glow transition-all duration-300 bg-card/95 backdrop-blur-sm hover-glow">
       <CardContent className="p-0">
         {/* Author Info - Fluxa */}
         <div className="p-4 flex items-center justify-between">

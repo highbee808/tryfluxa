@@ -2,8 +2,8 @@ import { useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
-import { Play, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface Gist {
   id: string;
@@ -18,23 +18,17 @@ interface TrendingCarouselProps {
   gists: Gist[];
   onPlay: (gistId: string, audioUrl: string) => void;
   currentPlayingId: string | null;
+  fullWidth?: boolean;
+  className?: string;
 }
 
-export const TrendingCarousel = ({ gists, onPlay, currentPlayingId }: TrendingCarouselProps) => {
+export const TrendingCarousel = ({ gists, onPlay, currentPlayingId, fullWidth = false, className }: TrendingCarouselProps) => {
   const autoplayPlugin = Autoplay({ delay: 4000, stopOnInteraction: false });
 
   if (gists.length === 0) return null;
 
   return (
-    <div className="mb-8">
-      <div className="flex items-center gap-2 mb-4">
-        <TrendingUp className="w-5 h-5 text-primary" />
-        <h2 className="text-xl font-bold">Trending Now</h2>
-        <Badge variant="secondary" className="ml-auto">
-          Last 24h
-        </Badge>
-      </div>
-
+    <div className={cn("mb-4 trending-carousel", className)}>
       <Carousel
         opts={{
           align: "start",
@@ -45,7 +39,10 @@ export const TrendingCarousel = ({ gists, onPlay, currentPlayingId }: TrendingCa
       >
         <CarouselContent>
           {gists.map((gist) => (
-            <CarouselItem key={gist.id} className="md:basis-1/2 lg:basis-1/3">
+            <CarouselItem
+              key={gist.id}
+              className={fullWidth ? "basis-full" : "md:basis-1/2 lg:basis-1/3"}
+            >
               <Card className="overflow-hidden border shadow-sm hover:shadow-lg transition-all duration-300 bg-card cursor-pointer group">
                 <CardContent className="p-0">
                   {gist.image_url && (

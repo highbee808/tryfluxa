@@ -1,25 +1,24 @@
 import { useState, useEffect, useRef } from "react";
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { FeedCardWithSocial } from "@/components/FeedCardWithSocial";
 import { NewsCard } from "@/components/NewsCard";
 import { BottomNavigation } from "@/components/BottomNavigation";
-import { NotificationCenter } from "@/components/NotificationCenter";
 import { ShareDialog } from "@/components/ShareDialog";
 import { TrendingCarousel } from "@/components/TrendingCarousel";
+import { DesktopNavigationWidget } from "@/components/DesktopNavigationWidget";
+import { DesktopRightWidgets } from "@/components/DesktopRightWidgets";
 import { FloatingActionButtons } from "@/components/FloatingActionButtons";
 import { useFluxaMemory } from "@/hooks/useFluxaMemory";
 import { useDarkMode } from "@/hooks/useDarkMode";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Filter, Headphones, TrendingUp, Play, ChevronDown, Instagram, Facebook, MessageSquare, Sparkles, Bookmark, User, Settings, LogOut, Moon, Sun } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Sparkles, User, Settings, LogOut, Moon, Sun, RefreshCw } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 import { highlightText } from "@/lib/highlightText";
 
 interface Gist {
@@ -61,13 +60,10 @@ const Feed = () => {
   const [currentPlayingId, setCurrentPlayingId] = useState<string | null>(null);
   const [gists, setGists] = useState<Gist[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("All Updates");
   const currentAudio = useRef<HTMLAudioElement | null>(null);
-  const [chatContext, setChatContext] = useState<{ topic: string; summary: string } | undefined>(undefined);
   const [likedGists, setLikedGists] = useState<string[]>([]);
   const [bookmarkedGists, setBookmarkedGists] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [selectedPlatform, setSelectedPlatform] = useState("X");
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [currentPlayingNewsId, setCurrentPlayingNewsId] = useState<string | null>(null);
   const [isNewsPlaying, setIsNewsPlaying] = useState(false);
@@ -75,7 +71,7 @@ const Feed = () => {
   const [selectedTab, setSelectedTab] = useState<"all" | "foryou" | "bookmarks">("foryou");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [newGistCount, setNewGistCount] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery] = useState("");
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
@@ -84,21 +80,52 @@ const Feed = () => {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedGist, setSelectedGist] = useState<Gist | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const feedColumnRef = useRef<HTMLDivElement>(null);
   const [isPulling, setIsPulling] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const touchStartY = useRef(0);
   const contentRef = useRef<HTMLDivElement>(null);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [scrollRoot, setScrollRoot] = useState<Element | null>(null);
+  const location = useLocation();
   
   const fluxaMemory = useFluxaMemory();
 
-  const platforms = [
-    { name: "X", icon: "𝕏" },
-    { name: "Instagram", icon: Instagram },
-    { name: "Facebook", icon: Facebook },
-    { name: "Threads", icon: MessageSquare },
-  ];
+  const categories = ["All", "Technology", "Lifestyle", "Science", "Media"];
 
-  const categories = ["All", "Technology", "Lifestyle", "Science", "Media", "Productivity"];
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const handleMediaChange = () => setIsDesktop(mediaQuery.matches);
+
+    handleMediaChange();
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", handleMediaChange);
+    } else {
+      mediaQuery.addListener(handleMediaChange);
+    }
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener("change", handleMediaChange);
+      } else {
+        mediaQuery.removeListener(handleMediaChange);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    setScrollRoot(isDesktop ? feedColumnRef.current : null);
+  }, [isDesktop]);
+
+  useEffect(() => {
+    const state = location.state as { tab?: "all" | "foryou" | "bookmarks" } | null;
+    if (state?.tab) {
+      setSelectedTab(state.tab);
+    }
+  }, [location.state]);
 
   const loadGists = async (showToast = false, loadMore = false) => {
     try {
@@ -294,8 +321,9 @@ const Feed = () => {
 
   useEffect(() => {
     loadGists();
+  }, [selectedTab]);
 
-    // Set up realtime subscription for new gists
+  useEffect(() => {
     const channel = supabase
       .channel('gists-changes')
       .on(
@@ -314,14 +342,22 @@ const Feed = () => {
       )
       .subscribe();
 
-    // Set up intersection observer for infinite scroll
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !isLoadingMore && !loading) {
           loadGists(false, true);
         }
       },
-      { threshold: 0.1 }
+      {
+        threshold: 0.1,
+        root: scrollRoot ?? null
+      }
     );
 
     if (loadMoreRef.current) {
@@ -329,12 +365,11 @@ const Feed = () => {
     }
 
     return () => {
-      supabase.removeChannel(channel);
       if (loadMoreRef.current) {
         observer.unobserve(loadMoreRef.current);
       }
     };
-  }, [selectedTab, hasMore, isLoadingMore, loading]);
+  }, [scrollRoot, hasMore, isLoadingMore, loading]);
 
   const handlePlay = async (gistId: string, audioUrl: string) => {
     if (currentPlayingId === gistId && isPlaying) {
@@ -376,11 +411,18 @@ const Feed = () => {
     );
   };
 
-  const handleTellMore = (gist: Gist) => {
-    setChatContext({
-      topic: gist.headline,
-      summary: gist.context
+  const openFluxaMode = (topic?: string, summary?: string) => {
+    navigate("/fluxa-mode", {
+      state: topic || summary ? { topic, summary } : undefined,
     });
+  };
+
+  const handleTellMore = (gist: Gist) => {
+    openFluxaMode(gist.headline, gist.context);
+  };
+
+  const handleNewsChat = (news: NewsItem) => {
+    openFluxaMode(news.title, news.description || news.title);
   };
 
   const handleShare = (gist: Gist) => {
@@ -463,6 +505,12 @@ const Feed = () => {
     touchStartY.current = 0;
   };
 
+  const handleRefreshClick = async () => {
+    if (isRefreshing) return;
+    setNewGistCount(0);
+    await loadGists(true);
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
@@ -473,12 +521,12 @@ const Feed = () => {
   }
 
   return (
-    <div 
+    <div
       ref={contentRef}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="min-h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 pb-28 animate-fade-in overflow-y-auto"
+      className="min-h-screen lg:h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 pb-28 animate-fade-in overflow-y-auto lg:overflow-hidden"
     >
       {/* Pull-to-refresh indicator */}
       {isPulling && (
@@ -498,14 +546,21 @@ const Feed = () => {
         </div>
       )}
       
-      {/* Header - Reference Style */}
-      <div className="sticky top-0 z-50 glass border-b border-glass-border-light backdrop-blur-xl">
-        <div className="flex items-center justify-between px-4 py-3 gap-3">
+      {/* Header - Floating controls */}
+      <div className="sticky top-0 z-50 px-4 pt-4 pb-3 bg-background/85 backdrop-blur-xl border-b border-glass-border-light">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
           {/* Left: Profile Avatar Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center shadow-md glass-strong flex-shrink-0 transition-transform hover:scale-105">
-                <Sparkles className="w-6 h-6 text-primary-foreground" />
+              <button
+                className="frosted-icon-button overflow-hidden p-0"
+                aria-label="Open profile menu"
+                type="button"
+              >
+                <Avatar className="w-10 h-10">
+                  <AvatarImage src="https://images.unsplash.com/photo-1504593811423-6dd665756598?auto=format&fit=crop&w=200&q=80" alt="Profile" />
+                  <AvatarFallback>AI</AvatarFallback>
+                </Avatar>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56 glass border-glass-border-light rounded-2xl">
@@ -522,7 +577,7 @@ const Feed = () => {
                 {isDark ? "Light Mode" : "Dark Mode"}
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-glass-border-light" />
-              <DropdownMenuItem 
+              <DropdownMenuItem
                 onClick={async () => {
                   await supabase.auth.signOut();
                   navigate("/");
@@ -534,421 +589,229 @@ const Feed = () => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          
-          {/* Center: Filter Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="glass-light" 
-                className="rounded-full px-4 py-2 h-10 flex items-center gap-2 flex-1 max-w-[140px] transition-transform hover:scale-105"
-              >
-                <span className="text-sm font-medium truncate">{activeTab}</span>
-                <ChevronDown className="w-4 h-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="w-48 glass border-glass-border-light rounded-2xl">
-              <DropdownMenuItem onClick={() => setActiveTab("All Updates")} className="rounded-xl cursor-pointer">
-                All Updates
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setActiveTab("Following")} className="rounded-xl cursor-pointer">
-                Following
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setActiveTab("Trending")} className="rounded-xl cursor-pointer">
-                Trending
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setActiveTab("Saved")} className="rounded-xl cursor-pointer">
-                Saved
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
+
           {/* Right: Icon Buttons */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <NotificationCenter />
-            <Button
-              variant="glass-light"
-              size="icon"
-              className="w-10 h-10 rounded-full transition-transform hover:scale-105"
-              onClick={() => navigate("/fluxa-mode")}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="relative frosted-icon-button"
+              onClick={handleRefreshClick}
+              aria-label="Refresh feed"
             >
-              <MessageSquare className="w-5 h-5" />
-            </Button>
+              {isRefreshing ? (
+                <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <RefreshCw className="w-5 h-5" />
+              )}
+              {newGistCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {newGistCount > 9 ? "9+" : newGistCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Filter Tags */}
-        <div className="mb-6 flex items-center gap-4">
-          <div className="flex gap-2">
+      <div className="lg:hidden px-4 pt-4">
+        <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          {categories.map((category) => (
             <Badge
-              onClick={() => setSelectedTab("all")}
+              key={`${category}-mobile`}
+              onClick={() => setSelectedCategory(category)}
               className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 ${
-                selectedTab === "all"
+                selectedCategory === category
                   ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
                   : "bg-secondary text-foreground border border-border"
               }`}
             >
-              For You
+              {category}
             </Badge>
-            <Badge
-              className="cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 bg-secondary text-foreground border border-border"
-            >
-              Technology
-            </Badge>
-          </div>
-          <Button
-            onClick={() => {
-              setNewGistCount(0);
-              loadGists(true);
-            }}
-            variant="glass-light"
-            className="ml-auto relative border-glass-border-light"
-            disabled={isRefreshing}
-          >
-            {isRefreshing ? (
-              <>
-                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                Refreshing...
-              </>
-            ) : (
-              <>
-                <TrendingUp className="w-4 h-4 mr-2" />
-                Refresh
-                {newGistCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {newGistCount}
-                  </span>
-                )}
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* Header Banner */}
-        <div className="mb-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-8 md:p-12 text-white shadow-xl animate-fade-in relative overflow-hidden">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 glass-strong rounded-full flex items-center justify-center">
-                <Headphones className="w-6 h-6" />
-              </div>
-              <h1 className="text-3xl md:text-4xl font-bold">
-                {selectedTab === "foryou" 
-                  ? "Your Personalized Feed" 
-                  : selectedTab === "bookmarks"
-                  ? "Saved Gists"
-                  : "All Content"}
-              </h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="text-white [&_button]:text-white [&_button:hover]:bg-white/20">
-                <NotificationCenter />
-              </div>
-              {/* Play button - positioned in top right on mobile */}
-              <button
-                onClick={() => {
-                  const firstGist = filteredGists[0];
-                  if (firstGist) handlePlay(firstGist.id, firstGist.audio_url);
-                }}
-                className="w-14 h-14 md:w-16 md:h-16 glass-strong rounded-full flex items-center justify-center hover:glass-glow transition-all hover:scale-105 border-2 border-glass-border-strong"
-                aria-label="Play latest gist"
-              >
-                <Play className="w-7 h-7 md:w-8 md:h-8 fill-white text-white" />
-              </button>
-            </div>
-          </div>
-          <p className="text-blue-100 text-lg">
-            {selectedTab === "foryou" 
-              ? "Content curated based on your interests. Click play to listen!"
-              : selectedTab === "bookmarks"
-              ? "Your saved gists, available offline anytime!"
-              : "Explore all the latest gists and news. Click play to listen!"}
-          </p>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="mb-6 flex flex-col md:flex-row gap-4 animate-fade-in">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              placeholder="Search gists by keyword..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 glass-light h-12 border-glass-border-light hover:glass"
-            />
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium gap-1 hover:bg-secondary/50"
-                >
-                  {platforms.find(p => p.name === selectedPlatform)?.name === "X" ? (
-                    <span className="text-base font-bold">𝕏</span>
-                  ) : (
-                    (() => {
-                      const Icon = platforms.find(p => p.name === selectedPlatform)?.icon;
-                      return Icon && typeof Icon !== 'string' ? <Icon className="w-4 h-4" /> : null;
-                    })()
-                  )}
-                  <span>{selectedPlatform}</span>
-                  <ChevronDown className="w-3 h-3" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-48 p-2 bg-card border-border z-50">
-                <div className="space-y-1">
-                  {platforms.map((platform) => (
-                    <button
-                      key={platform.name}
-                      onClick={() => setSelectedPlatform(platform.name)}
-                      className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
-                        selectedPlatform === platform.name
-                          ? "bg-secondary text-foreground"
-                          : "hover:bg-secondary/50"
-                      )}
-                    >
-                      {platform.name === "X" ? (
-                        <span className="text-lg font-bold">𝕏</span>
-                      ) : (
-                        (() => {
-                          const Icon = platform.icon;
-                          return typeof Icon !== 'string' ? <Icon className="w-4 h-4" /> : null;
-                        })()
-                      )}
-                      <span>{platform.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-          <Button variant="glass-light" className="bg-card border-glass-border-light hidden md:flex">
-            <Filter className="w-4 h-4 mr-2" />
-            Filters
-          </Button>
-        </div>
-
-        {/* Category Pills */}
-        <div className="flex gap-2 overflow-x-auto pb-4 mb-8 animate-fade-in" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-        {categories.map((category) => (
-          <Badge
-            key={category}
-            onClick={() => setSelectedCategory(category)}
-            className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all flex-shrink-0 ${
-              selectedCategory === category
-                ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
-                : "bg-secondary text-foreground border border-border"
-            }`}
-          >
-            {category}
-          </Badge>
-        ))}
-        </div>
-
-        {/* Trending Carousel */}
-        {trendingGists.length > 0 && !searchQuery && selectedTab !== "bookmarks" && (
-          <TrendingCarousel 
-            gists={trendingGists}
-            onPlay={handlePlay}
-            currentPlayingId={currentPlayingId}
-          />
-        )}
-
-        {/* Personalized Recommendations */}
-        {recommendedGists.length > 0 && !searchQuery && selectedTab === "foryou" && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="w-5 h-5 text-purple-500" />
-              <h2 className="text-xl font-bold">Recommended for You</h2>
-              <Badge variant="secondary" className="ml-auto">
-                Based on your history
-              </Badge>
-            </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {recommendedGists.map((gist) => (
-                <Card 
-                  key={gist.id} 
-                  className="cursor-pointer glass hover:shadow-glass-glow transition-all hover:scale-105 border-glass-border-light"
-                  onClick={() => handlePlay(gist.id, gist.audio_url)}
-                >
-                  {gist.image_url && (
-                    <img 
-                      src={gist.image_url} 
-                      alt={gist.headline}
-                      className="w-full h-40 object-cover"
-                    />
-                  )}
-                  <CardContent className="p-4">
-                    <h3 className="font-semibold line-clamp-2 mb-2">{gist.headline}</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{gist.context}</p>
-                    <Badge variant="secondary" className="mt-2 text-xs">
-                      {gist.topic}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Feed Grid */}
-        <div className="grid lg:grid-cols-[1fr_320px] gap-8">
-          {/* Main Feed */}
-          <div className="space-y-6">
-            {combinedFeed.length === 0 ? (
-              <Card className="p-12 text-center">
-                <p className="text-muted-foreground mb-4">No content available yet</p>
-                <Button onClick={() => window.location.href = '/admin'}>
-                  Go to Admin Panel
-                </Button>
-              </Card>
-            ) : (
-              combinedFeed.map((item, idx) => 
-                item.type === 'gist' ? (
-                  <FeedCardWithSocial
-                    key={`gist-${item.data.id}`}
-                    id={item.data.id}
-                    imageUrl={item.data.image_url || undefined}
-                    headline={searchQuery ? highlightText(item.data.headline, searchQuery) as any : item.data.headline}
-                    context={searchQuery ? highlightText(item.data.context, searchQuery) as any : item.data.context}
-                    author="Fluxa"
-                    timeAgo="2h ago"
-                    category={item.data.topic}
-                    readTime="5 min"
-                    comments={item.data.analytics?.comments || 0}
-                    views={item.data.analytics?.views || 0}
-                    plays={item.data.analytics?.plays || 0}
-                    shares={item.data.analytics?.shares || 0}
-                    isPlaying={currentPlayingId === item.data.id && isPlaying}
-                    onPlay={() => handlePlay(item.data.id, item.data.audio_url)}
-                    onComment={() => handleTellMore(item.data)}
-                    onShare={() => handleShare(item.data)}
-                  />
-                ) : (
-                  <NewsCard
-                    key={`news-${item.data.id}`}
-                    id={item.data.id}
-                    title={item.data.title}
-                    source={item.data.source}
-                    time={item.data.time}
-                    description={item.data.description}
-                    url={item.data.url}
-                    imageUrl={item.data.image}
-                    category={item.data.category}
-                    entityName={item.data.entityName}
-                    isPlaying={currentPlayingNewsId === item.data.id && isNewsPlaying}
-                    isLiked={likedGists.includes(item.data.id)}
-                    isBookmarked={bookmarkedGists.includes(item.data.id)}
-                    onPlay={async (audioUrl?: string) => {
-                      if (currentPlayingNewsId === item.data.id && isNewsPlaying) {
-                        newsAudioRef.current?.pause();
-                        setIsNewsPlaying(false);
-                        setCurrentPlayingNewsId(null);
-                      } else {
-                        if (newsAudioRef.current) {
-                          newsAudioRef.current.pause();
-                        }
-                        
-                        if (audioUrl) {
-                          const audio = new Audio(audioUrl);
-                          newsAudioRef.current = audio;
-                          audio.play();
-                          setIsNewsPlaying(true);
-                          setCurrentPlayingNewsId(item.data.id);
-
-                          audio.onended = () => {
-                            setIsNewsPlaying(false);
-                            setCurrentPlayingNewsId(null);
-                          };
-                        } else {
-                          toast.error('Audio not available');
-                        }
-                      }
-                    }}
-                    onLike={() => handleLike(item.data.id)}
-                    onComment={() => toast.info('Discussion coming soon!')}
-                    onBookmark={() => handleBookmark(item.data.id)}
-                    onShare={() => {
-                      if (item.data.url) {
-                        navigator.clipboard.writeText(item.data.url);
-                        toast.success('Link copied!');
-                      }
-                    }}
-                  />
-                )
-              )
-            )}
-            
-            {/* Infinite Scroll Trigger */}
-            <div ref={loadMoreRef} className="flex justify-center py-8">
-              {isLoadingMore && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  Loading more gists...
-                </div>
-              )}
-              {!hasMore && gists.length > 0 && (
-                <p className="text-muted-foreground text-sm">You've reached the end!</p>
-              )}
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="hidden lg:block">
-            <div className="sticky top-24 space-y-6">
-              {/* Trending Topics */}
-              <Card className="shadow-glass border-glass-border-light glass">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <TrendingUp className="w-5 h-5 text-blue-600" />
-                    <h3 className="text-lg font-semibold">Trending Topics</h3>
-                  </div>
-                  <div className="space-y-3">
-                    {[
-                      { topic: "AI Revolution", posts: "1.2k posts" },
-                      { topic: "Audio Content", posts: "856 posts" },
-                      { topic: "Digital Wellness", posts: "643 posts" },
-                      { topic: "Voice Tech", posts: "521 posts" },
-                      { topic: "Productivity", posts: "412 posts" },
-                    ].map((item, i) => (
-                      <div
-                       key={i}
-                        className="p-3 bg-secondary/50 rounded-lg hover:bg-secondary/70 cursor-pointer transition-colors"
-                      >
-                        <p className="text-sm font-medium">{item.topic}</p>
-                        <p className="text-xs text-muted-foreground">{item.posts}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* User Stats */}
-              <Card className="shadow-lg border-0 bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                <CardContent className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Your Activity</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-blue-100">Articles Read</p>
-                      <p className="text-2xl font-bold">247</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-blue-100">Hours Listened</p>
-                      <p className="text-2xl font-bold">18.5</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-blue-100">Bookmarks</p>
-                      <p className="text-2xl font-bold">{bookmarkedGists.length}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
 
+      {trendingGists.length > 0 && !searchQuery && (
+        <div className="lg:hidden px-4 mt-4">
+          <TrendingCarousel
+            gists={trendingGists}
+            onPlay={handlePlay}
+            currentPlayingId={currentPlayingId}
+            fullWidth
+          />
+        </div>
+      )}
+
+      <div className="container mx-auto px-4 pt-4 pb-6 max-w-6xl lg:py-6 lg:h-[calc(100vh-150px)]">
+        <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px] lg:h-full items-start">
+          {/* Left rail */}
+          <DesktopNavigationWidget />
+
+          {/* Main column */}
+          <div
+            ref={feedColumnRef}
+            className="space-y-6 w-full max-w-[420px] sm:max-w-[520px] md:max-w-[640px] mx-auto scrollbar-hide lg:max-w-none lg:mx-0 lg:h-full lg:overflow-y-auto lg:pr-3 lg:pb-24"
+          >
+
+            <div className="hidden lg:flex flex-wrap gap-2">
+              {categories.map((category) => (
+                <Badge
+                  key={`${category}-desktop`}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-all ${
+                    selectedCategory === category
+                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
+                      : "bg-secondary text-foreground border border-border"
+                  }`}
+                >
+                  {category}
+                </Badge>
+              ))}
+            </div>
+
+            {recommendedGists.length > 0 && !searchQuery && selectedTab === "foryou" && (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="w-5 h-5 text-purple-500" />
+                  <h2 className="text-xl font-bold">Recommended for You</h2>
+                  <Badge variant="secondary" className="ml-auto">
+                    Based on your history
+                  </Badge>
+                </div>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {recommendedGists.map((gist) => (
+                    <Card
+                      key={gist.id}
+                      className="cursor-pointer glass hover:shadow-glass-glow transition-all hover:scale-105 border-glass-border-light"
+                      onClick={() => handlePlay(gist.id, gist.audio_url)}
+                    >
+                      {gist.image_url && (
+                        <img
+                          src={gist.image_url}
+                          alt={gist.headline}
+                          className="w-full h-40 object-cover"
+                        />
+                      )}
+                      <CardContent className="p-4">
+                        <h3 className="font-semibold line-clamp-2 mb-2">{gist.headline}</h3>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{gist.context}</p>
+                        <Badge variant="secondary" className="mt-2 text-xs">
+                          {gist.topic}
+                        </Badge>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-6">
+              {combinedFeed.length === 0 ? (
+                <Card className="p-12 text-center">
+                  <p className="text-muted-foreground mb-4">No content available yet</p>
+                  <Button onClick={() => window.location.href = '/admin'}>
+                    Go to Admin Panel
+                  </Button>
+                </Card>
+              ) : (
+                combinedFeed.map((item, idx) =>
+                  item.type === 'gist' ? (
+                    <FeedCardWithSocial
+                      key={`gist-${item.data.id}`}
+                      id={item.data.id}
+                      imageUrl={item.data.image_url || undefined}
+                      headline={searchQuery ? highlightText(item.data.headline, searchQuery) as any : item.data.headline}
+                      context={searchQuery ? highlightText(item.data.context, searchQuery) as any : item.data.context}
+                      author="Fluxa"
+                      timeAgo="2h ago"
+                      category={item.data.topic}
+                      readTime="5 min"
+                      comments={item.data.analytics?.comments || 0}
+                      views={item.data.analytics?.views || 0}
+                      plays={item.data.analytics?.plays || 0}
+                      shares={item.data.analytics?.shares || 0}
+                      isPlaying={currentPlayingId === item.data.id && isPlaying}
+                      onPlay={() => handlePlay(item.data.id, item.data.audio_url)}
+                      onComment={() => handleTellMore(item.data)}
+                      onShare={() => handleShare(item.data)}
+                    />
+                  ) : (
+                    <NewsCard
+                      key={`news-${item.data.id}`}
+                      id={item.data.id}
+                      title={item.data.title}
+                      source={item.data.source}
+                      time={item.data.time}
+                      description={item.data.description}
+                      url={item.data.url}
+                      imageUrl={item.data.image}
+                      category={item.data.category}
+                      entityName={item.data.entityName}
+                      isPlaying={currentPlayingNewsId === item.data.id && isNewsPlaying}
+                      isLiked={likedGists.includes(item.data.id)}
+                      isBookmarked={bookmarkedGists.includes(item.data.id)}
+                      onPlay={async (audioUrl?: string) => {
+                        if (currentPlayingNewsId === item.data.id && isNewsPlaying) {
+                          newsAudioRef.current?.pause();
+                          setIsNewsPlaying(false);
+                          setCurrentPlayingNewsId(null);
+                        } else {
+                          if (newsAudioRef.current) {
+                            newsAudioRef.current.pause();
+                          }
+
+                          if (audioUrl) {
+                            const audio = new Audio(audioUrl);
+                            newsAudioRef.current = audio;
+                            audio.play();
+                            setIsNewsPlaying(true);
+                            setCurrentPlayingNewsId(item.data.id);
+
+                            audio.onended = () => {
+                              setIsNewsPlaying(false);
+                              setCurrentPlayingNewsId(null);
+                            };
+                          } else {
+                            toast.error('Audio not available');
+                          }
+                        }
+                      }}
+                      onLike={() => handleLike(item.data.id)}
+                      onComment={() => handleNewsChat(item.data)}
+                      onBookmark={() => handleBookmark(item.data.id)}
+                      onShare={() => {
+                        if (item.data.url) {
+                          navigator.clipboard.writeText(item.data.url);
+                          toast.success('Link copied!');
+                        }
+                      }}
+                    />
+                  )
+                )
+              )}
+
+              <div ref={loadMoreRef} className="flex justify-center py-8">
+                {isLoadingMore && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    Loading more gists...
+                  </div>
+                )}
+                {!hasMore && gists.length > 0 && (
+                  <p className="text-muted-foreground text-sm">You've reached the end!</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right rail */}
+          <DesktopRightWidgets
+            trendingGists={!searchQuery ? trendingGists : undefined}
+            currentPlayingId={currentPlayingId}
+            onPlay={trendingGists.length > 0 ? handlePlay : undefined}
+          />
+        </div>
+      </div>
       <BottomNavigation />
       <FloatingActionButtons />
 
