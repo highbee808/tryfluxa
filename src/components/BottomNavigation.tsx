@@ -31,7 +31,7 @@ export const BottomNavigation = () => {
                   "hover:scale-105 active:scale-95",
                   isActive
                     ? "glass-light text-primary shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:glass-light"
+                    : "text-foreground/80 hover:text-primary hover:glass-light"
                 )}
               >
                 <Icon className="w-5 h-5" />

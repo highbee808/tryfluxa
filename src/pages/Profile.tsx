@@ -7,10 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { ProfileEditModal } from "@/components/ProfileEditModal";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
-import VoiceChatModal from "@/components/VoiceChatModal";
 import { FollowButton } from "@/components/FollowButton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, MapPin, Calendar, Link as LinkIcon, Heart, Play, Volume2, MoreHorizontal, Settings, Trash2, Mic, Trophy } from "lucide-react";
+import { ArrowLeft, Calendar, Heart, Play, Volume2, MoreHorizontal, Settings, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { UserBadges } from "@/components/UserBadges";
 import { DesktopNavigationWidget } from "@/components/DesktopNavigationWidget";
@@ -36,7 +35,6 @@ const Profile = () => {
   const [profile, setProfile] = useState<any>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [voiceChatOpen, setVoiceChatOpen] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [gamificationStats, setGamificationStats] = useState<any>(null);
@@ -157,7 +155,7 @@ const Profile = () => {
         <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px] items-start">
           <DesktopNavigationWidget />
 
-          <div className="w-full max-w-[600px] mx-auto lg:mx-0 border-x border-border min-h-screen pb-20 md:mt-16">
+          <div className="w-full max-w-[600px] mx-auto lg:max-w-none lg:mx-0 border-x border-border min-h-screen pb-20 md:mt-16">
             {/* Top Nav */}
             <div className="sticky top-0 z-20 px-4 pt-4 pb-2 bg-transparent">
               <div className="frosted-nav flex items-center gap-4 px-4 py-3">
@@ -200,43 +198,24 @@ const Profile = () => {
             {/* Profile Info */}
             <div className="px-4">
           {/* Avatar */}
-          <div className="flex justify-between items-start -mt-16 mb-4">
-            <Avatar className="w-[133px] h-[133px] border-4 border-background">
-              <AvatarImage src={profile?.avatar_url || ""} alt="Profile" />
-              <AvatarFallback className="text-5xl bg-gradient-to-br from-blue-400 to-purple-600 text-white">
-                {(profile?.display_name || username).charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex gap-2 mt-3">
-              <Button
-                variant="outline"
-                className="rounded-full font-bold px-4 hover:bg-secondary/50 transition-colors"
-                onClick={() => setVoiceChatOpen(true)}
-              >
-                <Mic className="w-4 h-4 mr-2" />
-                Voice Chat
-              </Button>
-              <Button
-                variant="outline"
-                className="rounded-full font-bold px-4 hover:bg-secondary/50 transition-colors"
-                onClick={() => setEditModalOpen(true)}
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Edit
-              </Button>
+            <div className="flex justify-between items-start -mt-16 mb-4">
+              <Avatar className="w-[133px] h-[133px] border-4 border-background">
+                <AvatarImage src={profile?.avatar_url || ""} alt="Profile" />
+                <AvatarFallback className="text-5xl bg-gradient-to-br from-blue-400 to-purple-600 text-white">
+                  {(profile?.display_name || username).charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex gap-2 mt-3">
+                <Button
+                  variant="outline"
+                  className="rounded-full font-bold px-4 hover:bg-secondary/50 transition-colors"
+                  onClick={() => setEditModalOpen(true)}
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+              </div>
             </div>
-          </div>
-          <div className="px-4 mb-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => setDeleteDialogOpen(true)}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete Account
-            </Button>
-          </div>
 
           {/* User Info */}
           <div className="mb-4">
@@ -434,17 +413,13 @@ const Profile = () => {
         onOpenChange={setEditModalOpen}
         profile={profile}
         onUpdate={loadProfile}
+        onDeleteAccount={() => setDeleteDialogOpen(true)}
       />
 
       <DeleteAccountDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         userEmail={userEmail}
-      />
-
-      <VoiceChatModal
-        open={voiceChatOpen}
-        onOpenChange={setVoiceChatOpen}
       />
 
       <BottomNavigation />
