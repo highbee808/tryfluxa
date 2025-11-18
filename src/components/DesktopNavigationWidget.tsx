@@ -1,10 +1,12 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import type { User } from "@supabase/supabase-js";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Home, Radio, Trophy, Search, User, Settings, Bookmark } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Home, Radio, Trophy, Search, User, Settings, Bookmark, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import FluxaIcon from "@/assets/fluxa-icon.svg";
 
 const navMenuItems = [
   { label: "Feed", icon: Home, path: "/feed" },
@@ -113,6 +115,13 @@ export const DesktopNavigationWidget = () => {
     username;
   const avatarUrl = profile?.avatar_url || authUser?.user_metadata?.avatar_url || "";
 
+  const activePath = useMemo(() => {
+    if (location.pathname.startsWith("/fanbase")) return "/fanbase-hub";
+    if (location.pathname.startsWith("/sports")) return "/sports-hub";
+    if (location.pathname.startsWith("/universe")) return "/universe";
+    return location.pathname;
+  }, [location.pathname]);
+
   const formatNumber = (value: number) => {
     if (value >= 1000) {
       const formatted = (value / 1000).toFixed(1);
@@ -133,18 +142,23 @@ export const DesktopNavigationWidget = () => {
   return (
     <div className="hidden lg:flex flex-col gap-6 sticky top-24 self-start">
       <Card className="glass rounded-3xl border-glass-border-light">
-        <CardContent className="p-5 flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <Avatar className="w-14 h-14 border border-border/60">
-              <AvatarImage src={avatarUrl} alt={displayName} />
-              <AvatarFallback>{displayName?.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="text-sm text-muted-foreground">Signed in as</p>
-              <p className="text-lg font-semibold">
-                {isLoading ? "Loading..." : displayName || "Guest"}
-              </p>
+        <CardContent className="p-6 flex flex-col gap-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <Avatar className="w-14 h-14 border border-border/60">
+                <AvatarImage src={avatarUrl} alt={displayName} />
+                <AvatarFallback>{displayName?.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="text-xs text-muted-foreground">Signed in as</p>
+                <p className="text-lg font-semibold">
+                  {isLoading ? "Loading..." : displayName || "Guest"}
+                </p>
+              </div>
             </div>
+            <Badge variant="secondary" className="glass-light border border-white/10">
+              @{username}
+            </Badge>
           </div>
           <div className="grid grid-cols-3 gap-3 text-center">
             {(
@@ -162,29 +176,48 @@ export const DesktopNavigationWidget = () => {
               </div>
             ))}
           </div>
+          <button
+            onClick={() => navigate("/fluxa-mode")}
+            className="w-full glass-strong rounded-2xl py-3 px-4 flex items-center justify-between border border-white/10 transition hover:shadow-glass-glow"
+          >
+            <span className="flex items-center gap-3">
+              <span className="w-10 h-10 rounded-2xl glass flex items-center justify-center">
+                <img src={FluxaIcon} alt="Fluxa" className="w-6 h-6" />
+              </span>
+              <span className="text-left">
+                <p className="text-sm font-semibold">Fluxa Mode</p>
+                <p className="text-xs text-muted-foreground">Jump back into chat</p>
+              </span>
+            </span>
+            <Sparkles className="w-4 h-4 text-primary" />
+          </button>
         </CardContent>
       </Card>
 
       <Card className="glass-light rounded-3xl border-glass-border-light">
         <CardContent className="p-4 space-y-1">
           {navMenuItems.map(({ label, icon: Icon, path }) => {
-            const isActive = location.pathname === path;
+            const isActive = activePath === path;
             return (
               <button
                 key={label}
                 onClick={() => navigate(path)}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-colors ${
+                aria-current={isActive}
+                className={`w-full flex items-center justify-between px-3 py-3 rounded-2xl transition ${
                   isActive
-                    ? "bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-primary/30"
+                    ? "bg-gradient-to-r from-blue-600/10 to-purple-600/10 border border-primary/30"
                     : "hover:bg-secondary/60"
                 }`}
               >
-                <span className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  isActive ? "glass-strong shadow-glass-glow" : "glass"
-                }`}>
-                  <Icon className="w-4 h-4" />
+                <span className="flex items-center gap-3">
+                  <span className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    isActive ? "glass-strong shadow-glass-glow" : "glass"
+                  }`}>
+                    <Icon className="w-4 h-4" />
+                  </span>
+                  <span className="text-sm font-medium">{label}</span>
                 </span>
-                <span className="text-sm font-medium">{label}</span>
+                {isActive && <span className="text-xs text-primary">Live</span>}
               </button>
             );
           })}
@@ -197,12 +230,15 @@ export const DesktopNavigationWidget = () => {
             <button
               key={label}
               onClick={() => handleQuickLink(path)}
-              className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-colors hover:bg-secondary/60"
+              className="w-full flex items-center justify-between px-3 py-3 rounded-2xl transition-colors hover:bg-secondary/60"
             >
-              <span className="w-8 h-8 rounded-full glass flex items-center justify-center">
-                <Icon className="w-4 h-4" />
+              <span className="flex items-center gap-3">
+                <span className="w-8 h-8 rounded-full glass flex items-center justify-center">
+                  <Icon className="w-4 h-4" />
+                </span>
+                <span className="text-sm font-medium">{label}</span>
               </span>
-              <span className="text-sm font-medium">{label}</span>
+              <span className="text-xs text-muted-foreground">→</span>
             </button>
           ))}
         </CardContent>

@@ -2,10 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { MessageCircle, X, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import FluxaIcon from "@/assets/fluxa-icon.svg";
 
 type Message = {
   role: "user" | "fluxa";
@@ -29,9 +29,7 @@ export const ChatBox = ({ initialContext, isOpen: controlledOpen, onOpenChange }
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const lastContextRequestId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -89,49 +87,6 @@ export const ChatBox = ({ initialContext, isOpen: controlledOpen, onOpenChange }
     }
   }, [messages]);
 
-  useEffect(() => {
-    if (!isOpen && currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      currentAudioRef.current = null;
-      setIsSpeaking(false);
-    }
-  }, [isOpen]);
-
-  const playFluxaVoice = async (text: string) => {
-    setIsSpeaking(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("text-to-speech", {
-        body: { text, voice: "shimmer", speed: 1.0 }
-      });
-
-      if (error) throw error;
-
-      if (data?.audioUrl) {
-        if (currentAudioRef.current) {
-          currentAudioRef.current.pause();
-        }
-
-        const audio = new Audio(data.audioUrl);
-        currentAudioRef.current = audio;
-        
-        audio.onended = () => {
-          setIsSpeaking(false);
-          currentAudioRef.current = null;
-        };
-        
-        audio.onerror = () => {
-          setIsSpeaking(false);
-          currentAudioRef.current = null;
-        };
-
-        await audio.play();
-      }
-    } catch (error) {
-      console.error("Error playing voice:", error);
-      setIsSpeaking(false);
-    }
-  };
-
   const handleSend = async (messageText?: string) => {
     const textToSend = messageText || input.trim();
     if (!textToSend || isLoading) return;
@@ -159,8 +114,6 @@ export const ChatBox = ({ initialContext, isOpen: controlledOpen, onOpenChange }
       };
 
       setMessages((prev) => [...prev, fluxaMessage]);
-      await playFluxaVoice(data.reply);
-
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error("Oops! Fluxa got distracted for a sec 😅");
@@ -182,7 +135,7 @@ export const ChatBox = ({ initialContext, isOpen: controlledOpen, onOpenChange }
       {!isOpen && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:scale-110 transition-transform flex items-center justify-center z-50"
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-full glass-strong border border-white/40 text-white shadow-glass-glow hover:scale-105 transition-transform flex items-center justify-center z-50 backdrop-blur-xl"
           aria-label="Open chat"
         >
           <MessageCircle className="w-6 h-6" />
@@ -191,18 +144,16 @@ export const ChatBox = ({ initialContext, isOpen: controlledOpen, onOpenChange }
 
       {/* Chat Panel */}
       {isOpen && (
-        <div className="fixed bottom-0 left-0 right-0 md:bottom-6 md:right-6 md:left-auto w-full md:w-96 h-[85vh] md:h-[32rem] bg-card border-t md:border border-border md:rounded-2xl shadow-2xl flex flex-col z-50 animate-fade-in-up">
+        <div className="fixed bottom-0 left-0 right-0 md:bottom-6 md:right-6 md:left-auto w-full md:w-96 h-[85vh] md:h-[32rem] bg-background/80 backdrop-blur-2xl border border-white/10 md:rounded-3xl shadow-glass-glow flex flex-col z-50 animate-fade-in-up">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border bg-primary/5 md:rounded-t-2xl">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-2xl animate-pulse">
-                💅
-              </div>
+          <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5 md:rounded-t-3xl backdrop-blur-xl">
+            <div className="flex items-center gap-3">
+              <span className="w-10 h-10 rounded-2xl glass-strong flex items-center justify-center">
+                <img src={FluxaIcon} alt="Fluxa" className="w-6 h-6" />
+              </span>
               <div>
-                <h3 className="font-bold text-foreground">Chat with Fluxa</h3>
-                {isSpeaking && (
-                  <p className="text-xs text-muted-foreground animate-pulse">Speaking...</p>
-                )}
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Fluxa Assistant</p>
+                <h3 className="font-semibold text-base">How can I help?</h3>
               </div>
             </div>
             <Button
@@ -216,7 +167,7 @@ export const ChatBox = ({ initialContext, isOpen: controlledOpen, onOpenChange }
           </div>
 
           {/* Messages */}
-          <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={scrollRef}>
             {messages.length === 0 ? (
               <div className="text-center text-muted-foreground py-8 space-y-3 animate-fade-in">
                 <div className="w-20 h-20 mx-auto rounded-full bg-primary/20 flex items-center justify-center text-4xl animate-bounce">
@@ -226,7 +177,7 @@ export const ChatBox = ({ initialContext, isOpen: controlledOpen, onOpenChange }
                 <p className="text-sm">Ask me anything about the gists!</p>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {messages.map((msg, idx) => (
                   <div
                     key={idx}
@@ -237,16 +188,15 @@ export const ChatBox = ({ initialContext, isOpen: controlledOpen, onOpenChange }
                   >
                     <div
                       className={cn(
-                        "max-w-[80%] rounded-2xl px-4 py-2 text-sm",
+                        "max-w-[85%] rounded-3xl px-4 py-2 text-sm",
                         msg.role === "user"
                           ? "bg-primary text-primary-foreground"
-                          : "bg-card text-foreground shadow-soft border border-border/20"
+                          : "glass text-foreground border border-white/10"
                       )}
                     >
                       {msg.role === "fluxa" && (
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-lg">💅</span>
-                          <span className="text-xs font-semibold text-primary">Fluxa</span>
+                        <div className="flex items-center gap-2 mb-1 text-xs font-semibold text-primary">
+                          <img src={FluxaIcon} alt="Fluxa" className="w-4 h-4" /> Fluxa
                         </div>
                       )}
                       <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
@@ -255,20 +205,17 @@ export const ChatBox = ({ initialContext, isOpen: controlledOpen, onOpenChange }
                 ))}
                 {isLoading && (
                   <div className="flex justify-start animate-fade-in-up">
-                    <div className="bg-card text-foreground rounded-2xl px-4 py-3 shadow-soft border border-border/20">
-                      <div className="flex items-center gap-2">
-                        <div className="loader" style={{ width: '20px', height: '20px', borderWidth: '3px' }} />
-                        <span className="text-sm text-muted-foreground">Fluxa is typing...</span>
-                      </div>
+                    <div className="glass px-4 py-3 rounded-3xl border border-white/10 text-sm text-muted-foreground">
+                      Fluxa is typing...
                     </div>
                   </div>
                 )}
               </div>
             )}
-          </ScrollArea>
+          </div>
 
           {/* Input */}
-          <div className="p-4 border-t border-border">
+          <div className="p-4 border-t border-white/5 bg-white/5 backdrop-blur-xl rounded-b-3xl">
             <div className="flex gap-2">
               <Input
                 value={input}
