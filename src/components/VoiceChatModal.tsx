@@ -1,9 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
 
 type RealtimeEvent = {
   type: string;
   [key: string]: any;
+};
+
+type RealtimeSessionResponse = {
+  client_secret?: { value?: string };
+  model?: string;
 };
 
 interface VoiceChatModalProps {
@@ -69,14 +75,19 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
       setIsConnecting(true);
 
       // 1) Get ephemeral session from our backend edge function
-      const sessionRes = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/realtime-session`);
-      if (!sessionRes.ok) {
-        const errorText = await sessionRes.text();
-        console.error("Session error:", errorText);
-        throw new Error("Failed to create Realtime session");
+      const {
+        data: sessionJson,
+        error: sessionError,
+      } = await supabase.functions.invoke<RealtimeSessionResponse>("realtime-session", {
+        body: {},
+      });
+
+      if (sessionError || !sessionJson) {
+        console.error("Session error:", sessionError);
+        throw new Error(sessionError?.message || "Failed to create Realtime session");
       }
-      const sessionJson = await sessionRes.json();
-      const ephemeralKey: string = sessionJson.client_secret?.value;
+
+      const ephemeralKey: string | undefined = sessionJson.client_secret?.value;
       const model: string = sessionJson.model ?? "gpt-4o-realtime-preview";
 
       if (!ephemeralKey) {

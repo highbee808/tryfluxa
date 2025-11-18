@@ -18,8 +18,9 @@ export const NavigationBar = () => {
   return (
     <>
       {/* Desktop Header */}
-      <nav className="hidden md:block fixed top-0 left-0 right-0 z-50 glass border-b border-glass-border-light">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+      <nav className="hidden md:block fixed top-0 left-0 right-0 z-50 px-6 pt-4">
+        <div className="container mx-auto">
+          <div className="frosted-nav flex items-center justify-between gap-6 px-6 py-3">
           {/* Logo */}
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/feed")}>
             <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
@@ -64,7 +65,7 @@ export const NavigationBar = () => {
             <NotificationCenter />
             <button
               onClick={toggleDarkMode}
-              className="w-10 h-10 rounded-full glass-light flex items-center justify-center hover:glass hover-glow transition-all"
+              className="frosted-icon-button"
               aria-label="Toggle dark mode"
             >
               {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
@@ -81,6 +82,7 @@ export const NavigationBar = () => {
             >
               Get Started
             </button>
+          </div>
           </div>
         </div>
       </nav>
