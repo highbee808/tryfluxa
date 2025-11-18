@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import React from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import type { TouchEvent } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { FeedCardWithSocial } from "@/components/FeedCardWithSocial";
 import { NewsCard } from "@/components/NewsCard";
@@ -24,6 +24,7 @@ import type { User } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+type FeedTab = "all" | "foryou" | "bookmarks";
 
 interface Gist {
   id: string;
@@ -68,7 +69,7 @@ const Feed = () => {
   const [bookmarkedGists, setBookmarkedGists] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
-  const [selectedTab, setSelectedTab] = useState<"all" | "foryou" | "bookmarks">("foryou");
+  const [selectedTab, setSelectedTab] = useState<FeedTab>("foryou");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [newGistCount, setNewGistCount] = useState(0);
   const [searchQuery] = useState("");
@@ -94,6 +95,11 @@ const Feed = () => {
   const fluxaMemory = useFluxaMemory();
 
   const categories = ["All", "Technology", "Lifestyle", "Science", "Media"];
+  const feedTabs: { id: FeedTab; label: string }[] = [
+    { id: "foryou", label: "For You" },
+    { id: "all", label: "All" },
+    { id: "bookmarks", label: "Bookmarks" },
+  ];
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
@@ -138,7 +144,7 @@ const Feed = () => {
   }, [isDesktop]);
 
   useEffect(() => {
-    const state = location.state as { tab?: "all" | "foryou" | "bookmarks" } | null;
+    const state = location.state as { tab?: FeedTab } | null;
     if (state?.tab) {
       setSelectedTab(state.tab);
     }
@@ -434,7 +440,7 @@ const Feed = () => {
   };
 
   // Search and filter gists
-  const filteredGists: Gist[] = React.useMemo(() => {
+  const filteredGists: Gist[] = useMemo(() => {
     let filtered = gists;
     
     // Bookmarks tab - show only bookmarked gists
@@ -474,13 +480,13 @@ const Feed = () => {
   ];
 
   // Pull-to-refresh handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
+  const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
     if (contentRef.current && contentRef.current.scrollTop === 0) {
       touchStartY.current = e.touches[0].clientY;
     }
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => {
     if (touchStartY.current === 0) return;
     
     const touchY = e.touches[0].clientY;
@@ -506,6 +512,17 @@ const Feed = () => {
     setIsPulling(false);
     setPullDistance(0);
     touchStartY.current = 0;
+  };
+
+  const handleTabSelect = (tab: FeedTab) => {
+    if (selectedTab === tab) return;
+    setSelectedTab(tab);
+    setNewGistCount(0);
+    setLoading(true);
+    setGists([]);
+    setNewsItems([]);
+    pageRef.current = 0;
+    setHasMore(true);
   };
 
   const handleRefreshClick = async () => {
@@ -660,6 +677,28 @@ const Feed = () => {
             ref={feedColumnRef}
             className="space-y-6 w-full max-w-[420px] sm:max-w-[520px] md:max-w-[640px] mx-auto scrollbar-hide lg:max-w-none lg:mx-0 lg:h-full lg:overflow-y-auto lg:pr-3 lg:pb-24"
           >
+            <div
+              className="glass rounded-[28px] p-1 flex items-center gap-1 overflow-x-auto scrollbar-hide"
+              role="tablist"
+              aria-label="Feed filters"
+            >
+              {feedTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={selectedTab === tab.id}
+                  onClick={() => handleTabSelect(tab.id)}
+                  className={`px-4 py-2 text-sm font-medium rounded-2xl transition-all whitespace-nowrap ${
+                    selectedTab === tab.id
+                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-glass-glow"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
             <div className="hidden lg:flex flex-wrap gap-2">
               {categories.map((category) => (
