@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,13 +7,13 @@ import { BottomNavigation } from "@/components/BottomNavigation";
 import { ProfileEditModal } from "@/components/ProfileEditModal";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Calendar, Heart, Play, Volume2, MoreHorizontal, Settings, Trophy } from "lucide-react";
+import { ArrowLeft, Calendar, Heart, MoreHorizontal, Settings, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { UserBadges } from "@/components/UserBadges";
 import { DesktopNavigationWidget } from "@/components/DesktopNavigationWidget";
 import { DesktopRightWidgets } from "@/components/DesktopRightWidgets";
 import type { User } from "@supabase/supabase-js";
-import { requestGistAudio } from "@/lib/requestGistAudio";
+import FluxaIcon from "@/assets/fluxa-icon.svg";
 
 interface Gist {
   id: string;
@@ -41,7 +41,6 @@ const Profile = () => {
   const [gamificationStats, setGamificationStats] = useState<any>(null);
   const [postsCount, setPostsCount] = useState(0);
   const [authUser, setAuthUser] = useState<User | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     loadProfile();
@@ -160,40 +159,6 @@ const Profile = () => {
     } catch (error) {
       console.error("Error unfavoriting:", error);
       toast.error("Failed to remove favorite");
-    }
-  };
-
-  const playGist = async (gist: Gist) => {
-    try {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-
-      let audioUrl = gist.audio_cache_url || gist.audio_url || null;
-
-      if (!audioUrl) {
-        try {
-          const { audioUrl: generatedAudio } = await requestGistAudio(gist.id);
-          audioUrl = generatedAudio || null;
-          if (audioUrl) {
-            setFavorites(prev => prev.map(item => item.id === gist.id ? { ...item, audio_url: audioUrl, audio_cache_url: audioUrl } : item));
-          }
-        } catch (error) {
-          console.error('Failed to generate profile audio', error);
-          toast.error('Fluxa Voice needs a moment. Try again!');
-        }
-      }
-
-      if (!audioUrl) {
-        return;
-      }
-
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-      await audio.play();
-    } catch (error) {
-      console.error('Unable to play gist', error);
-      toast.error('Unable to play this gist');
     }
   };
 
@@ -384,7 +349,16 @@ const Profile = () => {
                   {favorites.map((gist) => (
                     <article
                       key={gist.id}
+                      onClick={() => navigate(`/post/${gist.id}`)}
                       className="p-4 hover:bg-secondary/50 transition-colors cursor-pointer"
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          navigate(`/post/${gist.id}`);
+                        }
+                      }}
                     >
                       <div className="flex gap-3">
                         {/* Avatar */}
@@ -436,24 +410,32 @@ const Profile = () => {
                               variant="ghost"
                               size="sm"
                               className="rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
-                              onClick={() => playGist(gist)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                navigate("/fluxa-mode", {
+                                  state: {
+                                    initialContext: {
+                                      gistId: gist.id,
+                                      topic: gist.topic_category || gist.topic,
+                                      headline: gist.headline,
+                                      context: gist.topic,
+                                      fullContext: gist.topic,
+                                    },
+                                  },
+                                });
+                              }}
                             >
-                              <Play className="w-4 h-4 mr-2" />
-                              Play
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="rounded-full text-muted-foreground hover:text-green-600 hover:bg-green-600/10"
-                            >
-                              <Volume2 className="w-4 h-4 mr-2" />
-                              Listen
+                              <img src={FluxaIcon} alt="Fluxa" className="w-4 h-4 mr-2 opacity-80" />
+                              Ask Fluxa
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               className="rounded-full text-primary hover:bg-primary/10"
-                              onClick={() => handleUnfavorite(gist.id)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleUnfavorite(gist.id);
+                              }}
                             >
                               <Heart className="w-4 h-4 mr-2 fill-primary" />
                               Liked
