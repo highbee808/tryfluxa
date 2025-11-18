@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
-import { Play, TrendingUp } from "lucide-react";
+import { Play } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface Gist {
@@ -27,15 +27,7 @@ export const TrendingCarousel = ({ gists, onPlay, currentPlayingId, fullWidth = 
   if (gists.length === 0) return null;
 
   return (
-    <div className="mb-8">
-      <div className="flex items-center gap-2 mb-4">
-        <TrendingUp className="w-5 h-5 text-primary" />
-        <h2 className="text-xl font-bold">Trending Now</h2>
-        <Badge variant="secondary" className="ml-auto">
-          Last 24h
-        </Badge>
-      </div>
-
+    <div className="mb-4">
       <Carousel
         opts={{
           align: "start",

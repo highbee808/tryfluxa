@@ -630,7 +630,7 @@ const Feed = () => {
       </div>
 
       {trendingGists.length > 0 && !searchQuery && (
-        <div className="lg:hidden px-4 mt-4">
+        <div className="lg:hidden px-4 mt-2">
           <TrendingCarousel
             gists={trendingGists}
             onPlay={handlePlay}
@@ -640,7 +640,7 @@ const Feed = () => {
         </div>
       )}
 
-      <div className="container mx-auto px-4 py-6 max-w-6xl lg:h-[calc(100vh-150px)]">
+      <div className="container mx-auto px-4 pt-4 pb-6 max-w-6xl lg:py-6 lg:h-[calc(100vh-150px)]">
         <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px] lg:h-full items-start">
           {/* Left rail */}
           <div className="hidden lg:flex flex-col gap-6 sticky top-24 self-start">
