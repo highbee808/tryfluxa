@@ -164,7 +164,7 @@ Provide a sassy, insightful comparison (200-300 words) covering:
   } catch (error) {
     console.error('Error comparing teams:', error)
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'Failed to process team comparison request' }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
