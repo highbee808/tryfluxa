@@ -33,7 +33,6 @@ const FluxaMode = () => {
   const recognitionRef = useRef<any>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const contextSignatureRef = useRef<string | null>(null);
-  const explanationFetchedRef = useRef<string | null>(null);
 
   // Load chat history from localStorage
   useEffect(() => {
@@ -111,45 +110,6 @@ const FluxaMode = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  useEffect(() => {
-    if (!chatContext?.gistId) return;
-    if (explanationFetchedRef.current === chatContext.gistId) return;
-    explanationFetchedRef.current = chatContext.gistId;
-    let cancelled = false;
-
-    const fetchExplanation = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("request-gist-audio", {
-          body: { gistId: chatContext.gistId }
-        });
-
-        if (error) throw error;
-        if (cancelled) return;
-
-        const explanation =
-          data?.explanation ||
-          chatContext.fullContext ||
-          chatContext.summary ||
-          `Here's what's happening with ${chatContext.topic || 'this story'}.`;
-        setMessages(prev => [...prev, { role: "fluxa", content: explanation, timestamp: new Date() }]);
-
-        if (data?.audioUrl) {
-          await playFluxaVoice(explanation, data.audioUrl);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          console.error("Failed to load explanation", error);
-          toast.error("Fluxa couldn't load that post yet.");
-        }
-      }
-    };
-
-    fetchExplanation();
-    return () => {
-      cancelled = true;
-    };
-  }, [chatContext?.gistId, chatContext?.summary, chatContext?.topic]);
 
   // Initialize speech recognition
   useEffect(() => {

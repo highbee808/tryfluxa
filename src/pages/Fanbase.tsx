@@ -13,7 +13,6 @@ interface Thread {
   category: string;
   topic_name: string;
   post: string;
-  audio_url: string | null;
   reactions: any;
   created_at: string;
 }
@@ -163,12 +162,6 @@ const Fanbase = () => {
                 </div>
                 <p className="text-foreground mb-3">{thread.post}</p>
                 
-                {thread.audio_url && (
-                  <audio controls className="w-full mb-3">
-                    <source src={thread.audio_url} type="audio/mpeg" />
-                  </audio>
-                )}
-
                 <div className="flex gap-2 pt-2 border-t">
                   <Button variant="ghost" size="sm">
                     🔥 {thread.reactions?.fire || 0}

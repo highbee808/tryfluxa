@@ -20,8 +20,6 @@ interface Gist {
   headline: string;
   topic: string;
   topic_category: string;
-  audio_url: string | null;
-  audio_cache_url?: string | null;
   image_url: string | null;
   published_at: string;
 }

@@ -30,20 +30,16 @@ interface Gist {
   id: string;
   headline: string;
   context: string;
-  audio_url: string | null;
-  audio_cache_url?: string | null;
   image_url: string | null;
   topic: string;
   topic_category: string | null;
   published_at?: string;
-  play_count?: number;
   script?: string | null;
   analytics?: {
     views: number;
     likes: number;
     comments: number;
     shares: number;
-    plays: number;
   };
 }
 
@@ -247,8 +243,7 @@ const Feed = () => {
             views: 0,
             likes: 0,
             comments: 0,
-            shares: 0,
-            plays: 0
+            shares: 0
           }
         }));
 
@@ -267,7 +262,7 @@ const Feed = () => {
           .select("*")
           .eq("status", "published")
           .gte("published_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-          .order("play_count", { ascending: false })
+          .order("published_at", { ascending: false })
           .limit(5);
 
         if (trending) setTrendingGists(trending);

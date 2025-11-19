@@ -30,7 +30,6 @@ interface Gist {
   headline: string;
   topic: string;
   context: string;
-  audio_url: string;
   image_url: string | null;
   play_count: number;
   favorite_count: number;

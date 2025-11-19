@@ -48,11 +48,10 @@ export const NewsCard = ({
   const handleNavigate = () => {
     if (onCardClick) {
       onCardClick();
-    } else if (url) {
-      window.open(url, "_blank", "noopener,noreferrer");
-    } else {
-      navigate(`/post/${id}`);
+      return;
     }
+
+    navigate(`/post/${id}`);
   };
 
   const handleCommentClick = (event: MouseEvent<HTMLButtonElement>) => {
@@ -148,49 +147,49 @@ export const NewsCard = ({
                 event.stopPropagation();
                 onLike?.();
               }}
-              className="flex items-center gap-2 text-muted-foreground hover:text-red-500 transition-colors group"
-            >
-              <Heart
-                className={`w-5 h-5 transition-all ${
-                  isLiked ? "fill-red-500 text-red-500 scale-110" : "group-hover:scale-110"
-                }`}
-              />
-              <span className="text-sm font-medium">{Math.floor(Math.random() * 500)}</span>
-            </button>
+          className="flex items-center gap-2 text-muted-foreground hover:text-red-500 transition-colors group"
+        >
+          <Heart
+            className={`w-4 h-4 transition-all ${
+              isLiked ? "fill-red-500 text-red-500 scale-110" : "group-hover:scale-110"
+            }`}
+          />
+          <span className="text-sm font-medium">{Math.floor(Math.random() * 500)}</span>
+        </button>
 
             <button
-              onClick={handleCommentClick}
-              className="flex items-center gap-2 text-muted-foreground hover:text-blue-500 transition-colors group"
-            >
-              <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-all" />
-              <span className="text-sm font-medium">{Math.floor(Math.random() * 100)}</span>
-            </button>
+          onClick={handleCommentClick}
+          className="flex items-center gap-2 text-muted-foreground hover:text-blue-500 transition-colors group"
+        >
+          <MessageCircle className="w-4 h-4 group-hover:scale-110 transition-all" />
+          <span className="text-sm font-medium">{Math.floor(Math.random() * 100)}</span>
+        </button>
 
             <button
               onClick={(event) => {
                 event.stopPropagation();
                 onBookmark?.();
               }}
-              className="flex items-center gap-2 text-muted-foreground hover:text-coral-active transition-colors group"
-            >
-              <Bookmark
-                className={`w-5 h-5 transition-all ${
-                  isBookmarked ? "fill-coral-active text-coral-active scale-110" : "group-hover:scale-110"
-                }`}
-              />
-              <span className="text-sm font-medium">{Math.floor(Math.random() * 200)}</span>
-            </button>
+          className="flex items-center gap-2 text-muted-foreground hover:text-coral-active transition-colors group"
+        >
+          <Bookmark
+            className={`w-4 h-4 transition-all ${
+              isBookmarked ? "fill-coral-active text-coral-active scale-110" : "group-hover:scale-110"
+            }`}
+          />
+          <span className="text-sm font-medium">{Math.floor(Math.random() * 200)}</span>
+        </button>
 
             <div className="ml-auto flex items-center gap-3">
               <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onShare?.();
-                }}
-                className="flex items-center gap-2 text-muted-foreground hover:text-green-500 transition-colors group"
-              >
-                <Share2 className="w-5 h-5 group-hover:scale-110 transition-all" />
-              </button>
+          onClick={(event) => {
+            event.stopPropagation();
+            onShare?.();
+          }}
+          className="flex items-center gap-2 text-muted-foreground hover:text-green-500 transition-colors group"
+        >
+          <Share2 className="w-4 h-4 group-hover:scale-110 transition-all" />
+        </button>
 
               <button
                 onClick={handleFluxaMode}

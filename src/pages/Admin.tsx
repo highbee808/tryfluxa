@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Play, LogOut, Sparkles, Trash2 } from "lucide-react";
+import { Loader2, LogOut, Sparkles, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { topics } from "@/data/topics";
 
@@ -283,7 +283,6 @@ const Admin = () => {
       const gist = data.gist;
       addLog(`Headline: ${gist.headline ? '✓' : '✗ MISSING'}`);
       addLog(`Context: ${gist.context ? '✓' : '✗ MISSING'}`);
-      addLog(`Audio cached: ${gist.audio_url ? 'ready' : 'on-demand'}`);
       addLog(`Status: ${gist.status === 'published' ? '✓ published' : '✗ ' + gist.status}`);
 
       // Step 5: Fetch from database to confirm
@@ -489,25 +488,9 @@ const Admin = () => {
               </div>
               <div>
                 <span className="font-medium">Audio:</span>
-                {lastGist.audio_url ? (
-                  <div className="flex items-center gap-2 mt-1">
-                    <audio controls src={lastGist.audio_url} className="w-full" />
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={() => {
-                        const audio = new Audio(lastGist.audio_url);
-                        audio.play();
-                      }}
-                    >
-                      <Play className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Audio will be generated the first time a user asks Fluxa to explain this post.
-                  </p>
-                )}
+                <p className="text-sm text-muted-foreground mt-1">
+                  Audio will be generated on-demand in Fluxa Mode.
+                </p>
               </div>
             </div>
           </Card>
