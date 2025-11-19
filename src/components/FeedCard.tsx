@@ -1,128 +1,95 @@
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
-import { Heart, MessageCircle, Bookmark, Share2 } from "lucide-react";
-import { FluxaLogo } from "@/components/FluxaLogo";
-import { cn } from "@/lib/utils";
+import { MessageSquare, Heart, Bookmark, Share2 } from "lucide-react";
+import { FluxaLogo } from "./FluxaLogo";
 
-interface FeedCardProps {
-  id: string;
-  headline: string;
-  context: string;
-  image_url: string | null;
-  topic: string;
-  topic_category: string;
-  published_at: string;
-}
-
-export const FeedCard = ({
-  id,
-  headline,
-  context,
-  image_url,
-  topic,
-  topic_category,
-  published_at
-}: FeedCardProps) => {
-
+export const FeedCard = ({ gist }) => {
   const navigate = useNavigate();
 
-  const openPost = () => navigate(`/post/${id}`);
+  const handleOpenPost = () => {
+    navigate(`/post/${gist.id}`, { state: { gist } });
+  };
 
-  const openFluxaMode = () => {
+  const handleOpenFluxa = () => {
     navigate("/fluxa-mode", {
       state: {
         initialContext: {
-          gistId: id,
-          topic,
-          headline,
-          context,
-          fullContext: context
-        }
-      }
+          gistId: gist.id,
+          headline: gist.headline,
+          context: gist.context,
+          fullContext: gist.script,
+          topic: gist.topic,
+        },
+      },
     });
   };
 
   return (
-    <Card
-      className="border rounded-2xl overflow-hidden hover:shadow-md transition-all cursor-pointer bg-card"
-      onClick={openPost}
+    <div
+      className="p-4 border-b border-border cursor-pointer hover:bg-secondary/20 transition-colors"
+      onClick={handleOpenPost}
     >
-      <CardContent className="p-0">
-        
-        {/* IMAGE */}
-        {image_url && (
-          <div className="relative w-full overflow-hidden">
-            <img
-              src={image_url}
-              alt={headline}
-              className="w-full h-56 object-cover transition-transform duration-300 group-hover:scale-105"
-            />
-          </div>
-        )}
+      {/* Topic Tag */}
+      <div className="text-xs font-semibold text-primary mb-2 bg-primary/10 px-2 py-1 rounded w-fit">
+        {gist.topic_category}
+      </div>
 
-        {/* TEXT CONTENT */}
-        <div className="p-4">
-          <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full">
-            {topic_category}
-          </span>
+      {/* Headline */}
+      <h2 className="text-lg font-bold leading-snug mb-1">{gist.headline}</h2>
 
-          <h2 className="font-semibold text-lg mt-2 line-clamp-2">{headline}</h2>
+      {/* Context */}
+      <p className="text-muted-foreground text-sm line-clamp-3 mb-3">
+        {gist.context}
+      </p>
 
-          <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
-            {context}
-          </p>
-
-          {/* ACTION ROW */}
-          <div
-            className="flex items-center justify-between mt-4 pt-3 border-t border-border"
-            onClick={(e) => e.stopPropagation()} // prevent card click
-          >
-            {/* LEFT ACTIONS */}
-            <div className="flex items-center gap-4">
-
-              <button className="flex items-center gap-1 text-muted-foreground hover:text-primary transition">
-                <Heart className="w-5 h-5" />
-              </button>
-
-              <button
-                className="flex items-center gap-1 text-muted-foreground hover:text-primary transition"
-                onClick={() => navigate(`/post/${id}#comments`)}
-              >
-                <MessageCircle className="w-5 h-5" />
-              </button>
-
-              <button className="flex items-center gap-1 text-muted-foreground hover:text-primary transition">
-                <Bookmark className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* RIGHT ACTIONS */}
-            <div className="flex items-center gap-4">
-
-              <button className="text-muted-foreground hover:text-primary transition">
-                <Share2 className="w-5 h-5" />
-              </button>
-
-              {/* FLUXA BUTTON */}
-              <button
-                className="text-primary hover:scale-110 transition-transform"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openFluxaMode();
-                }}
-                aria-label="Chat with Fluxa about this gist"
-              >
-                <FluxaLogo
-                  size={20}
-                  fillColor="currentColor"
-                  className="w-5 h-5"
-                />
-              </button>
-
-            </div>
-          </div>
+      {/* Image */}
+      {gist.image_url && (
+        <div className="rounded-xl overflow-hidden border">
+          <img
+            src={gist.image_url}
+            alt="Gist visual"
+            className="w-full object-cover"
+          />
         </div>
-      </CardContent>
-    </Card>
+      )}
+
+      {/* Action Row */}
+      <div
+        className="flex items-center gap-6 mt-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Fluxa Mode Button */}
+        <button
+          onClick={handleOpenFluxa}
+          className="flex items-center gap-1 text-primary hover:opacity-80 transition"
+        >
+          <FluxaLogo size={16} fillColor="currentColor" />
+        </button>
+
+        {/* Like */}
+        <button className="flex items-center gap-1 text-muted-foreground hover:text-primary transition">
+          <Heart className="w-4 h-4" />
+        </button>
+
+        {/* Comment */}
+        <button
+          onClick={handleOpenPost}
+          className="flex items-center gap-1 text-muted-foreground hover:text-primary transition"
+        >
+          <MessageSquare className="w-4 h-4" />
+        </button>
+
+        {/* Bookmark */}
+        <button className="flex items-center gap-1 text-muted-foreground hover:text-primary transition">
+          <Bookmark className="w-4 h-4" />
+        </button>
+
+        {/* Share */}
+        <button className="flex items-center gap-1 text-muted-foreground hover:text-primary transition">
+          <Share2 className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
   );
 };
+
+export default FeedCard;
