@@ -1,242 +1,125 @@
-import type { ReactNode, MouseEvent } from "react";
-import { Heart, MessageCircle, Bookmark, Share2, Clock, Eye } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import FluxaIcon from "@/assets/fluxa-icon.svg";
+import { Card, CardContent } from "@/components/ui/card";
+import { Heart, MessageCircle, Bookmark, Share2 } from "lucide-react";
+import { FluxaLogo } from "@/components/FluxaLogo";
+import { cn } from "@/lib/utils";
 
 interface FeedCardProps {
   id: string;
-  imageUrl?: string;
-  headline: ReactNode;
-  context: ReactNode;
-  headlineText?: string;
-  contextText?: string;
-  fullContext?: string;
-  author?: string;
-  authorAvatar?: string;
-  timeAgo?: string;
-  category?: string;
-  readTime?: string;
-  likes?: number;
-  comments?: number;
-  bookmarks?: number;
-  views?: number;
-  shares?: number;
-  credibilityScore?: number;
-  isLiked?: boolean;
-  isBookmarked?: boolean;
-  onLike?: () => void;
-  onBookmark?: () => void;
-  onShare?: () => void;
+  headline: string;
+  context: string;
+  image_url: string | null;
+  topic: string;
+  topic_category: string;
+  published_at: string;
 }
 
 export const FeedCard = ({
   id,
-  imageUrl,
   headline,
   context,
-  headlineText,
-  contextText,
-  fullContext,
-  author = "Fluxa",
-  authorAvatar,
-  timeAgo = "2h ago",
-  category = "Technology",
-  readTime = "5 min",
-  likes = 0,
-  comments = 0,
-  bookmarks = 0,
-  views = 0,
-  shares = 0,
-  credibilityScore = 75,
-  isLiked,
-  isBookmarked,
-  onLike,
-  onBookmark,
-  onShare,
+  image_url,
+  topic,
+  topic_category,
+  published_at
 }: FeedCardProps) => {
+
   const navigate = useNavigate();
-  const fluxaTopic = category || "Trending";
-  const fluxaHeadline = headlineText || (typeof headline === "string" ? headline : undefined) || "";
-  const fluxaSummary = contextText || (typeof context === "string" ? context : undefined) || "";
-  const fluxaFullContext = fullContext || fluxaSummary;
 
-  const handleShareWithTracking = async () => {
-    if (onShare) {
-      onShare();
-      // Track share event
-      try {
-        await supabase.functions.invoke('track-post-event', {
-          body: { postId: id, event: 'share' }
-        });
-      } catch (error) {
-        console.error("Error tracking share:", error);
-      }
-    }
-  };
-  
-  const getCredibilityColor = (score: number) => {
-    if (score >= 80) return "text-green-500";
-    if (score >= 60) return "text-yellow-500";
-    return "text-red-500";
-  };
+  const openPost = () => navigate(`/post/${id}`);
 
-  const handleCommentClick = () => {
-    navigate(`/post/${id}`);
-  };
-
-  const handleCardClick = () => {
-    navigate(`/post/${id}`);
-  };
-
-  const handleFluxaMode = (event: MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    navigate('/fluxa-mode', {
+  const openFluxaMode = () => {
+    navigate("/fluxa-mode", {
       state: {
         initialContext: {
-          topic: fluxaTopic,
-          headline: fluxaHeadline,
-          context: fluxaSummary,
-          fullContext: fluxaFullContext,
           gistId: id,
-        },
-      },
+          topic,
+          headline,
+          context,
+          fullContext: context
+        }
+      }
     });
   };
 
   return (
-    <Card className="w-full overflow-hidden border-glass-border-light shadow-glass hover:shadow-glass-glow transition-all duration-300 bg-card/95 backdrop-blur-sm">
+    <Card
+      className="border rounded-2xl overflow-hidden hover:shadow-md transition-all cursor-pointer bg-card"
+      onClick={openPost}
+    >
       <CardContent className="p-0">
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={handleCardClick}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              handleCardClick();
-            }
-          }}
-          className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2"
-        >
-          <div className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Avatar className="w-10 h-10">
-                {authorAvatar ? (
-                  <AvatarImage src={authorAvatar} alt={author} />
-                ) : (
-                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm">
-                    {(author || "F").substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                )}
-              </Avatar>
-              <div>
-                <p className="text-sm font-medium">{author}</p>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{timeAgo}</span>
-                  <span>•</span>
-                  <Eye className="w-3 h-3" />
-                  <span>{views}</span>
-                </div>
-              </div>
-            </div>
-            <Badge
-              variant="secondary"
-              className={`text-xs ${getCredibilityColor(credibilityScore)}`}
-            >
-              {credibilityScore}%
-            </Badge>
-          </div>
-
-          {imageUrl && (
+        
+        {/* IMAGE */}
+        {image_url && (
+          <div className="relative w-full overflow-hidden">
             <img
-              src={imageUrl}
-              alt={typeof headline === "string" ? headline : fluxaHeadline}
-              className="w-full h-48 sm:h-64 object-cover"
+              src={image_url}
+              alt={headline}
+              className="w-full h-56 object-cover transition-transform duration-300 group-hover:scale-105"
             />
-          )}
-
-          <div className="p-6">
-            <div className="flex items-center gap-2 mb-3">
-              <Clock className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">{readTime} read</span>
-            </div>
-
-            <h2 className="text-xl md:text-2xl font-semibold mb-2 leading-tight">
-              {headline}
-            </h2>
-            <p className="text-muted-foreground text-sm md:text-base mb-4 line-clamp-3">
-              {context}
-            </p>
           </div>
-        </div>
+        )}
 
-        <div className="p-6 pt-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-border">
-            <div className="flex items-center gap-4 sm:gap-6">
-              <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onLike?.();
-                }}
-                className="flex items-center gap-2 text-muted-foreground hover:text-red-500 transition-colors group"
-              >
-                <Heart
-                  className={`w-5 h-5 transition-all ${
-                    isLiked ? "fill-red-500 text-red-500 scale-110" : "group-hover:scale-110"
-                  }`}
-                />
-                <span className="text-sm font-medium">{likes}</span>
+        {/* TEXT CONTENT */}
+        <div className="p-4">
+          <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-full">
+            {topic_category}
+          </span>
+
+          <h2 className="font-semibold text-lg mt-2 line-clamp-2">{headline}</h2>
+
+          <p className="text-sm text-muted-foreground mt-2 line-clamp-3">
+            {context}
+          </p>
+
+          {/* ACTION ROW */}
+          <div
+            className="flex items-center justify-between mt-4 pt-3 border-t border-border"
+            onClick={(e) => e.stopPropagation()} // prevent card click
+          >
+            {/* LEFT ACTIONS */}
+            <div className="flex items-center gap-4">
+
+              <button className="flex items-center gap-1 text-muted-foreground hover:text-primary transition">
+                <Heart className="w-5 h-5" />
               </button>
 
               <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onComment ? onComment() : handleCommentClick();
-                }}
-                className="flex items-center gap-2 text-muted-foreground hover:text-blue-500 transition-colors group"
+                className="flex items-center gap-1 text-muted-foreground hover:text-primary transition"
+                onClick={() => navigate(`/post/${id}#comments`)}
               >
-                <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-all" />
-                <span className="text-sm font-medium">{comments}</span>
+                <MessageCircle className="w-5 h-5" />
               </button>
 
-              <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onBookmark?.();
-                }}
-                className="flex items-center gap-2 text-muted-foreground hover:text-coral-active transition-colors group"
-              >
-                <Bookmark
-                  className={`w-5 h-5 transition-all ${
-                    isBookmarked ? "fill-coral-active text-coral-active scale-110" : "group-hover:scale-110"
-                  }`}
-                />
-                <span className="text-sm font-medium">{bookmarks}</span>
-              </button>
-
-              <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  handleShareWithTracking();
-                }}
-                className="flex items-center gap-2 text-muted-foreground hover:text-green-500 transition-colors group"
-              >
-                <Share2 className="w-5 h-5 group-hover:scale-110 transition-all" />
-                <span className="text-sm font-medium">{shares}</span>
+              <button className="flex items-center gap-1 text-muted-foreground hover:text-primary transition">
+                <Bookmark className="w-5 h-5" />
               </button>
             </div>
 
-            <button
-              onClick={handleFluxaMode}
-              className="ml-auto rounded-full bg-primary/10 border border-primary/20 p-2 hover:bg-primary/20 transition-colors"
-              aria-label="Open Fluxa Mode"
-            >
-              <img src={FluxaIcon} alt="Fluxa" className="w-5 h-5 opacity-80" />
-            </button>
+            {/* RIGHT ACTIONS */}
+            <div className="flex items-center gap-4">
+
+              <button className="text-muted-foreground hover:text-primary transition">
+                <Share2 className="w-5 h-5" />
+              </button>
+
+              {/* FLUXA BUTTON */}
+              <button
+                className="text-primary hover:scale-110 transition-transform"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openFluxaMode();
+                }}
+                aria-label="Chat with Fluxa about this gist"
+              >
+                <FluxaLogo
+                  size={20}
+                  fillColor="currentColor"
+                  className="w-5 h-5"
+                />
+              </button>
+
+            </div>
           </div>
         </div>
       </CardContent>
