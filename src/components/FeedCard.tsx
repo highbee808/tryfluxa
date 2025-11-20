@@ -1,21 +1,27 @@
-import { Heart, MessageCircle, Bookmark, Share2, Clock, Sparkles, Eye } from "lucide-react";
+import {
+  Heart,
+  MessageCircle,
+  Bookmark,
+  Share2,
+  Clock,
+  Sparkles,
+  Eye,
+  Headphones
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { FluxaLogo } from "./FluxaLogo";
 import { supabase } from "@/integrations/supabase/client";
+import { FluxaLogo } from "@/components/FluxaLogo";
 
 interface FeedCardProps {
   id: string;
   imageUrl?: string;
   headline: string;
   context: string;
-  headlineText?: string;
-  contextText?: string;
-  fullContext?: string;
   author?: string;
   authorAvatar?: string;
   timeAgo?: string;
@@ -28,51 +34,42 @@ interface FeedCardProps {
   plays?: number;
   shares?: number;
   credibilityScore?: number;
-  isPlaying?: boolean;
   isLiked?: boolean;
   isBookmarked?: boolean;
-  onPlay?: () => void;
   onLike?: () => void;
   onComment?: () => void;
   onBookmark?: () => void;
   onShare?: () => void;
   onDeeperSummary?: () => void;
   deeperSummaryRequested?: boolean;
-  topic?: string;
 }
 
-export const FeedCard = (props: FeedCardProps) => {
-  const {
-    id,
-    imageUrl,
-    headline,
-    context,
-    author = "Fluxa",
-    authorAvatar,
-    timeAgo = "2h ago",
-    category = "Technology",
-    readTime = "5 min",
-    likes = 0,
-    comments = 0,
-    bookmarks = 0,
-    views = 0,
-    plays = 0,
-    shares = 0,
-    credibilityScore = 75,
-    isLiked,
-    isBookmarked,
-    onLike,
-    onComment,
-    onBookmark,
-    onShare,
-    onDeeperSummary,
-    deeperSummaryRequested,
-    topic,
-    headlineText,
-    contextText,
-    fullContext,
-  } = props;
-
+export const FeedCard = ({
+  id,
+  imageUrl,
+  headline,
+  context,
+  author = "Fluxa",
+  authorAvatar,
+  timeAgo = "2h ago",
+  category = "Technology",
+  readTime = "5 min",
+  likes = 0,
+  comments = 0,
+  bookmarks = 0,
+  views = 0,
+  plays = 0,
+  shares = 0,
+  credibilityScore = 75,
+  isLiked,
+  isBookmarked,
+  onLike,
+  onComment,
+  onBookmark,
+  onShare,
+  onDeeperSummary,
+  deeperSummaryRequested,
+}: FeedCardProps) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -80,8 +77,8 @@ export const FeedCard = (props: FeedCardProps) => {
     if (onShare) {
       onShare();
       try {
-        await supabase.functions.invoke('track-post-event', {
-          body: { postId: id, event: 'share' }
+        await supabase.functions.invoke("track-post-event", {
+          body: { postId: id, event: "share" },
         });
       } catch (error) {
         console.error("Error tracking share:", error);
@@ -95,31 +92,31 @@ export const FeedCard = (props: FeedCardProps) => {
     return "text-red-500";
   };
 
-  const handleCommentClick = () => {
-    navigate(`/post/${id}`);
-    if (onComment) {
-      onComment();
-    }
-  };
-
-  const handleFluxaMode = () => {
+  const handleFluxaModeClick = () => {
     navigate("/fluxa-mode", {
       state: {
         initialContext: {
           gistId: id,
-          topic: topic || category,
-          headline: headlineText || headline,
-          context: contextText || context,
-          fullContext: fullContext || context,
+          topic: category,
+          headline,
+          context,
+          fullContext: context,
         },
       },
     });
   };
 
+  const handleCommentClick = () => {
+    if (onComment) {
+      onComment();
+    } else {
+      navigate(`/post/${id}`);
+    }
+  };
+
   return (
-    <Card className="overflow-hidden border-glass-border-light shadow-glass hover:shadow-glass-glow transition-all duration-300 bg-card/95 backdrop-blur-sm">
+    <Card className="w-full overflow-hidden border-glass-border-light shadow-glass hover:shadow-glass-glow transition-all duration-300 bg-card/95 backdrop-blur-sm">
       <CardContent className="p-0">
-        {/* Author Info */}
         <div className="p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Avatar className="w-10 h-10">
@@ -127,7 +124,7 @@ export const FeedCard = (props: FeedCardProps) => {
                 <AvatarImage src={authorAvatar} alt={author} />
               ) : (
                 <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm">
-                  {(author || "Fluxa").substring(0, 2).toUpperCase()}
+                  {author?.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
               )}
             </Avatar>
@@ -138,8 +135,6 @@ export const FeedCard = (props: FeedCardProps) => {
                 <span>•</span>
                 <Eye className="w-3 h-3" />
                 <span>{views}</span>
-                <span>•</span>
-                <span>{plays} listens</span>
               </div>
             </div>
           </div>
@@ -151,7 +146,6 @@ export const FeedCard = (props: FeedCardProps) => {
           </Badge>
         </div>
 
-        {/* Image */}
         {imageUrl && (
           <img
             src={imageUrl}
@@ -161,11 +155,17 @@ export const FeedCard = (props: FeedCardProps) => {
           />
         )}
 
-        {/* Content */}
         <div className="p-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Clock className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">{readTime} read</span>
+          <div className="flex items-center justify-between mb-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              <span className="text-sm">{readTime} read</span>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Headphones className="w-4 h-4 opacity-70" />
+              <span className="text-xs">{plays} listens</span>
+            </div>
           </div>
 
           <h2 className="text-xl md:text-2xl font-semibold mb-2 leading-tight">
@@ -175,14 +175,18 @@ export const FeedCard = (props: FeedCardProps) => {
             {context}
           </p>
 
-          {/* Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-border">
             <div className="flex items-center gap-4 sm:gap-6">
               <button
-                onClick={handleFluxaMode}
-                className="flex items-center gap-2 text-primary hover:opacity-80 transition-colors"
+                onClick={handleFluxaModeClick}
+                className="flex items-center gap-2 text-primary hover:text-primary/90 transition-colors group"
               >
-                <FluxaLogo size={20} fillColor="currentColor" />
+                <span className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-all">
+                  <FluxaLogo size={18} fillColor="hsl(var(--primary))" />
+                </span>
+                {!isMobile && (
+                  <span className="text-sm font-semibold">Fluxa Mode</span>
+                )}
               </button>
 
               <button
@@ -191,7 +195,9 @@ export const FeedCard = (props: FeedCardProps) => {
               >
                 <Heart
                   className={`w-5 h-5 transition-all ${
-                    isLiked ? "fill-red-500 text-red-500 scale-110" : "group-hover:scale-110"
+                    isLiked
+                      ? "fill-red-500 text-red-500 scale-110"
+                      : "group-hover:scale-110"
                   }`}
                 />
                 <span className="text-sm font-medium">{likes}</span>
@@ -201,7 +207,7 @@ export const FeedCard = (props: FeedCardProps) => {
                 onClick={handleCommentClick}
                 className="flex items-center gap-2 text-muted-foreground hover:text-blue-500 transition-colors group"
               >
-                <MessageSquare className="w-5 h-5 group-hover:scale-110 transition-all" />
+                <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-all" />
                 <span className="text-sm font-medium">{comments}</span>
               </button>
 
@@ -211,7 +217,9 @@ export const FeedCard = (props: FeedCardProps) => {
               >
                 <Bookmark
                   className={`w-5 h-5 transition-all ${
-                    isBookmarked ? "fill-coral-active text-coral-active scale-110" : "group-hover:scale-110"
+                    isBookmarked
+                      ? "fill-coral-active text-coral-active scale-110"
+                      : "group-hover:scale-110"
                   }`}
                 />
                 <span className="text-sm font-medium">{bookmarks}</span>
@@ -235,7 +243,8 @@ export const FeedCard = (props: FeedCardProps) => {
                 className="gap-2 w-full sm:w-auto"
               >
                 <Sparkles className="w-4 h-4" />
-                {!isMobile && (deeperSummaryRequested ? "Requested" : "Deeper Analysis")}
+                {!isMobile &&
+                  (deeperSummaryRequested ? "Requested" : "Deeper Analysis")}
               </Button>
             )}
           </div>
