@@ -4,14 +4,12 @@ import {
   Bookmark,
   Share2,
   Clock,
-  Sparkles,
   Eye,
   Headphones,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,8 +38,6 @@ interface FeedCardProps {
   onComment?: () => void;
   onBookmark?: () => void;
   onShare?: () => void;
-  onDeeperSummary?: () => void;
-  deeperSummaryRequested?: boolean;
 }
 
 export const FeedCard = ({
@@ -52,7 +48,7 @@ export const FeedCard = ({
   author = "Fluxa",
   authorAvatar,
   timeAgo = "2h ago",
-  category = "Technology",
+  category,
   readTime = "5 min",
   likes = 0,
   comments = 0,
@@ -67,37 +63,18 @@ export const FeedCard = ({
   onComment,
   onBookmark,
   onShare,
-  onDeeperSummary,
-  deeperSummaryRequested,
 }: FeedCardProps) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
-  const handleShareWithTracking = async () => {
-    if (onShare) {
-      onShare();
-      try {
-        await supabase.functions.invoke("track-post-event", {
-          body: { postId: id, event: "share" },
-        });
-      } catch (error) {
-        console.error("Error tracking share:", error);
-      }
-    }
-  };
-
-  const getCredibilityColor = (score: number) => {
-    if (score >= 80) return "text-green-500";
-    if (score >= 60) return "text-yellow-500";
-    return "text-red-500";
-  };
+  const safeTopic = category && category.trim() !== "" ? category : "this post";
 
   const handleFluxaModeClick = () => {
     navigate("/fluxa-mode", {
       state: {
         initialContext: {
           gistId: id,
-          topic: category,
+          topic: safeTopic,
           headline,
           context,
           fullContext: context,
@@ -107,17 +84,33 @@ export const FeedCard = ({
   };
 
   const handleCommentClick = () => {
-    if (onComment) {
-      onComment();
-    } else {
-      navigate(`/post/${id}`);
+    if (onComment) return onComment();
+    navigate(`/post/${id}`);
+  };
+
+  const handleShareWithTracking = async () => {
+    if (onShare) onShare();
+
+    try {
+      await supabase.functions.invoke("track-post-event", {
+        body: { postId: id, event: "share" },
+      });
+    } catch (error) {
+      console.error("Error tracking share:", error);
     }
+  };
+
+  const getCredibilityColor = (score: number) => {
+    if (score >= 80) return "text-green-500";
+    if (score >= 60) return "text-yellow-500";
+    return "text-red-500";
   };
 
   return (
     <Card className="w-full overflow-hidden border border-border shadow-md hover:shadow-xl transition-all duration-300 bg-card/95 backdrop-blur">
       <CardContent className="p-0">
-        {/* Top Row: Author Info */}
+
+        {/* Top Author Row */}
         <div className="p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Avatar className="w-10 h-10">
@@ -129,6 +122,7 @@ export const FeedCard = ({
                 </AvatarFallback>
               )}
             </Avatar>
+
             <div>
               <p className="text-sm font-medium">{author}</p>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -160,6 +154,7 @@ export const FeedCard = ({
 
         {/* Content */}
         <div className="p-6">
+
           <div className="flex items-center justify-between mb-3 text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
@@ -175,14 +170,16 @@ export const FeedCard = ({
           <h2 className="text-xl md:text-2xl font-semibold mb-2 leading-tight">
             {headline}
           </h2>
+
           <p className="text-muted-foreground text-sm md:text-base mb-4 line-clamp-3">
             {context}
           </p>
 
-          {/* Action Row */}
+          {/* Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-border">
             <div className="flex items-center gap-5">
-              {/* Fluxa Mode First & Bigger */}
+
+              {/* Fluxa Mode */}
               <button
                 onClick={handleFluxaModeClick}
                 className="flex items-center gap-2 text-primary hover:text-primary/90 transition-colors group"
@@ -238,20 +235,6 @@ export const FeedCard = ({
                 <span className="text-sm">{shares}</span>
               </button>
             </div>
-
-            {onDeeperSummary && (
-              <Button
-                size="sm"
-                variant={deeperSummaryRequested ? "secondary" : "outline"}
-                onClick={onDeeperSummary}
-                disabled={deeperSummaryRequested}
-                className="gap-2 w-full sm:w-auto"
-              >
-                <Sparkles className="w-4 h-4" />
-                {!isMobile &&
-                  (deeperSummaryRequested ? "Requested" : "Deeper Analysis")}
-              </Button>
-            )}
           </div>
         </div>
       </CardContent>
