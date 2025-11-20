@@ -6,7 +6,7 @@ import {
   Clock,
   Sparkles,
   Eye,
-  Headphones
+  Headphones,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,12 @@ interface FeedCardProps {
   plays?: number;
   shares?: number;
   credibilityScore?: number;
+  /**
+   * Kept for backwards compatibility with the Feed page,
+   * but NOT used anymore (no audio controls on the card).
+   */
+  isPlaying?: boolean;
+  onPlay?: () => void;
   isLiked?: boolean;
   isBookmarked?: boolean;
   onLike?: () => void;
@@ -92,6 +98,7 @@ export const FeedCard = ({
     return "text-red-500";
   };
 
+  // 🔮 Fluxa Mode button (logo) opens Fluxa chat for this post
   const handleFluxaModeClick = () => {
     navigate("/fluxa-mode", {
       state: {
@@ -106,6 +113,7 @@ export const FeedCard = ({
     });
   };
 
+  // 💬 Comment now takes you to the post page (for comments/thread)
   const handleCommentClick = () => {
     if (onComment) {
       onComment();
@@ -117,6 +125,7 @@ export const FeedCard = ({
   return (
     <Card className="w-full overflow-hidden border-glass-border-light shadow-glass hover:shadow-glass-glow transition-all duration-300 bg-card/95 backdrop-blur-sm">
       <CardContent className="p-0">
+        {/* Author Info */}
         <div className="p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Avatar className="w-10 h-10">
@@ -146,6 +155,7 @@ export const FeedCard = ({
           </Badge>
         </div>
 
+        {/* Image */}
         {imageUrl && (
           <img
             src={imageUrl}
@@ -155,6 +165,7 @@ export const FeedCard = ({
           />
         )}
 
+        {/* Content */}
         <div className="p-6">
           <div className="flex items-center justify-between mb-3 text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
@@ -162,6 +173,7 @@ export const FeedCard = ({
               <span className="text-sm">{readTime} read</span>
             </div>
 
+            {/* Static listens metric – no audio control */}
             <div className="flex items-center gap-1">
               <Headphones className="w-4 h-4 opacity-70" />
               <span className="text-xs">{plays} listens</span>
@@ -175,8 +187,10 @@ export const FeedCard = ({
             {context}
           </p>
 
+          {/* Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-border">
             <div className="flex items-center gap-4 sm:gap-6">
+              {/* 🌈 Fluxa Mode – first, bigger & visible */}
               <button
                 onClick={handleFluxaModeClick}
                 className="flex items-center gap-2 text-primary hover:text-primary/90 transition-colors group"
@@ -189,6 +203,7 @@ export const FeedCard = ({
                 )}
               </button>
 
+              {/* ❤️ Like */}
               <button
                 onClick={onLike}
                 className="flex items-center gap-2 text-muted-foreground hover:text-red-500 transition-colors group"
@@ -203,6 +218,7 @@ export const FeedCard = ({
                 <span className="text-sm font-medium">{likes}</span>
               </button>
 
+              {/* 💬 Comment → Post page */}
               <button
                 onClick={handleCommentClick}
                 className="flex items-center gap-2 text-muted-foreground hover:text-blue-500 transition-colors group"
@@ -211,6 +227,7 @@ export const FeedCard = ({
                 <span className="text-sm font-medium">{comments}</span>
               </button>
 
+              {/* 🔖 Bookmark */}
               <button
                 onClick={onBookmark}
                 className="flex items-center gap-2 text-muted-foreground hover:text-coral-active transition-colors group"
@@ -225,6 +242,7 @@ export const FeedCard = ({
                 <span className="text-sm font-medium">{bookmarks}</span>
               </button>
 
+              {/* 📤 Share */}
               <button
                 onClick={handleShareWithTracking}
                 className="flex items-center gap-2 text-muted-foreground hover:text-green-500 transition-colors group"
