@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageCircle, Bookmark, Share2, Play, Pause, ArrowLeft, Send, Reply, ThumbsUp, Flag } from "lucide-react";
+import { Heart, MessageCircle, Bookmark, Share2, ArrowLeft, Send, Reply, ThumbsUp, Flag } from "lucide-react";
 import { toast } from "sonner";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,6 @@ interface Gist {
   headline: string;
   context: string;
   script: string;
-  audio_url: string;
   image_url: string | null;
   topic: string;
   published_at: string;
@@ -57,7 +56,6 @@ export default function PostDetail() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
@@ -69,6 +67,14 @@ export default function PostDetail() {
   const [commentSort, setCommentSort] = useState<CommentSort>('newest');
   const [visibleReplies, setVisibleReplies] = useState<Set<string>>(new Set());
   const [replyLimit] = useState(3);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const fullBody = `${gist?.context || ""}${gist?.context && gist?.script ? "\n\n" : ""}${gist?.script || ""}`.trim();
+  const COLLAPSE_LIMIT = 420;
+  const shouldCollapse = fullBody.length > COLLAPSE_LIMIT;
+  const displayedBody = !shouldCollapse || isExpanded
+    ? fullBody
+    : fullBody.slice(0, COLLAPSE_LIMIT).trimEnd() + "…";
 
   useEffect(() => {
     loadPost();
@@ -166,16 +172,6 @@ export default function PostDetail() {
       });
     } catch (error) {
       console.error("Error tracking view:", error);
-    }
-  };
-
-  const trackPlay = async () => {
-    try {
-      await supabase.functions.invoke('track-post-event', {
-        body: { postId, event: 'play' }
-      });
-    } catch (error) {
-      console.error("Error tracking play:", error);
     }
   };
 
@@ -515,29 +511,31 @@ export default function PostDetail() {
               <h1 className="text-2xl md:text-3xl font-bold mb-4">
                 {gist.headline}
               </h1>
-              <p className="text-muted-foreground text-base mb-6">
-                {gist.context}
-              </p>
-              <div className="prose prose-sm max-w-none mb-6">
-                <p className="whitespace-pre-line">{gist.script}</p>
-              </div>
+
+              {fullBody && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-sm sm:text-base leading-relaxed whitespace-pre-wrap text-muted-foreground">
+                    {displayedBody}
+                  </p>
+
+                  {shouldCollapse && (
+                    <button
+                      type="button"
+                      onClick={() => setIsExpanded((prev) => !prev)}
+                      className="text-xs font-semibold text-primary hover:text-primary/80"
+                    >
+                      {isExpanded ? "See less" : "See more"}
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex items-center gap-6 pt-4 border-t border-border">
-                <button
-                  onClick={() => {
-                    setIsPlaying(!isPlaying);
-                    if (!isPlaying) trackPlay();
-                  }}
-                  className="flex items-center gap-2 text-muted-foreground hover:text-primary transition-colors group"
-                >
-                  {isPlaying ? (
-                    <Pause className="w-5 h-5 group-hover:scale-110 transition-all" />
-                  ) : (
-                    <Play className="w-5 h-5 group-hover:scale-110 transition-all" />
-                  )}
+                <div className="flex items-center gap-2 text-muted-foreground">
                   <span className="text-sm font-medium">{analytics.plays}</span>
-                </button>
+                  <span className="text-xs uppercase tracking-wide">Listens</span>
+                </div>
 
                 <button
                   onClick={handleLike}
