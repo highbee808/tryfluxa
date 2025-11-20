@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
+import BottomNavigation from "@/components/BottomNavigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -14,12 +15,10 @@ import {
   Share2,
   Eye,
   Clock,
-  Headphones,
+  Headphones
 } from "lucide-react";
 
-import BottomNavigation from "@/components/BottomNavigation";
 import { FluxaLogo } from "@/components/FluxaLogo";
-import { toast } from "sonner";
 
 interface Gist {
   id: string;
@@ -31,180 +30,241 @@ interface Gist {
   published_at: string;
   play_count: number;
   like_count: number;
+  save_count: number;
   comment_count: number;
-  bookmark_count: number;
-  share_count: number;
-  view_count: number;
+  credibility_score: number;
 }
 
-const PostDetail = () => {
+export default function PostDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [gist, setGist] = useState<Gist | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [post, setPost] = useState<Gist | null>(null);
   const [expanded, setExpanded] = useState(false);
 
-  const fetchGist = async () => {
-    if (!id) return;
+  const [isLiked, setIsLiked] = useState(false);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [likes, setLikes] = useState(0);
+  const [bookmarks, setBookmarks] = useState(0);
 
+  useEffect(() => {
+    if (!id) return;
+    loadPost();
+  }, [id]);
+
+  async function loadPost() {
     const { data, error } = await supabase
       .from("gists")
       .select("*")
       .eq("id", id)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      console.error(error);
-      toast.error("Unable to load post.");
+      console.error("Error loading post:", error);
       return;
     }
 
-    setGist(data);
-    setLoading(false);
-  };
+    if (data) {
+      setPost(data);
+      setLikes(data.like_count || 0);
+      setBookmarks(data.save_count || 0);
+    }
 
-  useEffect(() => {
-    fetchGist();
-  }, [id]);
+    // Load user actions
+    const authUser = await supabase.auth.getUser();
 
-  if (loading || !gist) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-        Loading…
-      </div>
-    );
+    if (authUser.data.user) {
+      const userId = authUser.data.user.id;
+
+      const { data: likeData } = await supabase
+        .from("article_likes")
+        .select("id")
+        .eq("article_id", id)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      const { data: saveData } = await supabase
+        .from("article_saves")
+        .select("id")
+        .eq("article_id", id)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      setIsLiked(!!likeData);
+      setIsBookmarked(!!saveData);
+    }
   }
 
-  const fullText = `${gist.context}\n\n${gist.script}`;
-  const previewText = fullText.slice(0, 260);
+  const toggleLike = async () => {
+    if (!id) return;
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) return;
 
-  const handleFluxaModeClick = () => {
+    if (isLiked) {
+      await supabase.from("article_likes").delete().eq("article_id", id).eq("user_id", user.id);
+      setLikes((l) => l - 1);
+    } else {
+      await supabase.from("article_likes").insert({ article_id: id, user_id: user.id });
+      setLikes((l) => l + 1);
+    }
+
+    setIsLiked(!isLiked);
+  };
+
+  const toggleBookmark = async () => {
+    if (!id) return;
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) return;
+
+    if (isBookmarked) {
+      await supabase.from("article_saves").delete().eq("article_id", id).eq("user_id", user.id);
+      setBookmarks((b) => b - 1);
+    } else {
+      await supabase.from("article_saves").insert({ article_id: id, user_id: user.id });
+      setBookmarks((b) => b + 1);
+    }
+
+    setIsBookmarked(!isBookmarked);
+  };
+
+  const handleShare = () => {
+    navigator.share?.({
+      title: post?.headline,
+      text: post?.context,
+      url: window.location.href,
+    });
+  };
+
+  const openFluxaMode = () => {
     navigate("/fluxa-mode", {
       state: {
         initialContext: {
-          gistId: gist.id,
-          topic: gist.topic,
-          headline: gist.headline,
-          fullContext: fullText,
+          gistId: post?.id,
+          topic: post?.topic,
+          headline: post?.headline,
+          context: post?.context,
+          fullContext: post?.context + "\n\n" + post?.script,
         },
       },
     });
   };
 
+  if (!post) return <div className="p-6">Loading...</div>;
+
+  const bodyText = `${post.context}\n\n${post.script}`;
+  const collapsedText = bodyText.slice(0, 250);
+
   return (
-    <div className="min-h-screen pb-24 bg-background">
-      <div className="mx-auto max-w-2xl w-full">
+    <div className="pb-24">
+      <div className="max-w-2xl mx-auto p-4">
         {/* Header */}
-        <div className="p-4 flex items-center gap-3 border-b border-border sticky top-0 bg-background/90 backdrop-blur z-20">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate(-1)}
-            className="text-muted-foreground"
-          >
-            ← Back
-          </Button>
-          <h1 className="font-semibold text-lg truncate">Post</h1>
-        </div>
+        <button
+          onClick={() => navigate("/feed")}
+          className="text-muted-foreground mb-4"
+        >
+          ← Back
+        </button>
 
-        {/* Image */}
-        {gist.image_url && (
-          <img
-            src={gist.image_url}
-            alt={gist.headline}
-            className="w-full h-64 md:h-80 object-cover"
-          />
-        )}
+        <Card className="overflow-hidden bg-card/90 backdrop-blur border-glass-border-light shadow-glass">
+          <CardContent className="p-0">
+            {post.image_url && (
+              <img
+                src={post.image_url}
+                alt={post.headline}
+                className="w-full h-60 object-cover"
+              />
+            )}
 
-        <Card className="shadow-none border-none">
-          <CardContent className="p-6">
-            {/* Meta */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <Avatar className="w-10 h-10">
-                  <AvatarFallback className="bg-primary/20 text-primary">
-                    FX
-                  </AvatarFallback>
-                </Avatar>
+            <div className="p-6">
+              {/* Topic + Fluxa Mode */}
+              <div className="flex justify-between items-center mb-3">
+                <Badge>{post.topic}</Badge>
 
-                <div>
-                  <p className="font-medium">Fluxa</p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Clock className="w-3 h-3" />
-                    <span>
-                      {new Date(gist.published_at).toLocaleDateString()}
-                    </span>
-                    <span>•</span>
-                    <Eye className="w-3 h-3" />
-                    <span>{gist.view_count}</span>
-                  </div>
+                <button
+                  onClick={openFluxaMode}
+                  className="flex items-center gap-2 text-primary"
+                >
+                  <span className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                    <FluxaLogo size={18} fillColor="hsl(var(--primary))" />
+                  </span>
+                  <span className="font-semibold">Fluxa Mode</span>
+                </button>
+              </div>
+
+              <h1 className="text-2xl font-bold mb-4">{post.headline}</h1>
+
+              {/* Meta */}
+              <div className="flex items-center gap-4 text-sm text-muted-foreground mb-6">
+                <div className="flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  <span>5 min read</span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Eye className="w-4 h-4" />
+                  <span>{post.play_count}</span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Headphones className="w-4 h-4 opacity-70" />
+                  <span>{post.play_count} listens</span>
                 </div>
               </div>
 
-              <Badge variant="outline" className="text-xs">
-                {gist.topic}
-              </Badge>
-            </div>
+              {/* Body */}
+              <p className="text-base whitespace-pre-line text-foreground">
+                {expanded ? bodyText : collapsedText}
+              </p>
 
-            {/* Headline */}
-            <h2 className="text-2xl font-bold mb-3">{gist.headline}</h2>
-
-            {/* Body with collapse */}
-            <div className="text-muted-foreground whitespace-pre-line leading-relaxed">
-              {expanded ? fullText : previewText}
-
-              {fullText.length > 260 && (
+              {bodyText.length > 250 && (
                 <button
                   onClick={() => setExpanded(!expanded)}
-                  className="text-primary font-medium mt-3 block"
+                  className="text-primary mt-2 font-semibold"
                 >
                   {expanded ? "See Less" : "See More"}
                 </button>
               )}
-            </div>
 
-            {/* Actions */}
-            <div className="mt-6 border-t border-border pt-4 flex items-center justify-between">
-              <div className="flex items-center gap-5">
-                {/* Fluxa Mode */}
+              {/* Actions */}
+              <div className="flex items-center gap-6 mt-6 pt-4 border-t border-border">
                 <button
-                  onClick={handleFluxaModeClick}
-                  className="flex items-center"
+                  onClick={toggleLike}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-red-500"
                 >
-                  <span className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                    <FluxaLogo size={22} fillColor="hsl(var(--primary))" />
-                  </span>
+                  <Heart
+                    className={`w-6 h-6 ${
+                      isLiked ? "fill-red-500 text-red-500" : ""
+                    }`}
+                  />
+                  <span>{likes}</span>
                 </button>
 
-                {/* Like */}
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Heart className="w-5 h-5" />
-                  <span>{gist.like_count}</span>
-                </div>
+                <button
+                  onClick={() => {}}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-blue-500"
+                >
+                  <MessageCircle className="w-6 h-6" />
+                  <span>{post.comment_count}</span>
+                </button>
 
-                {/* Comment */}
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MessageCircle className="w-5 h-5" />
-                  <span>{gist.comment_count}</span>
-                </div>
+                <button
+                  onClick={toggleBookmark}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-coral-active"
+                >
+                  <Bookmark
+                    className={`w-6 h-6 ${
+                      isBookmarked ? "fill-coral-active text-coral-active" : ""
+                    }`}
+                  />
+                  <span>{bookmarks}</span>
+                </button>
 
-                {/* Bookmark */}
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Bookmark className="w-5 h-5" />
-                  <span>{gist.bookmark_count}</span>
-                </div>
-
-                {/* Share */}
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Share2 className="w-5 h-5" />
-                  <span>{gist.share_count}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Headphones className="w-4 h-4 opacity-50" />
-                <span>{gist.play_count} listens</span>
+                <button
+                  onClick={handleShare}
+                  className="flex items-center gap-2 text-muted-foreground hover:text-green-500"
+                >
+                  <Share2 className="w-6 h-6" />
+                </button>
               </div>
             </div>
           </CardContent>
@@ -214,6 +274,4 @@ const PostDetail = () => {
       <BottomNavigation />
     </div>
   );
-};
-
-export default PostDetail;
+}
