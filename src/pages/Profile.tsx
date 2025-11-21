@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BottomNavigation } from "@/components/BottomNavigation";
+import BottomNavigation from "@/components/BottomNavigation";
 import { ProfileEditModal } from "@/components/ProfileEditModal";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
