@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BottomNavigation } from "@/components/BottomNavigation";
+import BottomNavigation from "@/components/BottomNavigation";
 import { toast } from "sonner";
 import { Loader2, Volume2, Play, Pause, RefreshCw, Radio, Sparkles } from "lucide-react";
 import { sendFluxaPushNotification } from "@/lib/notifications";
