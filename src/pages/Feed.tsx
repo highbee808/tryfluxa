@@ -313,7 +313,6 @@ const Feed = () => {
     };
   }, [scrollRoot, hasMore, isLoadingMore, loading]);
 
-  const handle
   const handlePlay = async (gistId: string, audioUrl: string) => {
     if (currentPlayingId === gistId && isPlaying) {
       if (currentAudio.current) {
