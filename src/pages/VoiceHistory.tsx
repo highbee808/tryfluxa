@@ -6,7 +6,7 @@ import { Play, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { NavigationBar } from "@/components/NavigationBar";
-import { BottomNavigation } from "@/components/BottomNavigation";
+import BottomNavigation from "@/components/BottomNavigation";
 
 interface VoiceChat {
   id: string;
