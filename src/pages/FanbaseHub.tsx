@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BottomNavigation } from "@/components/BottomNavigation";
+import BottomNavigation from "@/components/BottomNavigation";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Heart, TrendingUp, Users, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
