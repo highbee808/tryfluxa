@@ -29,7 +29,6 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
   const micStreamRef = useRef<MediaStream | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
 
-  // Helper to safely close everything
   const cleanup = async () => {
     setIsLive(false);
 
@@ -58,14 +57,10 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
     return () => {
       cleanup();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Cleanup when modal closes
   useEffect(() => {
-    if (!open && isLive) {
-      cleanup();
-    }
+    if (!open && isLive) cleanup();
   }, [open, isLive]);
 
   const startLiveSession = async () => {
@@ -74,114 +69,89 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
       setStatus("Getting ready…");
       setIsConnecting(true);
 
-      // 1) Get ephemeral session from our backend edge function
-      const {
-        data: sessionJson,
-        error: sessionError,
-      } = await supabase.functions.invoke<RealtimeSessionResponse>("realtime-session", {
-        body: {},
-      });
+      // ----------- FIX: Only ONE declaration ----------------
+      const { data: sessionJson, error: sessionError } =
+        await supabase.functions.invoke<RealtimeSessionResponse>("realtime-session", {
+          body: {},
+        });
 
       if (sessionError || !sessionJson) {
         console.error("Session error:", sessionError);
         throw new Error(sessionError?.message || "Failed to create Realtime session");
       }
 
-      const ephemeralKey: string | undefined = sessionJson.client_secret?.value;
-      const model: string = sessionJson.model ?? "gpt-4o-realtime-preview";
+      const ephemeralKey = sessionJson.client_secret?.value;
+      const model = sessionJson.model ?? "gpt-4o-realtime-preview";
 
-      if (!ephemeralKey) {
-        throw new Error("No ephemeral key returned from realtime-session");
-      }
+      if (!ephemeralKey) throw new Error("No ephemeral key returned");
 
-      // 2) Create RTCPeerConnection
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
 
-      // Remote audio element (Fluxa's voice)
       if (!audioElRef.current) {
         audioElRef.current = new Audio();
         audioElRef.current.autoplay = true;
       }
 
       pc.ontrack = (event) => {
-        if (audioElRef.current) {
-          audioElRef.current.srcObject = event.streams[0];
-        }
+        audioElRef.current!.srcObject = event.streams[0];
       };
 
       pc.oniceconnectionstatechange = () => {
-        console.log("ICE state:", pc.iceConnectionState);
-        if (pc.iceConnectionState === "disconnected" || pc.iceConnectionState === "failed") {
+        if (["disconnected", "failed"].includes(pc.iceConnectionState)) {
           setStatus("Connection lost. Tap to reconnect.");
           cleanup();
         }
       };
 
-      // 3) Get mic and send audio to Realtime
       const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       micStreamRef.current = micStream;
-      micStream.getTracks().forEach((track) => {
-        pc.addTrack(track, micStream);
-      });
+      micStream.getTracks().forEach((t) => pc.addTrack(t, micStream));
 
-      // 4) Create data channel for events
       const dc = pc.createDataChannel("oai-events");
       dcRef.current = dc;
 
       dc.onopen = () => {
-        console.log("Data channel open");
         setStatus("Fluxa is listening… just talk 💬");
         setIsLive(true);
 
-        // Send session.update so Fluxa acts like herself
-        const sessionUpdate: RealtimeEvent = {
-          type: "session.update",
-          session: {
-            instructions:
-              "You are Fluxa, a playful, witty social AI companion. Speak like a Gen-Z best friend giving gist. Be warm, concise, a bit dramatic, and react naturally to what the user says.",
-            input_audio_format: "pcm16",
-            output_audio_format: "pcm16",
-            turn_detection: { type: "server_vad" },
-            modalities: ["audio", "text"],
-          },
-        };
-        dc.send(JSON.stringify(sessionUpdate));
+        dc.send(
+          JSON.stringify({
+            type: "session.update",
+            session: {
+              instructions:
+                "You are Fluxa, a playful, witty social AI companion. Speak like a Gen-Z best friend giving gist.",
+              input_audio_format: "pcm16",
+              output_audio_format: "pcm16",
+              turn_detection: { type: "server_vad" },
+              modalities: ["audio", "text"],
+            },
+          })
+        );
       };
 
       dc.onmessage = (event) => {
         try {
           const msg: RealtimeEvent = JSON.parse(event.data);
-          // Basic handling of text deltas
+
           if (msg.type === "response.delta" && msg.delta?.output_text) {
-            setTranscript((prev) => prev + msg.delta.output_text);
-          } else if (msg.type === "response.completed" && msg.response?.output_text) {
-            const full = msg.response.output_text;
-            setTranscript((prev) => prev + (typeof full === "string" ? full : ""));
-          } else if (msg.type === "input_audio.buffer_cleared") {
-            console.log("Server cleared input buffer");
-          } else {
-            // Debug other events if needed
-            // console.log("Realtime event:", msg.type, msg);
+            setTranscript((p) => p + msg.delta.output_text);
           }
-        } catch (e) {
-          console.warn("Non-JSON Realtime message:", event.data);
+
+          if (msg.type === "response.completed" && msg.response?.output_text) {
+            const full = msg.response.output_text;
+            setTranscript((p) => p + (typeof full === "string" ? full : ""));
+          }
+        } catch {
+          console.warn("Non-JSON realtime message:", event.data);
         }
       };
 
-      dc.onerror = (err) => {
-        console.error("Data channel error:", err);
-        setError("Fluxa connection error.");
-      };
-
-      // 5) Create SDP offer and send to OpenAI Realtime over HTTPS
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
       const baseUrl = "https://api.openai.com/v1/realtime";
-      const url = `${baseUrl}?model=${encodeURIComponent(model)}`;
-
-      const sdpRes = await fetch(url, {
+      const sdpRes = await fetch(`${baseUrl}?model=${encodeURIComponent(model)}`, {
         method: "POST",
         body: offer.sdp || "",
         headers: {
@@ -191,27 +161,18 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
         },
       });
 
-      if (!sdpRes.ok) {
-        const text = await sdpRes.text();
-        console.error("SDP error:", text);
-        throw new Error("Failed to establish Realtime SDP session");
-      }
+      if (!sdpRes.ok) throw new Error("Failed SDP exchange");
 
-      const answerSdp = await sdpRes.text();
-      const answerDesc = new RTCSessionDescription({
-        type: "answer",
-        sdp: answerSdp,
-      });
-      await pc.setRemoteDescription(answerDesc);
+      const answer = await sdpRes.text();
+      await pc.setRemoteDescription({ type: "answer", sdp: answer });
 
       setIsConnecting(false);
-      setStatus("You’re live with Fluxa 🎧 Just talk, she will reply in real time.");
+      setStatus("You’re live with Fluxa 🎧 Just talk.");
     } catch (e: any) {
-      console.error("Error starting live session:", e);
+      console.error("Error starting session:", e);
       setIsConnecting(false);
-      setIsLive(false);
       setStatus("Could not start live session");
-      setError(e?.message || "Unknown error");
+      setError(e.message || "Unknown error");
       await cleanup();
     }
   };
@@ -225,34 +186,29 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <div className="flex flex-col items-center gap-6 text-center">
-          <h2 className="text-3xl font-bold text-foreground">Talk to Fluxa 🎧</h2>
+          <h2 className="text-3xl font-bold">Talk to Fluxa 🎧</h2>
 
-          {/* Status */}
           <p className="text-sm text-muted-foreground max-w-md">{status}</p>
           {error && <p className="text-xs text-red-400">{error}</p>}
 
-          {/* Big button */}
           <button
             onClick={isLive ? stopLiveSession : startLiveSession}
             disabled={isConnecting}
-            className={`px-8 py-3 rounded-2xl font-semibold mt-2 transition-all duration-300 ${
+            className={`px-8 py-3 rounded-2xl font-semibold mt-2 transition-all ${
               isLive
-                ? "bg-red-500 hover:bg-red-600 text-white"
-                : "bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:scale-105 shadow-lg"
-            } ${isConnecting ? "opacity-60 cursor-not-allowed" : ""}`}
+                ? "bg-red-500 text-white"
+                : "bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:scale-105"
+            } ${isConnecting ? "opacity-60" : ""}`}
           >
-            {isConnecting ? "Connecting to Fluxa…" : isLive ? "End Live Session" : "Start Live Session"}
+            {isConnecting ? "Connecting…" : isLive ? "End Live Session" : "Start Live Session"}
           </button>
 
-          {/* Transcript */}
-          <div className="mt-4 w-full max-w-md text-left">
-            {transcript && (
-              <div className="mt-3 p-4 bg-muted rounded-xl shadow-inner">
-                <p className="font-semibold text-foreground mb-1">Fluxa (live transcript):</p>
-                <p className="text-muted-foreground whitespace-pre-wrap">{transcript}</p>
-              </div>
-            )}
-          </div>
+          {transcript && (
+            <div className="mt-3 p-4 bg-muted rounded-xl shadow-inner w-full max-w-md text-left">
+              <p className="font-semibold mb-1">Fluxa (live transcript):</p>
+              <p className="text-muted-foreground whitespace-pre-wrap">{transcript}</p>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
