@@ -7,11 +7,6 @@ type RealtimeEvent = {
   [key: string]: any;
 };
 
-type RealtimeSessionResponse = {
-  client_secret?: { value?: string };
-  model?: string;
-};
-
 interface VoiceChatModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -54,9 +49,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
   };
 
   useEffect(() => {
-    return () => {
-      cleanup();
-    };
+    return () => cleanup();
   }, []);
 
   useEffect(() => {
@@ -69,22 +62,24 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
       setStatus("Getting ready…");
       setIsConnecting(true);
 
-      // ----------- FIX: Only ONE declaration ----------------
-      const { data: sessionJson, error: sessionError } =
-        await supabase.functions.invoke<RealtimeSessionResponse>("realtime-session", {
-          body: {},
-        });
+      // ⛔ FIXED — sessionJson was declared twice before
+      const { data, error: sessionError } = await supabase.functions.invoke("realtime-session", {
+        body: {},
+      });
 
-      if (sessionError || !sessionJson) {
+      if (sessionError || !data) {
         console.error("Session error:", sessionError);
         throw new Error(sessionError?.message || "Failed to create Realtime session");
       }
 
-      const ephemeralKey = sessionJson.client_secret?.value;
-      const model = sessionJson.model ?? "gpt-4o-realtime-preview";
+      const ephemeralKey = data.client_secret?.value;
+      const model = data.model ?? "gpt-4o-realtime-preview";
 
-      if (!ephemeralKey) throw new Error("No ephemeral key returned");
+      if (!ephemeralKey) {
+        throw new Error("No ephemeral key returned from realtime-session");
+      }
 
+      // Create peer connection
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
 
@@ -106,7 +101,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
 
       const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       micStreamRef.current = micStream;
-      micStream.getTracks().forEach((t) => pc.addTrack(t, micStream));
+      micStream.getTracks().forEach((track) => pc.addTrack(track, micStream));
 
       const dc = pc.createDataChannel("oai-events");
       dcRef.current = dc;
@@ -120,7 +115,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
             type: "session.update",
             session: {
               instructions:
-                "You are Fluxa, a playful, witty social AI companion. Speak like a Gen-Z best friend giving gist.",
+                "You are Fluxa, a playful Nigerian Gen-Z vibe, giving gist, reacting dramatically, and speaking with warmth and humor.",
               input_audio_format: "pcm16",
               output_audio_format: "pcm16",
               turn_detection: { type: "server_vad" },
@@ -132,47 +127,51 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
 
       dc.onmessage = (event) => {
         try {
-          const msg: RealtimeEvent = JSON.parse(event.data);
+          const msg = JSON.parse(event.data);
 
           if (msg.type === "response.delta" && msg.delta?.output_text) {
-            setTranscript((p) => p + msg.delta.output_text);
+            setTranscript((prev) => prev + msg.delta.output_text);
           }
 
           if (msg.type === "response.completed" && msg.response?.output_text) {
-            const full = msg.response.output_text;
-            setTranscript((p) => p + (typeof full === "string" ? full : ""));
+            setTranscript((prev) => prev + msg.response.output_text);
           }
         } catch {
-          console.warn("Non-JSON realtime message:", event.data);
+          console.warn("Non-JSON message:", event.data);
         }
       };
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      const baseUrl = "https://api.openai.com/v1/realtime";
-      const sdpRes = await fetch(`${baseUrl}?model=${encodeURIComponent(model)}`, {
-        method: "POST",
-        body: offer.sdp || "",
-        headers: {
-          Authorization: `Bearer ${ephemeralKey}`,
-          "Content-Type": "application/sdp",
-          "OpenAI-Beta": "realtime=v1",
-        },
-      });
+      const response = await fetch(
+        `https://api.openai.com/v1/realtime?model=${encodeURIComponent(model)}`,
+        {
+          method: "POST",
+          body: offer.sdp || "",
+          headers: {
+            Authorization: `Bearer ${ephemeralKey}`,
+            "Content-Type": "application/sdp",
+            "OpenAI-Beta": "realtime=v1",
+          },
+        }
+      );
 
-      if (!sdpRes.ok) throw new Error("Failed SDP exchange");
-
-      const answer = await sdpRes.text();
-      await pc.setRemoteDescription({ type: "answer", sdp: answer });
+      const answer = await response.text();
+      await pc.setRemoteDescription(
+        new RTCSessionDescription({
+          type: "answer",
+          sdp: answer,
+        })
+      );
 
       setIsConnecting(false);
-      setStatus("You’re live with Fluxa 🎧 Just talk.");
+      setStatus("You’re live with Fluxa 🎧 Just talk!");
     } catch (e: any) {
-      console.error("Error starting session:", e);
-      setIsConnecting(false);
+      console.error("Start session error:", e);
+      setError(e.message);
       setStatus("Could not start live session");
-      setError(e.message || "Unknown error");
+      setIsConnecting(false);
       await cleanup();
     }
   };
@@ -188,25 +187,25 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
         <div className="flex flex-col items-center gap-6 text-center">
           <h2 className="text-3xl font-bold">Talk to Fluxa 🎧</h2>
 
-          <p className="text-sm text-muted-foreground max-w-md">{status}</p>
+          <p className="text-sm text-muted-foreground">{status}</p>
           {error && <p className="text-xs text-red-400">{error}</p>}
 
           <button
             onClick={isLive ? stopLiveSession : startLiveSession}
             disabled={isConnecting}
-            className={`px-8 py-3 rounded-2xl font-semibold mt-2 transition-all ${
+            className={`px-8 py-3 rounded-2xl font-semibold transition-all ${
               isLive
-                ? "bg-red-500 text-white"
-                : "bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:scale-105"
-            } ${isConnecting ? "opacity-60" : ""}`}
+                ? "bg-red-500 hover:bg-red-600 text-white"
+                : "bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:scale-105 shadow-lg"
+            } ${isConnecting ? "opacity-60 cursor-not-allowed" : ""}`}
           >
-            {isConnecting ? "Connecting…" : isLive ? "End Live Session" : "Start Live Session"}
+            {isConnecting ? "Connecting…" : isLive ? "End Session" : "Start Live Session"}
           </button>
 
           {transcript && (
-            <div className="mt-3 p-4 bg-muted rounded-xl shadow-inner w-full max-w-md text-left">
-              <p className="font-semibold mb-1">Fluxa (live transcript):</p>
-              <p className="text-muted-foreground whitespace-pre-wrap">{transcript}</p>
+            <div className="mt-4 w-full max-w-md p-4 bg-muted rounded-xl text-left">
+              <p className="font-semibold">Fluxa (live transcript):</p>
+              <p className="whitespace-pre-wrap text-muted-foreground">{transcript}</p>
             </div>
           )}
         </div>
