@@ -262,14 +262,12 @@ const Feed = () => {
           return [];
         }
         return payload.items;
-      } catch (error) {
-        // Network errors or non-5xx errors - log and return empty for fallback
-        if (error instanceof Error && error.message.includes("503")) {
-          console.warn("fetch-content unavailable (503), using fallback");
-          return [];
-        }
-        // Re-throw other errors (401, etc.)
-        throw error;
+      } catch (err) {
+        console.error("Fluxa API error:", err);
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        console.warn("fetch-content failed, using fallback. Error:", errorMessage);
+        // Always return empty array for fallback - loadGists will handle the error display
+        return [];
       }
     },
     []

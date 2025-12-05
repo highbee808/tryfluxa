@@ -61,11 +61,12 @@ export async function invokeSupabaseFunction<T = any>(
     console.log(`[Supabase Function] ${functionName} succeeded`);
     
     return { data, error: null };
-  } catch (error) {
-    console.error(`[Supabase Function] ${functionName} error:`, error);
+  } catch (err) {
+    console.error(`[Supabase Function] ${functionName} error:`, err);
+    const errorMessage = err instanceof Error ? err.message : String(err);
     return {
       data: null,
-      error: error instanceof Error ? error : new Error(String(error)),
+      error: new Error("Network error: " + errorMessage),
     };
   }
 }
