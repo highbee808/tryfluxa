@@ -43,18 +43,21 @@ export function getApiBaseUrl(): string {
 
 /**
  * Get the frontend URL
- * Uses FRONTEND_URL env var in production, window.location.origin in dev
+ * Uses VITE_FRONTEND_URL env var in production, window.location.origin in dev
+ * 
+ * Note: Vite only exposes environment variables prefixed with VITE_ to the frontend.
+ * Unprefixed variables like FRONTEND_URL will always be undefined.
  */
 export function getFrontendUrl(): string {
-  // In production, use FRONTEND_URL env var
+  // In production, use VITE_FRONTEND_URL env var (must be prefixed with VITE_)
   if (import.meta.env.PROD) {
-    const frontendUrl = import.meta.env.VITE_FRONTEND_URL || import.meta.env.FRONTEND_URL;
+    const frontendUrl = import.meta.env.VITE_FRONTEND_URL;
     if (frontendUrl) {
       return frontendUrl;
     }
   }
   
-  // In dev or if FRONTEND_URL not set, use window.location.origin
+  // In dev or if VITE_FRONTEND_URL not set, use window.location.origin
   if (typeof window !== "undefined") {
     return window.location.origin;
   }

@@ -3,6 +3,8 @@
  * Helper functions for Spotify OAuth flow
  */
 
+import { getFrontendUrl } from "./apiConfig";
+
 /**
  * Get Spotify access token (with auto-refresh)
  */
@@ -113,10 +115,9 @@ export function getSpotifyLoginUrlWithCallback(): string {
     );
   }
   
-  // Use FRONTEND_URL in production, window.location.origin in dev
-  const frontendUrl = import.meta.env.PROD
-    ? (import.meta.env.VITE_FRONTEND_URL || import.meta.env.FRONTEND_URL || "https://tryfluxa.vercel.app")
-    : window.location.origin;
+  // Use getFrontendUrl() which handles VITE_FRONTEND_URL in production
+  // Note: Vite only exposes variables prefixed with VITE_ - unprefixed FRONTEND_URL would be undefined
+  const frontendUrl = getFrontendUrl();
   
   const baseUrl = supabaseUrl.replace(/\/$/, "");
   const callbackUrl = `${baseUrl}/functions/v1/spotify-oauth-callback?frontend_redirect_uri=${encodeURIComponent(frontendUrl)}`;
