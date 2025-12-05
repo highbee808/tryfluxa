@@ -1,0 +1,13 @@
+<svg width="800" height="800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="kpopGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF006E;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#FB5607;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFBE0B;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="800" height="800" fill="url(#kpopGrad)"/>
+  <polygon points="400,150 500,350 300,350" fill="rgba(255,255,255,0.15)"/>
+  <polygon points="400,650 500,450 300,450" fill="rgba(255,255,255,0.1)"/>
+</svg>
+

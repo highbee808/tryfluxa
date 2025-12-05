@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mic, Send, Volume2, VolumeX } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeAdminFunction } from "@/lib/invokeAdminFunction";
 import { toast } from "sonner";
 import { useNavigate, useLocation } from "react-router-dom";
 import { FluxaLogo } from "@/components/FluxaLogo";
@@ -41,7 +42,15 @@ const FluxaMode = () => {
     // If there's initial context from navigation, automatically send it
     const initialContext = (location.state as any)?.initialContext;
     if (initialContext) {
-      const contextMessage = `Tell me about: ${initialContext.summary}`;
+      // Use custom prompt if provided, otherwise build from context
+      const contextMessage = initialContext.prompt
+        ? initialContext.prompt
+        : `Tell me about: ${
+            initialContext.summary ||
+            initialContext.topic ||
+            initialContext.fullContext ||
+            "this story"
+          }`;
       
       // Automatically send the message
       const sendInitialMessage = async () => {
@@ -55,11 +64,8 @@ const FluxaMode = () => {
         setIsLoading(true);
 
         try {
-          const { data, error } = await supabase.functions.invoke("fluxa-chat", {
-            body: { 
-              message: contextMessage,
-              conversationHistory: []
-            }
+          const { data, error } = await invokeAdminFunction("fluxa-chat", {
+            message: contextMessage
           });
 
           if (error) throw error;
@@ -78,7 +84,14 @@ const FluxaMode = () => {
           }
         } catch (error) {
           console.error("Error sending initial message:", error);
-          toast.error("Failed to analyze content! 😢");
+          const errorMessage = error instanceof Error ? error.message : "Unknown error";
+          if (errorMessage.includes("401") || errorMessage.includes("auth")) {
+            toast.error("Please sign in to use Fluxa");
+          } else if (errorMessage.includes("429") || errorMessage.includes("rate limit")) {
+            toast.error("Fluxa is busy right now, try again in a moment");
+          } else {
+            toast.error("Fluxa couldn't load this one, try again in a moment");
+          }
         } finally {
           setIsLoading(false);
         }
@@ -156,40 +169,83 @@ const FluxaMode = () => {
   };
 
   const playFluxaVoice = async (text: string) => {
-    if (isMuted) return;
+    if (isMuted) {
+      console.log("🔇 Voice muted, skipping TTS");
+      return;
+    }
+
+    if (!text || !text.trim()) {
+      console.warn("⚠️ Empty text provided to playFluxaVoice");
+      return;
+    }
 
     setIsSpeaking(true);
     try {
-      const { data, error } = await supabase.functions.invoke("text-to-speech", {
-        body: { text, voice: "shimmer", speed: 1.0 }
+      console.log("🎙️ Generating voice for:", text.slice(0, 50) + "...");
+      const { data, error } = await invokeAdminFunction("text-to-speech", {
+        text: text.trim(), 
+        voice: "shimmer", 
+        speed: 1.0
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("❌ TTS error:", error);
+        throw error;
+      }
 
-      if (data?.audioUrl) {
-        // Stop any currently playing audio
-        if (currentAudioRef.current) {
-          currentAudioRef.current.pause();
-        }
+      if (!data?.audioUrl) {
+        console.warn("⚠️ No audioUrl returned from TTS");
+        setIsSpeaking(false);
+        toast.error("Fluxa couldn't speak that one, but the text is still here.");
+        return;
+      }
 
-        const audio = new Audio(data.audioUrl);
-        currentAudioRef.current = audio;
-        
-        audio.onended = () => {
-          setIsSpeaking(false);
-          currentAudioRef.current = null;
-        };
-        
-        audio.onerror = () => {
-          setIsSpeaking(false);
-          currentAudioRef.current = null;
-        };
+      console.log("✅ Audio URL received:", data.audioUrl);
 
+      // Stop any currently playing audio
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      }
+
+      const audio = new Audio(data.audioUrl);
+      currentAudioRef.current = audio;
+      
+      audio.onended = () => {
+        console.log("✅ Audio playback completed");
+        setIsSpeaking(false);
+        currentAudioRef.current = null;
+      };
+      
+      audio.onerror = (e) => {
+        console.error("❌ Audio playback error:", e);
+        setIsSpeaking(false);
+        currentAudioRef.current = null;
+        toast.error("Couldn't play audio. Try again?");
+      };
+
+      audio.onloadstart = () => {
+        console.log("🔄 Audio loading...");
+      };
+
+      audio.oncanplay = () => {
+        console.log("✅ Audio ready to play");
+      };
+
+      try {
         await audio.play();
+        console.log("▶️ Audio playback started");
+      } catch (playError) {
+        console.error("❌ Error starting playback:", playError);
+        setIsSpeaking(false);
+        currentAudioRef.current = null;
+        toast.error("Couldn't start audio playback. Check your browser permissions.");
       }
     } catch (error) {
-      console.error("Error playing voice:", error);
+      console.error("❌ Error in playFluxaVoice:", error);
       setIsSpeaking(false);
+      // Don't show error toast for TTS failures - just log it
+      // User can still read the text response
     }
   };
 
@@ -208,11 +264,9 @@ const FluxaMode = () => {
 
     try {
       // Call Fluxa chat function
-      const { data, error } = await supabase.functions.invoke("fluxa-chat", {
-        body: { 
-          message: userMessage.content,
-          conversationHistory: messages.slice(-5) // Send last 5 messages for context
-        }
+      const { data, error } = await invokeAdminFunction("fluxa-chat", {
+        message: userMessage.content,
+        conversationHistory: messages.slice(-5) // Send last 5 messages for context
       });
 
       if (error) throw error;

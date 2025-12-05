@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Environment Check</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #fff; }
+        .success { color: #4ade80; }
+        .error { color: #f87171; }
+        .warning { color: #fbbf24; }
+        pre { background: #2a2a2a; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Environment Variables Check</h1>
+    <div id="results"></div>
+    <script type="module">
+        const results = document.getElementById('results');
+        
+        // Check if we're in Vite context
+        if (typeof import.meta !== 'undefined' && import.meta.env) {
+            const url = import.meta.env.VITE_SUPABASE_URL;
+            const key = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+            
+            let html = '<h2>Environment Variables:</h2>';
+            html += `<p><strong>VITE_SUPABASE_URL:</strong><br>`;
+            html += url ? `<span class="${url.includes('zikzuwomznlpgvrftcpf') ? 'error' : 'success'}">${url}</span>` : '<span class="error">MISSING</span>';
+            html += `</p>`;
+            
+            html += `<p><strong>VITE_SUPABASE_ANON_KEY:</strong><br>`;
+            if (key) {
+                const keyPreview = key.substring(0, 50) + '...';
+                const isValidFormat = key.startsWith('eyJ') || key.startsWith('sb_');
+                html += `<span class="${isValidFormat ? 'success' : 'warning'}">${keyPreview}</span><br>`;
+                html += `<small>Format: ${key.startsWith('eyJ') ? 'JWT (standard)' : key.startsWith('sb_') ? 'New format?' : 'UNKNOWN FORMAT'}</small>`;
+            } else {
+                html += '<span class="error">MISSING</span>';
+            }
+            html += `</p>`;
+            
+            html += '<h2>Analysis:</h2>';
+            if (!url) {
+                html += '<p class="error">❌ VITE_SUPABASE_URL is missing!</p>';
+            } else if (url.includes('zikzuwomznlpgvrftcpf')) {
+                html += '<p class="error">❌ Still using OLD Lovable project URL!</p>';
+            } else {
+                html += '<p class="success">✅ URL points to new project</p>';
+            }
+            
+            if (!key) {
+                html += '<p class="error">❌ VITE_SUPABASE_ANON_KEY is missing!</p>';
+            } else if (!key.startsWith('eyJ') && !key.startsWith('sb_')) {
+                html += '<p class="warning">⚠️ Key format looks unusual. Verify in Supabase dashboard.</p>';
+            } else {
+                html += '<p class="success">✅ Key is present</p>';
+            }
+            
+            results.innerHTML = html;
+        } else {
+            results.innerHTML = '<p class="error">This script must be run in a Vite environment. Open browser console on your app instead.</p>';
+        }
+    </script>
+</body>
+</html>
+

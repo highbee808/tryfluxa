@@ -1,7 +1,8 @@
-import { Mic, Sparkles, MessageSquare } from "lucide-react";
+import { Mic, MessageSquare } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import VoiceChatModal from "./VoiceChatModal";
+import { FluxaLogo } from "./FluxaLogo";
 import { cn } from "@/lib/utils";
 
 export const FloatingActionButtons = () => {
@@ -54,16 +55,18 @@ export const FloatingActionButtons = () => {
             "glass-strong hover:glass-glow",
             "w-16 h-16 rounded-full flex items-center justify-center",
             "transition-all duration-300 hover:scale-110 active:scale-95",
-            "bg-gradient-to-br from-primary to-accent shadow-glass-glow",
+            "bg-gradient-to-br from-blue-600 to-purple-600 dark:from-primary dark:to-accent shadow-glass-glow",
             "hover-glow-strong"
           )}
           aria-label="Quick Actions"
         >
-          <Sparkles 
+          <FluxaLogo 
+            size={28}
+            fillColor="currentColor"
             className={cn(
-              "w-7 h-7 text-primary-foreground transition-transform duration-300",
+              "text-black dark:text-white transition-transform duration-300",
               isExpanded && "rotate-180"
-            )} 
+            )}
           />
         </button>
       </div>

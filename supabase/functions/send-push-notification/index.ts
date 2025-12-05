@@ -11,8 +11,8 @@ const VAPID_PUBLIC_KEY = "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDjtF7rCrZp
 const VAPID_PRIVATE_KEY = "your-private-key"; // Replace with your actual private key
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response("OK", { headers: corsHeaders });
   }
 
   try {

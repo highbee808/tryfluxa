@@ -66,9 +66,20 @@ const Onboarding = () => {
     // Save interests to localStorage
     localStorage.setItem("fluxaInterests", JSON.stringify(selectedInterests));
 
-    // Save sub-niches to database
+    // Save interests to database
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      // Save main interests
+      for (const interest of selectedInterests) {
+        await supabase.from("user_interests").upsert({
+          user_id: user.id,
+          interest: interest,
+        }, {
+          onConflict: "user_id,interest"
+        });
+      }
+
+      // Save sub-niches to database
       for (const [mainTopic, subNiches] of Object.entries(subNicheSelections)) {
         if (subNiches.length > 0) {
           await supabase.from("user_subniches").insert({
@@ -80,11 +91,12 @@ const Onboarding = () => {
       }
     }
 
-    // Navigate based on whether Sports is selected
+    // Navigate based on selected interests
     if (selectedInterests.includes("Sports")) {
       toast.success("Nice picks! Now let's set up your football teams ⚽");
       navigate("/team-selection");
     } else {
+      // Music onboarding is handled via SubNicheSelection flow
       toast.success("All set! Welcome to Fluxa 🎉");
       navigate("/feed");
     }
@@ -95,6 +107,9 @@ const Onboarding = () => {
   if (showSubNiches && currentMainTopic) {
     const topic = topics.find(t => t.label === currentMainTopic);
     if (topic?.subTopics) {
+      // Special handling for Music - navigate to artist selection after genres
+      const isMusic = currentMainTopic === "Music";
+      
       return (
         <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--gradient-hero)" }}>
           <div className="max-w-4xl w-full space-y-10">
@@ -110,11 +125,26 @@ const Onboarding = () => {
             {/* Continue Button */}
             <div className="flex justify-center">
               <Button
-                onClick={() => setShowSubNiches(false)}
+                onClick={async () => {
+                  if (isMusic) {
+                    // For Music, navigate to artist selection with selected genres
+                    const selectedGenres = subNicheSelections[currentMainTopic] || [];
+                    if (selectedGenres.length === 0) {
+                      toast.error("Please select at least one genre");
+                      return;
+                    }
+                    navigate("/music-artist-selection", { 
+                      state: { selectedGenres } 
+                    });
+                  } else {
+                    setShowSubNiches(false);
+                  }
+                }}
                 size="lg"
                 className="text-lg font-bold shadow-xl"
+                disabled={isMusic && (subNicheSelections[currentMainTopic] || []).length === 0}
               >
-                Done →
+                {isMusic ? "Continue to Artists →" : "Done →"}
               </Button>
             </div>
           </div>

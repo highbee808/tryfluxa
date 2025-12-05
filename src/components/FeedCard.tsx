@@ -10,14 +10,21 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeAdminFunction } from "@/lib/invokeAdminFunction";
 import { FluxaLogo } from "@/components/FluxaLogo";
 
 interface FeedCardProps {
   id: string;
   imageUrl?: string;
+  imageUrls?: {
+    primary?: string | null;
+    source?: string | null;
+    ai?: string | null;
+  };
   headline: string;
   context: string;
   author?: string;
@@ -38,11 +45,14 @@ interface FeedCardProps {
   onComment?: () => void;
   onBookmark?: () => void;
   onShare?: () => void;
+  onCardClick?: () => void;
+  onFluxaAnalysis?: () => void;
 }
 
 export const FeedCard = ({
   id,
   imageUrl,
+  imageUrls,
   headline,
   context,
   author = "Fluxa",
@@ -63,37 +73,108 @@ export const FeedCard = ({
   onComment,
   onBookmark,
   onShare,
+  onCardClick,
+  onFluxaAnalysis,
 }: FeedCardProps) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
-  const safeTopic = category && category.trim() !== "" ? category : "this post";
+  const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(
+    imageUrl || imageUrls?.primary || imageUrls?.source || imageUrls?.ai || null
+  );
 
-  const handleFluxaModeClick = () => {
-    navigate("/fluxa-mode", {
-      state: {
-        initialContext: {
-          gistId: id,
-          topic: safeTopic,
-          headline,
-          context,
-          fullContext: context,
-        },
-      },
-    });
+  // Debug log for music items (check if imageUrl is from music artwork paths)
+  useEffect(() => {
+    const isMusicArtwork = imageUrl && (
+      imageUrl.includes("/img/music/") ||
+      imageUrl.includes("spotify.com") ||
+      imageUrl.includes("last.fm") ||
+      imageUrl.includes("lastfm")
+    );
+    
+    if (isMusicArtwork || (imageUrl && category)) {
+      console.log("[FeedCard] music artwork debug:", {
+        id: id,
+        headline: headline,
+        imageUrl: imageUrl,
+        currentImageUrl: currentImageUrl,
+        category: category,
+        isMusicArtwork: isMusicArtwork,
+      });
+    }
+  }, [id, headline, imageUrl, currentImageUrl, category]);
+
+  const handleImageError = () => {
+    // For music items, don't fall back to generic placeholder - keep trying curated artwork
+    const isMusicItem = category && (category.toLowerCase().includes("music") || category.toLowerCase().includes("trending") || category.toLowerCase().includes("latest"));
+    
+    if (isMusicItem) {
+      // For music, if image fails, just hide it (curated artwork should always work)
+      setCurrentImageUrl(null);
+      return;
+    }
+
+    // For non-music items, try fallback images in order: primary -> source -> ai -> placeholder
+    if (currentImageUrl === (imageUrl || imageUrls?.primary)) {
+      setCurrentImageUrl(imageUrls?.source || imageUrls?.ai || "/images/fluxa-placeholder.jpg");
+    } else if (currentImageUrl === imageUrls?.source) {
+      setCurrentImageUrl(imageUrls?.ai || "/images/fluxa-placeholder.jpg");
+    } else if (currentImageUrl === imageUrls?.ai) {
+      setCurrentImageUrl("/images/fluxa-placeholder.jpg");
+    }
   };
 
-  const handleCommentClick = () => {
-    if (onComment) return onComment();
-    navigate(`/post/${id}`);
+  const handleCardClickInternal = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on action buttons
+    const target = e.target as HTMLElement;
+    if (
+      target.closest("button") ||
+      target.closest("a") ||
+      target.closest('[role="button"]')
+    ) {
+      return;
+    }
+    if (onCardClick) {
+      onCardClick();
+    }
+    // No fallback - onCardClick should always be provided with source
+  };
+
+  const handleCommentClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onComment) {
+      onComment();
+    }
+    // No fallback - onComment should always be provided with source
+  };
+
+  const handleFluxaModeClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onFluxaAnalysis) {
+      onFluxaAnalysis();
+    } else {
+      // Fallback with safe values
+      const safeTopic = category && category.trim() !== "" ? category : "this story";
+      navigate("/fluxa-mode", {
+        state: {
+          initialContext: {
+            gistId: id,
+            topic: safeTopic,
+            headline: headline || "this post",
+            context: context || "",
+            fullContext: context || "",
+          },
+        },
+      });
+    }
   };
 
   const handleShareWithTracking = async () => {
     if (onShare) onShare();
 
     try {
-      await supabase.functions.invoke("track-post-event", {
-        body: { postId: id, event: "share" },
+      await invokeAdminFunction("track-post-event", {
+        postId: id, event: "share"
       });
     } catch (error) {
       console.error("Error tracking share:", error);
@@ -107,7 +188,19 @@ export const FeedCard = ({
   };
 
   return (
-    <Card className="w-full overflow-hidden border border-border shadow-md hover:shadow-xl transition-all duration-300 bg-card/95 backdrop-blur">
+    <Card 
+      className="w-full overflow-hidden border border-border shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer"
+      style={{ 
+        backgroundColor: 'hsl(var(--card))', 
+        opacity: 1,
+        backdropFilter: 'none',
+        WebkitBackdropFilter: 'none',
+        position: 'relative',
+        zIndex: 100,
+        isolation: 'isolate'
+      }}
+      onClick={handleCardClickInternal}
+    >
       <CardContent className="p-0">
 
         {/* Top Author Row */}
@@ -143,31 +236,18 @@ export const FeedCard = ({
         </div>
 
         {/* Image */}
-        {imageUrl && (
+        {currentImageUrl && (
           <img
-            src={imageUrl}
+            src={currentImageUrl}
             alt={headline}
-            className="w-full h-48 sm:h-64 object-cover cursor-pointer"
-            onClick={() => navigate(`/post/${id}`)}
+            className="w-full h-48 sm:h-64 object-cover"
+            onError={handleImageError}
           />
         )}
 
         {/* Content */}
         <div className="p-6">
-
-          <div className="flex items-center justify-between mb-3 text-xs text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              <span className="text-sm">{readTime} read</span>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <Headphones className="w-4 h-4 opacity-70" />
-              <span className="text-xs">{plays} listens</span>
-            </div>
-          </div>
-
-          <h2 className="text-xl md:text-2xl font-semibold mb-2 leading-tight">
+          <h2 className="text-xl md:text-2xl font-semibold mb-2 leading-tight hover:text-primary transition-colors">
             {headline}
           </h2>
 
@@ -183,6 +263,7 @@ export const FeedCard = ({
               <button
                 onClick={handleFluxaModeClick}
                 className="flex items-center gap-2 text-primary hover:text-primary/90 transition-colors group"
+                aria-label="Ask Fluxa for deeper analysis"
               >
                 <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-all">
                   <FluxaLogo size={20} fillColor="hsl(var(--primary))" />
@@ -206,6 +287,7 @@ export const FeedCard = ({
               <button
                 onClick={handleCommentClick}
                 className="flex items-center gap-2 text-muted-foreground hover:text-blue-500 transition-colors group"
+                aria-label="View comments"
               >
                 <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-all" />
                 <span className="text-sm">{comments}</span>

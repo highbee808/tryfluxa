@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronLeft, ArrowLeft, Search, X } from "lucide-react";
+import { ChevronLeft, ArrowLeft, Search, X, Loader2 } from "lucide-react";
 
 // Top football and basketball teams
 const TEAMS = [
@@ -64,7 +64,28 @@ const TeamSelection = () => {
   const [rivalTeams, setRivalTeams] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
+
+  // Load existing teams on mount
+  useEffect(() => {
+    const loadExistingTeams = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Get teams from user metadata (stored in users table)
+        if (user.user_metadata?.favorite_teams || user.user_metadata?.rival_teams) {
+          setFavoriteTeams(user.user_metadata.favorite_teams || []);
+          setRivalTeams(user.user_metadata.rival_teams || []);
+        }
+      } catch (error) {
+        console.error("Error loading existing teams:", error);
+      }
+    };
+
+    loadExistingTeams();
+  }, []);
 
   const filteredTeams = TEAMS.filter(team => {
     if (sportType && team.sport !== sportType) return false;
@@ -77,23 +98,43 @@ const TeamSelection = () => {
   });
 
   const toggleFavorite = (team: string) => {
+    // Can't favorite a rival team
     if (rivalTeams.includes(team)) {
-      toast.error("Can't favorite a rival team!");
+      toast.error("Can't favorite a rival team! Remove it from rivals first.");
       return;
     }
-    setFavoriteTeams((prev) =>
-      prev.includes(team) ? prev.filter((t) => t !== team) : [...prev, team]
-    );
+    
+    setFavoriteTeams((prev) => {
+      if (prev.includes(team)) {
+        return prev.filter((t) => t !== team);
+      } else {
+        return [...prev, team];
+      }
+    });
   };
 
   const toggleRival = (team: string) => {
+    // Can't rival a favorite team
     if (favoriteTeams.includes(team)) {
-      toast.error("Can't rival a favorite team!");
+      toast.error("Can't rival a favorite team! Remove it from favorites first.");
       return;
     }
-    setRivalTeams((prev) =>
-      prev.includes(team) ? prev.filter((t) => t !== team) : [...prev, team]
-    );
+    
+    setRivalTeams((prev) => {
+      if (prev.includes(team)) {
+        return prev.filter((t) => t !== team);
+      } else {
+        return [...prev, team];
+      }
+    });
+  };
+
+  const removeFavorite = (team: string) => {
+    setFavoriteTeams((prev) => prev.filter((t) => t !== team));
+  };
+
+  const removeRival = (team: string) => {
+    setRivalTeams((prev) => prev.filter((t) => t !== team));
   };
 
   const handleContinue = async () => {
@@ -102,30 +143,65 @@ const TeamSelection = () => {
       return;
     }
 
+    setSaving(true);
     setLoading(true);
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.error("Auth error:", authError);
         toast.error("Please sign in first");
         navigate("/auth");
         return;
       }
 
-      // Save team preferences
-      const { error } = await supabase.from("user_teams").upsert({
-        user_id: user.id,
-        favorite_teams: favoriteTeams,
-        rival_teams: rivalTeams,
+      console.log("💾 Saving teams to users table:", {
+        favoriteTeams,
+        rivalTeams,
+        userId: user.id
       });
 
-      if (error) throw error;
+      // Update user metadata directly (stored in users table)
+      const { data: updatedUser, error: updateError } = await supabase.auth.updateUser({
+        data: {
+          favorite_teams: favoriteTeams,
+          rival_teams: rivalTeams
+        }
+      });
 
-      toast.success("Team preferences saved! ⚽");
-      navigate("/feed");
+      if (updateError) {
+        console.error("Database error:", updateError);
+        throw new Error(`Failed to save: ${updateError.message}`);
+      }
+
+      if (!updatedUser?.user) {
+        throw new Error("Failed to get updated user data");
+      }
+
+      // Verify the save was successful
+      const savedFavorites = updatedUser.user.user_metadata?.favorite_teams || [];
+      const savedRivals = updatedUser.user.user_metadata?.rival_teams || [];
+      
+      console.log("✅ Teams saved successfully:", {
+        favorites: savedFavorites,
+        rivals: savedRivals
+      });
+
+      toast.success(`Team preferences saved! ${favoriteTeams.length} favorite(s), ${rivalTeams.length} rival(s) ⚽`);
+      
+      // Small delay to ensure toast is visible, then navigate
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Navigate to Sports Hub after successful save
+      navigate("/sports-hub");
     } catch (error) {
       console.error("Error saving teams:", error);
-      toast.error("Failed to save preferences");
+      const errorMessage = error instanceof Error ? error.message : "Failed to save preferences";
+      toast.error(`Error: ${errorMessage}`);
+      // Don't navigate on error
     } finally {
+      setSaving(false);
       setLoading(false);
     }
   };
@@ -171,7 +247,28 @@ const TeamSelection = () => {
           <div className="flex justify-center">
             <Button
               variant="ghost"
-              onClick={() => navigate("/onboarding")}
+              onClick={async () => {
+                // Check if onboarding is complete
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                  // Check if user has completed onboarding (has interests/subniches)
+                  const { data: interests } = await supabase
+                    .from("user_subniches")
+                    .select("id")
+                    .eq("user_id", user.id)
+                    .limit(1);
+                  
+                  if (interests && interests.length > 0) {
+                    // Onboarding complete, go to feed
+                    navigate("/feed");
+                  } else {
+                    // Onboarding incomplete, go back to onboarding
+                    navigate("/onboarding");
+                  }
+                } else {
+                  navigate("/onboarding");
+                }
+              }}
               className="gap-2"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -193,6 +290,7 @@ const TeamSelection = () => {
             variant="ghost"
             onClick={() => setSportType(null)}
             className="gap-2"
+            disabled={saving}
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Sport Selection
@@ -203,7 +301,7 @@ const TeamSelection = () => {
               Pick Your {sportType === 'football' ? 'Football' : 'Basketball'} Teams {sportType === 'football' ? '⚽' : '🏀'}
             </h1>
             <p className="text-xl text-foreground font-medium mt-4">
-              Choose your favorite and rival teams
+              Select multiple favorite and rival teams
             </p>
           </div>
         </div>
@@ -211,10 +309,10 @@ const TeamSelection = () => {
         {/* Summary Banner */}
         {(favoriteTeams.length > 0 || rivalTeams.length > 0) && (
           <Card className="p-4 bg-background/80 backdrop-blur">
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-col gap-4">
               {favoriteTeams.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-primary">❤️ Favorites:</span>
+                <div>
+                  <span className="text-sm font-semibold text-primary mb-2 block">❤️ Favorite Teams ({favoriteTeams.length}):</span>
                   <div className="flex flex-wrap gap-2">
                     {favoriteTeams.map((teamName) => {
                       const team = TEAMS.find(t => t.name === teamName);
@@ -224,7 +322,7 @@ const TeamSelection = () => {
                           <span className="text-xs font-medium">{teamName}</span>
                           <X 
                             className="w-3 h-3 cursor-pointer hover:text-destructive" 
-                            onClick={() => toggleFavorite(teamName)}
+                            onClick={() => removeFavorite(teamName)}
                           />
                         </div>
                       );
@@ -233,8 +331,8 @@ const TeamSelection = () => {
                 </div>
               )}
               {rivalTeams.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-destructive">😤 Rivals:</span>
+                <div>
+                  <span className="text-sm font-semibold text-destructive mb-2 block">😤 Rival Teams ({rivalTeams.length}):</span>
                   <div className="flex flex-wrap gap-2">
                     {rivalTeams.map((teamName) => {
                       const team = TEAMS.find(t => t.name === teamName);
@@ -244,7 +342,7 @@ const TeamSelection = () => {
                           <span className="text-xs font-medium">{teamName}</span>
                           <X 
                             className="w-3 h-3 cursor-pointer hover:text-destructive" 
-                            onClick={() => toggleRival(teamName)}
+                            onClick={() => removeRival(teamName)}
                           />
                         </div>
                       );
@@ -265,6 +363,7 @@ const TeamSelection = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 pr-10 h-12 text-base"
+            disabled={saving}
           />
           {searchQuery && (
             <X 
@@ -281,30 +380,40 @@ const TeamSelection = () => {
             <h2 className="text-2xl font-bold mb-4 text-primary">
               ❤️ Favorite Teams ({favoriteTeams.length})
             </h2>
+            <p className="text-sm text-muted-foreground mb-4">Select multiple favorite teams</p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {filteredTeams.map((team) => (
-                <div
-                  key={team.name}
-                  className={`flex items-center space-x-2 p-3 rounded-lg border cursor-pointer transition-all ${
-                    favoriteTeams.includes(team.name)
-                      ? "bg-primary/10 border-primary shadow-md"
-                      : "hover:bg-muted border-border"
-                  }`}
-                  onClick={() => toggleFavorite(team.name)}
-                >
-                  <img 
-                    src={team.logo} 
-                    alt={`${team.name} logo`} 
-                    className="w-10 h-10 object-contain flex-shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{team.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {team.league}
+              {filteredTeams.map((team) => {
+                const isSelected = favoriteTeams.includes(team.name);
+                const isRival = rivalTeams.includes(team.name);
+                return (
+                  <div
+                    key={team.name}
+                    className={`flex items-center space-x-2 p-3 rounded-lg border cursor-pointer transition-all ${
+                      isSelected
+                        ? "bg-primary/10 border-primary shadow-md ring-2 ring-primary"
+                        : isRival
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:bg-muted border-border"
+                    }`}
+                    onClick={() => !isRival && toggleFavorite(team.name)}
+                  >
+                    <img 
+                      src={team.logo} 
+                      alt={`${team.name} logo`} 
+                      className="w-10 h-10 object-contain flex-shrink-0" 
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{team.name}</div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {team.league}
+                      </div>
                     </div>
+                    {isSelected && (
+                      <span className="text-primary text-lg">✓</span>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
 
@@ -313,30 +422,40 @@ const TeamSelection = () => {
             <h2 className="text-2xl font-bold mb-4 text-destructive">
               😤 Rival Teams ({rivalTeams.length})
             </h2>
+            <p className="text-sm text-muted-foreground mb-4">Select multiple rival teams (optional)</p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {filteredTeams.map((team) => (
-                <div
-                  key={team.name}
-                  className={`flex items-center space-x-2 p-3 rounded-lg border cursor-pointer transition-all ${
-                    rivalTeams.includes(team.name)
-                      ? "bg-destructive/10 border-destructive shadow-md"
-                      : "hover:bg-muted border-border"
-                  }`}
-                  onClick={() => toggleRival(team.name)}
-                >
-                  <img 
-                    src={team.logo} 
-                    alt={`${team.name} logo`} 
-                    className="w-10 h-10 object-contain flex-shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate">{team.name}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {team.league}
+              {filteredTeams.map((team) => {
+                const isSelected = rivalTeams.includes(team.name);
+                const isFavorite = favoriteTeams.includes(team.name);
+                return (
+                  <div
+                    key={team.name}
+                    className={`flex items-center space-x-2 p-3 rounded-lg border cursor-pointer transition-all ${
+                      isSelected
+                        ? "bg-destructive/10 border-destructive shadow-md ring-2 ring-destructive"
+                        : isFavorite
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:bg-muted border-border"
+                    }`}
+                    onClick={() => !isFavorite && toggleRival(team.name)}
+                  >
+                    <img 
+                      src={team.logo} 
+                      alt={`${team.name} logo`} 
+                      className="w-10 h-10 object-contain flex-shrink-0" 
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{team.name}</div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {team.league}
+                      </div>
                     </div>
+                    {isSelected && (
+                      <span className="text-destructive text-lg">✓</span>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         </div>
@@ -345,11 +464,18 @@ const TeamSelection = () => {
         <div className="flex justify-end">
           <Button
             onClick={handleContinue}
-            disabled={loading || favoriteTeams.length === 0}
+            disabled={loading || saving || favoriteTeams.length === 0}
             size="lg"
-            className="text-lg font-bold"
+            className="text-lg font-bold min-w-[200px]"
           >
-            {loading ? "Saving..." : "Continue to Feed →"}
+            {loading || saving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Continue to Feed →"
+            )}
           </Button>
         </div>
       </div>

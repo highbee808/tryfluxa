@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeAdminFunction } from "@/lib/invokeAdminFunction";
 import { Loader2, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -44,8 +45,8 @@ export const TeamComparisonTool = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      const { data, error } = await supabase.functions.invoke('compare-teams', {
-        body: { team1, team2, userId: user?.id }
+      const { data, error } = await invokeAdminFunction('compare-teams', {
+        team1, team2, userId: user?.id
       });
 
       if (error) throw error;

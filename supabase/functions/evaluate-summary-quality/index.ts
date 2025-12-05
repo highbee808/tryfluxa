@@ -14,8 +14,8 @@ interface QualityMetrics {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return new Response("OK", { headers: corsHeaders })
   }
 
   try {
@@ -50,21 +50,26 @@ serve(async (req) => {
       )
     }
 
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+    if (!openaiApiKey) {
+      throw new Error('OPENAI_API_KEY not configured')
+    }
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Use AI to evaluate summary quality
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Use OpenAI to evaluate summary quality
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
+        response_format: { type: 'json_object' },
         messages: [
           {
             role: 'system',

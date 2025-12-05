@@ -2,13 +2,14 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return new Response("OK", { headers: corsHeaders })
   }
 
   try {
@@ -64,7 +65,7 @@ serve(async (req) => {
     for (const file of audioFiles) {
       try {
         // Fetch the audio file from the public folder
-        const publicUrl = `${supabaseUrl.replace('https://', 'https://zikzuwomznlpgvrftcpf.supabase.co')}/storage/v1/object/public/audio/${file.remotePath.split('/').pop()}`
+        const publicUrl = `${supabaseUrl}/storage/v1/object/public/audio/${file.remotePath.split('/').pop()}`
         
         console.log(`📤 Uploading ${file.remotePath}...`)
         

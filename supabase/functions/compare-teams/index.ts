@@ -2,13 +2,14 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return new Response("OK", { headers: corsHeaders })
   }
 
   try {
@@ -83,10 +84,10 @@ serve(async (req) => {
       (m.team_home === team2 && m.team_away === team1)
     ) || []
 
-    // Use Lovable AI for analysis
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured')
+    // Use OpenAI for analysis
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY not configured')
     }
 
     const aiPrompt = `You are Fluxa, a witty sports analyst. Compare these two teams:
@@ -110,14 +111,14 @@ Provide a sassy, insightful comparison (200-300 words) covering:
 - Historical context
 - Prediction for next matchup`
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: 'You are Fluxa, a charismatic AI sports analyst with a Gen-Z vibe.' },
           { role: 'user', content: aiPrompt }
@@ -134,14 +135,15 @@ Provide a sassy, insightful comparison (200-300 words) covering:
     const analysis = aiData.choices[0]?.message?.content || 'Analysis unavailable'
 
     // Log API usage
+    // OpenAI gpt-4o-mini pricing: $0.15/$0.60 per 1M tokens (input/output)
     const inputTokens = Math.ceil(aiPrompt.length / 4)
     const outputTokens = Math.ceil((analysis?.length || 0) / 4)
     const totalTokens = inputTokens + outputTokens
-    const estimatedCost = (inputTokens / 1_000_000) * 0.075 + (outputTokens / 1_000_000) * 0.30
+    const estimatedCost = (inputTokens / 1_000_000) * 0.15 + (outputTokens / 1_000_000) * 0.60
     
     await supabase.from("api_usage_logs").insert({
-      provider: "lovable_ai",
-      endpoint: "gemini-2.5-flash",
+      provider: "openai",
+      endpoint: "gpt-4o-mini",
       tokens_used: totalTokens,
       estimated_cost: estimatedCost,
       user_id: userId

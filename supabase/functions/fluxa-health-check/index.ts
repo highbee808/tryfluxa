@@ -52,8 +52,8 @@ interface HealthCheck {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return new Response("OK", { headers: corsHeaders })
   }
 
   // Validate HMAC signature for scheduled functions
@@ -130,12 +130,12 @@ serve(async (req) => {
       timestamp
     })
 
-    // 4. Lovable AI Key Check
-    const lovableKey = Deno.env.get('LOVABLE_API_KEY')
+    // 4. OpenAI API Key Check
+    const openaiKey = Deno.env.get('OPENAI_API_KEY')
     results.push({
-      name: 'Lovable AI Key',
-      status: lovableKey ? '✅ OK' : '❌ Failed',
-      details: lovableKey ? 'Key configured' : 'Key missing',
+      name: 'OpenAI API Key',
+      status: openaiKey ? '✅ OK' : '❌ Failed',
+      details: openaiKey ? 'Key configured' : 'Key missing',
       timestamp
     })
 

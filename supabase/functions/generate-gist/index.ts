@@ -15,8 +15,9 @@ interface Article {
 const MAX_ARTICLE_TEXT_LENGTH = 4000
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
 const sanitizeArticleText = (text?: string) => {
@@ -113,13 +114,36 @@ async function fetchMediastackArticles(topic: string): Promise<Article[]> {
 }
 
 async function fetchArticlesFromApis(topic: string): Promise<Article[]> {
-  const [newsapi, guardian, mediastack] = await Promise.all([
-    fetchNewsApiArticles(topic),
-    fetchGuardianArticles(topic),
-    fetchMediastackArticles(topic),
-  ])
+  // Sequential fetch: NewsAPI → Guardian → Mediastack (stop early if we find articles)
+  let articles: Article[] = []
+  
+  // Try NewsAPI first
+  console.log('📡 Fetching from NewsAPI...')
+  const newsapi = await fetchNewsApiArticles(topic)
+  if (newsapi.length > 0) {
+    console.log(`✅ Found ${newsapi.length} articles from NewsAPI`)
+    articles = [...articles, ...newsapi]
+  } else {
+    console.log('⚠️ No articles from NewsAPI, trying Guardian...')
+    // Try Guardian if NewsAPI returned nothing
+    const guardian = await fetchGuardianArticles(topic)
+    if (guardian.length > 0) {
+      console.log(`✅ Found ${guardian.length} articles from Guardian`)
+      articles = [...articles, ...guardian]
+    } else {
+      console.log('⚠️ No articles from Guardian, trying Mediastack...')
+      // Try Mediastack if Guardian returned nothing
+      const mediastack = await fetchMediastackArticles(topic)
+      if (mediastack.length > 0) {
+        console.log(`✅ Found ${mediastack.length} articles from Mediastack`)
+        articles = [...articles, ...mediastack]
+      } else {
+        console.log('⚠️ No articles from any external API')
+      }
+    }
+  }
 
-  return [...newsapi, ...guardian, ...mediastack]
+  return articles
     .filter((article) => !!article.title)
     .sort((a, b) => {
       const aTime = a.published_at ? new Date(a.published_at).getTime() : 0
@@ -140,9 +164,9 @@ const topicSchema = z.object({
 serve(async (req) => {
   console.log('🚀 generate-gist started')
   
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     console.log('✅ OPTIONS request handled')
-    return new Response(null, { headers: corsHeaders })
+    return new Response("OK", { headers: corsHeaders })
   }
 
   try {
@@ -172,27 +196,91 @@ serve(async (req) => {
     console.log('📝 Topic received:', topic)
     console.log('📏 Topic length:', topic.length, 'chars')
 
-    console.log('📰 Fetching existing coverage from APIs...')
+    console.log('📰 Fetching existing coverage from APIs (sequential)...')
     const articles = await fetchArticlesFromApis(topic)
     const selectedArticle = articles[0]
     const usingApiContent = Boolean(selectedArticle)
 
     if (usingApiContent) {
       console.log('✅ Using API article from', selectedArticle?.source)
-    } else {
-      console.log('⚠️ No API article found, falling back to creative generation')
-    }
+      // If we have external content, use it and skip OpenAI generation
+      const articleText = sanitizeArticleText([
+        selectedArticle.title,
+        selectedArticle.description,
+        selectedArticle.content,
+      ]
+        .filter(Boolean)
+        .join('\n\n'))
+        .slice(0, MAX_ARTICLE_TEXT_LENGTH)
+      
+      // Use external content directly - no OpenAI needed
+      const headline = selectedArticle.title || topic
+      const context = selectedArticle.description?.slice(0, 200) || 'Latest update'
+      const narration = `${headline}. ${selectedArticle.description || 'Stay tuned for more updates from Fluxa!'}`
+      
+      // Detect if topic is about a celebrity
+      const isCelebrity = /drake|taylor swift|messi|rihanna|beyonce|kanye|cristiano|ronaldo|lebron|kim kardashian|ariana grande|justin bieber|selena gomez|bad bunny|dua lipa/i.test(topic)
+      
+      // Generate image using OpenAI DALL-E (still needed for images)
+      let generatedImageUrl = null
+      const apiKey = Deno.env.get('OPENAI_API_KEY')
+      if (apiKey) {
+        console.log('🧠 Generating custom image...')
+        try {
+          const imagePrompt = `High-quality realistic ${isCelebrity ? 'portrait style' : 'editorial style'} image of ${topic}, cinematic lighting, magazine cover aesthetic, professional photography, vibrant colors`
+          const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'dall-e-3',
+              prompt: imagePrompt,
+              n: 1,
+              size: '1024x1024',
+              quality: 'standard',
+              response_format: 'url'
+            }),
+          })
 
-    const articleText = selectedArticle
-      ? sanitizeArticleText([
-          selectedArticle.title,
-          selectedArticle.description,
-          selectedArticle.content,
-        ]
-          .filter(Boolean)
-          .join('\n\n'))
-          .slice(0, MAX_ARTICLE_TEXT_LENGTH)
-      : ''
+          if (imageResponse.ok) {
+            const imageData = await imageResponse.json()
+            const imageUrl = imageData.data?.[0]?.url
+            if (imageUrl) {
+              generatedImageUrl = imageUrl
+              console.log('🧠 Fluxa created a custom image')
+            }
+          }
+        } catch (error) {
+          console.log('⚠️ Error generating custom image:', error instanceof Error ? error.message : 'Unknown error')
+        }
+      }
+
+      return new Response(
+        JSON.stringify({
+          headline,
+          context,
+          narration,
+          image_keyword: topic,
+          ai_generated_image: generatedImageUrl,
+          is_celebrity: isCelebrity,
+          source_url: selectedArticle.url || null,
+          source_title: selectedArticle.title || null,
+          source_excerpt: selectedArticle.description || null,
+          source_name: selectedArticle.source || null,
+          source_published_at: selectedArticle.published_at || null,
+          source_image_url: selectedArticle.image || null,
+          used_api_article: true,
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      )
+    }
+    
+    // Only call OpenAI if no external content found
+    console.log('⚠️ No API article found, using OpenAI for creative generation')
     
     // Check API key
     const apiKey = Deno.env.get('OPENAI_API_KEY')
@@ -224,31 +312,14 @@ CRITICAL RULES:
 - Keep context punchy (under 200 characters) and globally understandable.
 - Never include sensitive accusations or disclaimers about missing data.`
 
-    const articleNarrative = usingApiContent
-      ? (articleText || sanitizeArticleText(selectedArticle?.description || selectedArticle?.title || ''))
-      : ''
-
-    const messages = usingApiContent
-      ? [
-          { role: 'system', content: baseSystemPrompt + '\nYou have verified ARTICLE_TEXT from our content APIs. Summarize it like a premium news anchor.' },
-          {
-            role: 'user',
-            content: `TOPIC: ${topic}
-SOURCE: ${selectedArticle?.source || 'Unknown'}
-PUBLISHED_AT: ${selectedArticle?.published_at || 'Unknown'}
-URL: ${selectedArticle?.url || 'Unknown'}
-
-ARTICLE_TEXT:
-${articleNarrative}`,
-          },
-        ]
-      : [
-          { role: 'system', content: baseSystemPrompt + '\nNo article text is available. Craft a plausible, timely update anyway.' },
-          {
-            role: 'user',
-            content: `Create an engaging gist about: ${topic}. Make it exciting and plausible, focusing on their current season/projects/activity. Be confident and specific.`,
-          },
-        ]
+    // OpenAI fallback - only reached if no external content
+    const messages = [
+      { role: 'system', content: baseSystemPrompt + '\nNo article text is available. Craft a plausible, timely update anyway.' },
+      {
+        role: 'user',
+        content: `Create an engaging gist about: ${topic}. Make it exciting and plausible, focusing on their current season/projects/activity. Be confident and specific.`,
+      },
+    ]
 
     // Use OpenAI gpt-4o-mini for more current and accurate news
     console.log('🤖 Calling OpenAI API (gpt-4o-mini)...')

@@ -1,0 +1,23 @@
+DEPLOY FUNCTIONS VIA DASHBOARD
+==============================
+
+1. Go to Supabase Dashboard → Edge Functions
+
+2. For EACH function (publish-gist, generate-gist, text-to-speech):
+   
+   a. Click "Create function" (or edit if exists)
+   b. Name: [function-name]
+   c. Open file: supabase/functions/[function-name]/index.ts
+   d. Copy ALL code (Ctrl+A, Ctrl+C)
+   e. Paste into Dashboard
+   f. Click "Deploy"
+
+3. Wait 30 seconds
+
+4. Test in Admin panel!
+
+Functions to deploy:
+- publish-gist
+- generate-gist  
+- text-to-speech
+

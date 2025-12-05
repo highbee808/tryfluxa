@@ -2,8 +2,9 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
 interface ScoreChange {
@@ -25,23 +26,23 @@ async function notifyUsersOfScoreChange(
     const team = change.is_home ? matchInfo.team_home : matchInfo.team_away
     const opponent = change.is_home ? matchInfo.team_away : matchInfo.team_home
     
-    // Get all users who follow this team (favorite or rival)
-    const { data: userTeams, error: userError } = await supabase
-      .from('user_teams')
-      .select('user_id, favorite_teams, rival_teams')
+    // Get all users who follow this team (favorite or rival) from auth.users
+    // Read from user_metadata (stored in users table)
+    const { data: users, error: adminError } = await supabase.auth.admin.listUsers()
     
-    if (userError) {
-      console.error('Error fetching user teams:', userError)
+    if (adminError) {
+      console.error('Error fetching users:', adminError)
       continue
     }
     
-    console.log(`Found ${userTeams?.length || 0} user team records`)
-    
-    for (const userTeam of userTeams || []) {
-      const isFavorite = userTeam.favorite_teams?.includes(team)
-      const isRival = userTeam.rival_teams?.includes(team)
+    // Filter users who have this team in favorites or rivals
+    for (const user of users?.users || []) {
+      const favoriteTeams = (user.user_metadata?.favorite_teams || []) as string[]
+      const rivalTeams = (user.user_metadata?.rival_teams || []) as string[]
+      const isFavorite = favoriteTeams.includes(team)
+      const isRival = rivalTeams.includes(team)
       
-      if (isFavorite || isRival) {
+      if (!isFavorite && !isRival) continue
         const homeScore = change.is_home ? change.new_score : (matchInfo.team_home === team ? change.old_score : change.new_score)
         const awayScore = !change.is_home ? change.new_score : (matchInfo.team_away === team ? change.old_score : change.new_score)
         const scoreText = `${matchInfo.team_home} ${homeScore ?? 0} - ${awayScore ?? 0} ${matchInfo.team_away}`
@@ -53,7 +54,7 @@ async function notifyUsersOfScoreChange(
         const { error: notifError } = await supabase
           .from('notifications')
           .insert({
-            user_id: userTeam.user_id,
+            user_id: user.id,
             type: 'score_change',
             title: isFavorite ? '⚽ Your Team Scored!' : '🚨 Rival Team Update',
             message,
@@ -63,7 +64,7 @@ async function notifyUsersOfScoreChange(
         if (notifError) {
           console.error('Error creating notification:', notifError)
         } else {
-          console.log(`Notification sent to user ${userTeam.user_id} for ${team}`)
+          console.log(`Notification sent to user ${user.id} for ${team}`)
         }
       }
     }
@@ -186,8 +187,8 @@ const TEAM_CODE_MAP: Record<string, string> = {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return new Response("OK", { headers: corsHeaders })
   }
 
   // This function can be called by:

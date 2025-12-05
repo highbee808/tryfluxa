@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeAdminFunction } from "@/lib/invokeAdminFunction";
 import { toast } from "sonner";
 import { Loader2, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -43,11 +44,7 @@ export const DeleteAccountDialog = ({ open, onOpenChange, userEmail }: DeleteAcc
       }
 
       // Call delete-account edge function
-      const { data, error } = await supabase.functions.invoke('delete-account', {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
+      const { data, error } = await invokeAdminFunction('delete-account', {});
 
       if (error) {
         console.error('Delete account error:', error);

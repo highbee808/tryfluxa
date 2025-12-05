@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { supabase } from "@/integrations/supabase/client";
+import { invokeAdminFunction } from "@/lib/invokeAdminFunction";
 
 type RealtimeEvent = {
   type: string;
@@ -18,6 +18,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
   const [transcript, setTranscript] = useState("");
   const [status, setStatus] = useState("Tap to start talking with Fluxa");
   const [error, setError] = useState<string | null>(null);
+  const [permissionHint, setPermissionHint] = useState<string | null>(null);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const dcRef = useRef<RTCDataChannel | null>(null);
@@ -49,23 +50,99 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
   };
 
   useEffect(() => {
-    return () => cleanup();
+    return () => {
+      cleanup();
+    };
   }, []);
 
   useEffect(() => {
     if (!open && isLive) cleanup();
   }, [open, isLive]);
 
+  const explainMicError = (err: any) => {
+    const name = err?.name || "";
+    const message = err?.message || "Microphone access failed";
+
+    if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+      return {
+        error: "Microphone access was blocked.",
+        hint:
+          "Click the lock icon in your browser's address bar and allow microphone access, then try again.",
+        status: "Microphone permission denied",
+      };
+    }
+
+    if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+      return {
+        error: "No microphone detected.",
+        hint: "Plug in a microphone or make sure your device's mic is available.",
+        status: "Microphone not found",
+      };
+    }
+
+    if (name === "NotReadableError" || name === "TrackStartError") {
+      return {
+        error: "Another app is already using your microphone.",
+        hint: "Close other apps that record audio (Zoom, Meet, etc.) and try again.",
+        status: "Microphone busy",
+      };
+    }
+
+    if (name === "SecurityError" || message.toLowerCase().includes("secure")) {
+      return {
+        error: "Live audio needs a secure (https) connection.",
+        hint: "Open Fluxa over https:// or install the PWA / use localhost during development.",
+        status: "Secure connection required",
+      };
+    }
+
+    return {
+      error: message,
+      hint: null,
+      status: "Could not start live session",
+    };
+  };
+
   const startLiveSession = async () => {
     try {
       setError(null);
+      setPermissionHint(null);
       setStatus("Getting ready…");
       setIsConnecting(true);
 
-      // ⛔ FIXED — sessionJson was declared twice before
-      const { data, error: sessionError } = await supabase.functions.invoke("realtime-session", {
-        body: {},
-      });
+      if (typeof window !== "undefined" && !window.isSecureContext) {
+        setIsConnecting(false);
+        setStatus("Secure connection required");
+        setError("Live audio needs HTTPS or localhost. Please open Fluxa over https://");
+        setPermissionHint("Tip: install the Fluxa PWA or use https://tryfluxa.com to enable live chat.");
+        return;
+      }
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setIsConnecting(false);
+        setStatus("Browser not supported");
+        setError("Your browser doesn't allow microphone access. Try Chrome, Edge, or Safari on the latest version.");
+        return;
+      }
+
+      // 1) Request microphone access upfront so the browser prompt appears immediately
+      let micStream: MediaStream;
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (mediaError: any) {
+        const friendly = explainMicError(mediaError);
+        setIsConnecting(false);
+        setStatus(friendly.status);
+        setError(friendly.error);
+        setPermissionHint(friendly.hint);
+        return;
+      }
+
+      // 1) Get ephemeral session from our backend edge function
+      const {
+        data: sessionJson,
+        error: sessionError,
+      } = await invokeAdminFunction("realtime-session", {}) as { data: RealtimeSessionResponse | null; error: any };
 
       if (sessionError || !data) {
         console.error("Session error:", sessionError);
@@ -99,7 +176,7 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
         }
       };
 
-      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // 3) Hook microphone stream into the connection
       micStreamRef.current = micStream;
       micStream.getTracks().forEach((track) => pc.addTrack(track, micStream));
 
@@ -110,68 +187,77 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
         setStatus("Fluxa is listening… just talk 💬");
         setIsLive(true);
 
-        dc.send(
-          JSON.stringify({
-            type: "session.update",
-            session: {
-              instructions:
-                "You are Fluxa, a playful Nigerian Gen-Z vibe, giving gist, reacting dramatically, and speaking with warmth and humor.",
-              input_audio_format: "pcm16",
-              output_audio_format: "pcm16",
-              turn_detection: { type: "server_vad" },
-              modalities: ["audio", "text"],
-            },
-          })
-        );
+        const sessionUpdate: RealtimeEvent = {
+          type: "session.update",
+          session: {
+            instructions:
+              "You are Fluxa, a playful, witty social AI companion. Speak like a Gen-Z best friend giving gist. Be warm, concise, a bit dramatic, and react naturally to what the user says.",
+            input_audio_format: "pcm16",
+            output_audio_format: "pcm16",
+            turn_detection: { type: "server_vad" },
+            modalities: ["audio", "text"],
+          },
+        };
+        dc.send(JSON.stringify(sessionUpdate));
       };
 
       dc.onmessage = (event) => {
         try {
-          const msg = JSON.parse(event.data);
+          const msg: RealtimeEvent = JSON.parse(event.data);
 
           if (msg.type === "response.delta" && msg.delta?.output_text) {
             setTranscript((prev) => prev + msg.delta.output_text);
-          }
-
-          if (msg.type === "response.completed" && msg.response?.output_text) {
-            setTranscript((prev) => prev + msg.response.output_text);
+          } else if (msg.type === "response.completed" && msg.response?.output_text) {
+            const full = msg.response.output_text;
+            setTranscript((prev) => prev + (typeof full === "string" ? full : ""));
           }
         } catch {
-          console.warn("Non-JSON message:", event.data);
+          console.warn("Non-JSON Realtime message:", event.data);
         }
       };
 
+      dc.onerror = (err) => {
+        console.error("Data channel error:", err);
+        setError("Fluxa connection error.");
+      };
+
+      // 5) Create SDP offer and send to OpenAI Realtime
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      const response = await fetch(
-        `https://api.openai.com/v1/realtime?model=${encodeURIComponent(model)}`,
-        {
-          method: "POST",
-          body: offer.sdp || "",
-          headers: {
-            Authorization: `Bearer ${ephemeralKey}`,
-            "Content-Type": "application/sdp",
-            "OpenAI-Beta": "realtime=v1",
-          },
-        }
-      );
+      const url = `https://api.openai.com/v1/realtime?model=${encodeURIComponent(model)}`;
 
-      const answer = await response.text();
+      const sdpRes = await fetch(url, {
+        method: "POST",
+        body: offer.sdp || "",
+        headers: {
+          Authorization: `Bearer ${ephemeralKey}`,
+          "Content-Type": "application/sdp",
+          "OpenAI-Beta": "realtime=v1",
+        },
+      });
+
+      if (!sdpRes.ok) {
+        const text = await sdpRes.text();
+        console.error("SDP error:", text);
+        throw new Error("Failed to establish Realtime SDP session");
+      }
+
+      const answerSdp = await sdpRes.text();
       await pc.setRemoteDescription(
-        new RTCSessionDescription({
-          type: "answer",
-          sdp: answer,
-        })
+        new RTCSessionDescription({ type: "answer", sdp: answerSdp })
       );
 
       setIsConnecting(false);
       setStatus("You’re live with Fluxa 🎧 Just talk!");
     } catch (e: any) {
-      console.error("Start session error:", e);
-      setError(e.message);
-      setStatus("Could not start live session");
+      console.error("Error starting live session:", e);
       setIsConnecting(false);
+      setIsLive(false);
+      const friendly = explainMicError(e);
+      setStatus(friendly.status);
+      setError(friendly.error);
+      setPermissionHint(friendly.hint);
       await cleanup();
     }
   };
@@ -187,8 +273,15 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
         <div className="flex flex-col items-center gap-6 text-center">
           <h2 className="text-3xl font-bold">Talk to Fluxa 🎧</h2>
 
-          <p className="text-sm text-muted-foreground">{status}</p>
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          <p className="text-sm text-muted-foreground max-w-md">{status}</p>
+          {error && (
+            <div className="space-y-1">
+              <p className="text-xs text-red-400">{error}</p>
+              {permissionHint && (
+                <p className="text-xs text-muted-foreground">{permissionHint}</p>
+              )}
+            </div>
+          )}
 
           <button
             onClick={isLive ? stopLiveSession : startLiveSession}
@@ -202,12 +295,14 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
             {isConnecting ? "Connecting…" : isLive ? "End Session" : "Start Live Session"}
           </button>
 
-          {transcript && (
-            <div className="mt-4 w-full max-w-md p-4 bg-muted rounded-xl text-left">
-              <p className="font-semibold">Fluxa (live transcript):</p>
-              <p className="whitespace-pre-wrap text-muted-foreground">{transcript}</p>
-            </div>
-          )}
+          <div className="mt-4 w-full max-w-md text-left">
+            {transcript && (
+              <div className="mt-3 p-4 bg-muted rounded-xl shadow-inner">
+                <p className="font-semibold text-foreground mb-1">Fluxa (live transcript):</p>
+                <p className="text-muted-foreground whitespace-pre-wrap">{transcript}</p>
+              </div>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

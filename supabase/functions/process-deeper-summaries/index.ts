@@ -2,13 +2,14 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-signature',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-signature",
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return new Response("OK", { headers: corsHeaders })
   }
 
   // Validate HMAC signature for CRON jobs
@@ -60,7 +61,11 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+    
+    if (!openaiApiKey) {
+      throw new Error('OPENAI_API_KEY not configured')
+    }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
@@ -90,15 +95,15 @@ serve(async (req) => {
       try {
         const gist = request.gists as any
 
-        // Generate deeper summary using Lovable AI
-        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        // Generate deeper summary using OpenAI
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${lovableApiKey}`,
+            'Authorization': `Bearer ${openaiApiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
+            model: 'gpt-4o-mini',
             messages: [
               {
                 role: 'system',
@@ -139,15 +144,16 @@ ${gist.source_url ? `Source: ${gist.source_url}` : ''}`
         }
 
         // Log API usage for cost monitoring
+        // OpenAI gpt-4o-mini pricing: $0.15/$0.60 per 1M tokens (input/output)
         const inputText = `${gist.headline} ${gist.context} ${gist.script} ${gist.topic}`
         const inputTokens = Math.ceil(inputText.length / 4)
         const outputTokens = Math.ceil((deeperSummary?.length || 0) / 4)
         const totalTokens = inputTokens + outputTokens
-        const estimatedCost = (inputTokens / 1_000_000) * 0.075 + (outputTokens / 1_000_000) * 0.30
+        const estimatedCost = (inputTokens / 1_000_000) * 0.15 + (outputTokens / 1_000_000) * 0.60
         
         await supabase.from("api_usage_logs").insert({
-          provider: "lovable_ai",
-          endpoint: "gemini-2.5-flash",
+          provider: "openai",
+          endpoint: "gpt-4o-mini",
           tokens_used: totalTokens,
           estimated_cost: estimatedCost,
           user_id: request.user_id

@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeAdminFunction } from "@/lib/invokeAdminFunction";
 type Message = {
   role: "user" | "fluxa";
   content: string;
@@ -98,14 +99,12 @@ export const ChatBox = ({
       const {
         data,
         error
-      } = await supabase.functions.invoke("text-to-speech", {
-        body: {
-          text,
-          voice: "shimmer",
-          speed: 1.0
-        }
+      } = await invokeAdminFunction("text-to-speech", {
+        text,
+        voice: "shimmer",
+        speed: 1.0
       });
-      if (error) throw error;
+      if (error) throw new Error(error.message || 'TTS failed');
       if (data?.audioUrl) {
         if (currentAudioRef.current) {
           currentAudioRef.current.pause();
@@ -137,16 +136,12 @@ export const ChatBox = ({
     setMessages(prev => [...prev, userMessage]);
     if (!messageText) setInput("");
     setIsLoading(true);
-    const conversationHistory = [...messages.slice(-4), userMessage];
     try {
       const {
         data,
         error
-      } = await supabase.functions.invoke("fluxa-chat", {
-        body: {
-          message: userMessage.content,
-          conversationHistory
-        }
+      } = await invokeAdminFunction("fluxa-chat", {
+        message: userMessage.content
       });
       if (error) throw error;
       const fluxaMessage: Message = {

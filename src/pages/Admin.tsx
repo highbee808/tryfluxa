@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeAdminFunction } from "@/lib/invokeAdminFunction";
 import { toast } from "sonner";
 import { Loader2, Play, LogOut, Sparkles, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -170,18 +171,26 @@ const Admin = () => {
 
     setIsGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke("publish-gist", {
-        body: {
-          topic: topic.trim(),
-          imageUrl: imageUrl.trim() || undefined,
-          topicCategory: selectedCategory || undefined,
-        },
+      const { data, error } = await invokeAdminFunction("publish-gist-v2", {
+        topic: topic.trim(),
+        imageUrl: imageUrl.trim() || undefined,
+        topicCategory: selectedCategory || undefined,
       });
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(error instanceof Error ? error.message : String(error));
+      }
+
+      // Handle different response formats
+      const gist = data?.gist || data;
+      
+      if (!gist || !gist.id) {
+        console.error('Invalid response format:', data);
+        throw new Error('Invalid response from function');
+      }
 
       toast.success("Fluxa created your gist! 💅✨");
-      setLastGist(data.gist);
+      setLastGist(gist);
       setTopic("");
       setImageUrl("");
       setSelectedCategory("");
@@ -201,7 +210,7 @@ const Admin = () => {
       toast.info("Fetching sports results...");
       
       // Call fetch-sports-results
-      const { data: fetchData, error: fetchError } = await supabase.functions.invoke("fetch-sports-results");
+      const { data: fetchData, error: fetchError } = await invokeAdminFunction("fetch-sports-results");
       
       if (fetchError) {
         toast.error("Failed to fetch sports results");
@@ -213,7 +222,7 @@ const Admin = () => {
       
       // Call generate-sports-gist
       toast.info("Generating sports banter...");
-      const { data: gistData, error: gistError } = await supabase.functions.invoke("generate-sports-gist");
+      const { data: gistData, error: gistError } = await invokeAdminFunction("generate-sports-gist");
       
       if (gistError) {
         toast.error("Failed to generate sports banter");
@@ -249,38 +258,53 @@ const Admin = () => {
       const testTopic = "Drake drops a surprise song with a twist";
       addLog(`Test topic: "${testTopic}"`);
 
-      // Step 1: Call publish-gist
-      addLog("Calling publish-gist function...");
+      // Step 1: Call publish-gist-v2
+      const endpoint = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/publish-gist-v2`;
+      addLog(`Calling publish-gist-v2 function at: ${endpoint}`);
+      console.log('🔗 Endpoint:', endpoint);
       const startTime = Date.now();
       
-      const { data, error } = await supabase.functions.invoke("publish-gist", {
-        body: {
-          topic: testTopic,
-          topicCategory: "Music"
-        },
+      const { data, error } = await invokeAdminFunction("publish-gist-v2", {
+        topic: testTopic,
+        topicCategory: "Music"
       });
 
       if (error) {
-        addLog(`Error in publish-gist: ${JSON.stringify(error)}`, false);
-        toast.error("Pipeline test failed");
+        const errorMsg = error?.message || JSON.stringify(error) || 'Unknown error';
+        addLog(`Error in publish-gist-v2: ${errorMsg}`, false);
+        addLog(`Full error: ${JSON.stringify(error)}`, false);
+        console.error('Pipeline test error:', error);
+        toast.error(`Pipeline test failed: ${errorMsg}`);
         return;
       }
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
       addLog(`Pipeline completed in ${duration}s`);
 
-      // Step 2: Verify response
-      if (!data || !data.gist) {
-        addLog("No gist data returned", false);
+      // Debug: Log the actual response
+      console.log('Full response data:', data);
+      addLog(`Response keys: ${data ? Object.keys(data).join(', ') : 'no data'}`);
+
+      // Step 2: Verify response - handle different response formats
+      let gist = null;
+      if (data?.gist) {
+        gist = data.gist;
+      } else if (data && !data.gist && data.headline) {
+        // Response might be the gist directly
+        gist = data;
+      } else if (data && data.success && data.gist) {
+        gist = data.gist;
+      }
+
+      if (!gist) {
+        addLog(`No gist data returned. Response: ${JSON.stringify(data)}`, false);
         return;
       }
 
-      addLog("🚀 generate-gist successful");
-      addLog("🎤 text-to-speech successful");
+      addLog("🚀 generate-gist-v2 successful");
       addLog("🗄️ gist saved to database");
 
       // Step 3: Verify gist fields
-      const gist = data.gist;
       addLog(`Headline: ${gist.headline ? '✓' : '✗ MISSING'}`);
       addLog(`Context: ${gist.context ? '✓' : '✗ MISSING'}`);
       addLog(`Audio URL: ${gist.audio_url ? '✓' : '✗ MISSING'}`);
@@ -309,8 +333,8 @@ const Admin = () => {
 
       // Step 6: Test feed connection
       addLog("Testing feed endpoint...");
-      const { data: feedData, error: feedError } = await supabase.functions.invoke("fetch-feed", {
-        body: { limit: 20 }
+      const { data: feedData, error: feedError } = await invokeAdminFunction("fetch-feed", {
+        limit: 20
       });
 
       if (feedError) {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeAdminFunction } from "@/lib/invokeAdminFunction";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,8 +56,8 @@ const AdminHealth = () => {
     toast.loading(`Triggering ${functionName}...`);
 
     try {
-      const { data, error } = await supabase.functions.invoke(functionName);
-      if (error) throw error;
+      const { data, error } = await invokeAdminFunction(functionName, {});
+      if (error) throw new Error(error.message || 'Function failed');
       toast.success(`✅ ${functionName} completed`);
       fetchHealthData();
     } catch (err: any) {

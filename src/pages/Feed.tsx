@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { FeedCardWithSocial } from "@/components/FeedCardWithSocial";
-import { NewsCard } from "@/components/NewsCard";
 import BottomNavigation from "@/components/BottomNavigation"; // ✅ FIXED
 import { ShareDialog } from "@/components/ShareDialog";
+import { sharePost } from "@/lib/shareUtils";
+import { buildAskFluxaPrompt } from "@/lib/fluxaPrompt";
 import { TrendingCarousel } from "@/components/TrendingCarousel";
 import { DesktopNavigationWidget } from "@/components/DesktopNavigationWidget";
 import { DesktopRightWidgets } from "@/components/DesktopRightWidgets";
@@ -35,17 +36,43 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { highlightText } from "@/lib/highlightText";
+import { buildFunctionUrl, functionAuthHeaders } from "@/lib/functionsBase";
+import { fetchRecentGists, type DbGist } from "@/lib/feedData";
+
+type ContentCategory = "news" | "sports" | "music";
+
+interface FetchContentItem {
+  id: string;
+  category: ContentCategory;
+  query: string;
+  title: string;
+  url: string;
+  image_url?: string | null;
+  summary?: string | null;
+  published_at?: string | null;
+  views_count?: number | null;
+  comments_count?: number | null;
+}
+
+interface FetchContentResponse {
+  source: string;
+  items: FetchContentItem[];
+}
 
 interface Gist {
   id: string;
+  source: "gist" | "news";
   headline: string;
-  context: string;
-  audio_url: string;
+  summary?: string; // Short version for Feed cards
+  context: string; // Full version for PostDetail
+  audio_url?: string | null;
   image_url: string | null;
+  source_image_url?: string | null;
+  ai_image_url?: string | null;
   topic: string;
   topic_category: string | null;
   published_at?: string;
-  play_count?: number;
+  url?: string;
   analytics?: {
     views: number;
     likes: number;
@@ -55,18 +82,16 @@ interface Gist {
   };
 }
 
-interface NewsItem {
-  id: string;
-  title: string;
-  source: string;
-  time: string;
-  description?: string;
-  url?: string;
-  image?: string;
-  category: string;
-  entityName: string;
-  entityId: string;
-}
+const DEFAULT_CATEGORY_TABS = ["All", "News", "Sports", "Music"] as const;
+
+const DEFAULT_CATEGORY_QUERIES: Record<ContentCategory, string> = {
+  news: "trending_global",
+  sports: "premier_league",
+  music: "afrobeats",
+};
+
+const DEFAULT_LIMIT = 20;
+const DEFAULT_TTL_MINUTES = 60;
 
 const Feed = () => {
   const navigate = useNavigate();
@@ -76,6 +101,7 @@ const Feed = () => {
   const [currentPlayingId, setCurrentPlayingId] = useState<string | null>(null);
   const [gists, setGists] = useState<Gist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [feedError, setFeedError] = useState<string | null>(null);
   const currentAudio = useRef<HTMLAudioElement | null>(null);
 
   const [chatContext, setChatContext] = useState<
@@ -90,13 +116,7 @@ const Feed = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [likedGists, setLikedGists] = useState<string[]>([]);
   const [bookmarkedGists, setBookmarkedGists] = useState<string[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState("All");
-  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
-  const [currentPlayingNewsId, setCurrentPlayingNewsId] = useState<string | null>(
-    null
-  );
-  const [isNewsPlaying, setIsNewsPlaying] = useState(false);
-  const newsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
   const [selectedTab, setSelectedTab] = useState<
     "all" | "foryou" | "bookmarks"
@@ -105,53 +125,22 @@ const Feed = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [newGistCount, setNewGistCount] = useState(0);
   const [searchQuery] = useState("");
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [page, setPage] = useState(0);
   const [trendingGists, setTrendingGists] = useState<Gist[]>([]);
   const [recommendedGists, setRecommendedGists] = useState<Gist[]>([]);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedGist, setSelectedGist] = useState<Gist | null>(null);
+  const [userInterests, setUserInterests] = useState<string[]>([]);
 
-  const loadMoreRef = useRef<HTMLDivElement>(null);
   const feedColumnRef = useRef<HTMLDivElement>(null);
   const [isPulling, setIsPulling] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const touchStartY = useRef(0);
   const contentRef = useRef<HTMLDivElement>(null);
-  const [isDesktop, setIsDesktop] = useState(false);
-  const [scrollRoot, setScrollRoot] = useState<Element | null>(null);
 
   const location = useLocation();
   const fluxaMemory = useFluxaMemory();
 
-  const categories = ["All", "Technology", "Lifestyle", "Science", "Media"];
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mediaQuery = window.matchMedia("(min-width: 1024px)");
-    const handleMediaChange = () => setIsDesktop(mediaQuery.matches);
-
-    handleMediaChange();
-
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener("change", handleMediaChange);
-    } else {
-      mediaQuery.addListener(handleMediaChange);
-    }
-
-    return () => {
-      if (mediaQuery.removeEventListener) {
-        mediaQuery.removeEventListener("change", handleMediaChange);
-      } else {
-        mediaQuery.removeListener(handleMediaChange);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    setScrollRoot(isDesktop ? feedColumnRef.current : null);
-  }, [isDesktop]);
+  const categories = DEFAULT_CATEGORY_TABS;
 
   useEffect(() => {
     const state = location.state as { tab?: "all" | "foryou" | "bookmarks" } | null;
@@ -160,160 +149,356 @@ const Feed = () => {
     }
   }, [location.state]);
 
-  const loadGists = async (showToast = false, loadMore = false) => {
-    try {
-      if (showToast) setIsRefreshing(true);
-      if (loadMore) setIsLoadingMore(true);
+  const resolveCategoryKey = (label: string): ContentCategory => {
+    const normalized = label.toLowerCase();
+    if (normalized === "sports") return "sports";
+    if (normalized === "music") return "music";
+    return "news";
+  };
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  const formatTimeAgo = (iso?: string | null) => {
+    if (!iso) return "Just now";
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return "Just now";
 
-      let userTopics: string[] = [];
+    const diff = Date.now() - date.getTime();
+    const minute = 60 * 1000;
+    const hour = 60 * minute;
+    const day = 24 * hour;
 
-      if (user) {
-        const { data: subniches } = await supabase
-          .from("user_subniches")
-          .select("main_topic, sub_niches")
-          .eq("user_id", user.id);
+    if (diff < hour) {
+      const minutes = Math.max(1, Math.floor(diff / minute));
+      return `${minutes}m ago`;
+    }
+    if (diff < day) {
+      const hours = Math.max(1, Math.floor(diff / hour));
+      return `${hours}h ago`;
+    }
 
-        if (subniches && subniches.length > 0) {
-          userTopics = [
-            ...subniches.map((s) => s.main_topic),
-            ...subniches.flatMap((s) => s.sub_niches || []),
-          ];
+    const days = Math.max(1, Math.floor(diff / day));
+    return `${days}d ago`;
+  };
+
+  const mapContentItemToGist = (item: FetchContentItem): Gist => ({
+    id: item.id,
+    source: "news",
+    headline: item.title,
+    summary: item.summary?.slice(0, 150) + (item.summary && item.summary.length > 150 ? "..." : ""),
+    context: item.summary || "Fluxa is still summarizing this gist.",
+    audio_url: null,
+    image_url: item.image_url || null,
+    source_image_url: null,
+    ai_image_url: null,
+    topic: item.category.charAt(0).toUpperCase() + item.category.slice(1),
+    topic_category: item.query,
+    published_at: item.published_at || undefined,
+    url: item.url,
+    analytics: {
+      views: item.views_count ?? 0,
+      likes: 0,
+      comments: item.comments_count ?? 0,
+      shares: 0,
+      plays: 0,
+    },
+  });
+
+  const mapDbGistToGist = (gist: DbGist): Gist => ({
+    id: gist.id,
+    source: "gist",
+    headline: gist.headline,
+    summary: (gist.meta as any)?.summary || gist.context?.slice(0, 150) + (gist.context && gist.context.length > 150 ? "..." : ""),
+    context: gist.context,
+    audio_url: gist.audio_url || null,
+    image_url: gist.image_url || null,
+    source_image_url: (gist.meta as any)?.source_image_url || null,
+    ai_image_url: (gist.meta as any)?.ai_generated_image || null,
+    topic: gist.topic,
+    topic_category: gist.topic_category || null,
+    published_at: gist.published_at || gist.created_at || undefined,
+    url: gist.source_url || undefined,
+    analytics: {
+      views: 0,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      plays: 0,
+    },
+  });
+
+  const fetchCategoryContent = useCallback(
+    async (category: ContentCategory) => {
+      const url = buildFunctionUrl("fetch-content", {
+        category,
+        query: DEFAULT_CATEGORY_QUERIES[category],
+        limit: DEFAULT_LIMIT,
+        ttl_minutes: DEFAULT_TTL_MINUTES,
+      });
+
+      try {
+        const response = await fetch(url, {
+          headers: {
+            ...functionAuthHeaders(),
+          },
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          // For 5xx errors, log but don't throw - we'll use fallback
+          if (response.status >= 500) {
+            console.warn(
+              `fetch-content returned ${response.status}, using fallback:`,
+              errorText
+            );
+            return [];
+          }
+          throw new Error(
+            `fetch-content error ${response.status}: ${errorText || "Unknown"}`
+          );
         }
+
+        const payload = (await response.json()) as FetchContentResponse;
+        if (!payload.items || !Array.isArray(payload.items)) {
+          return [];
+        }
+        return payload.items;
+      } catch (error) {
+        // Network errors or non-5xx errors - log and return empty for fallback
+        if (error instanceof Error && error.message.includes("503")) {
+          console.warn("fetch-content unavailable (503), using fallback");
+          return [];
+        }
+        // Re-throw other errors (401, etc.)
+        throw error;
       }
+    },
+    []
+  );
 
-      const pageSize = 20;
-      const offset = loadMore ? (page + 1) * pageSize : 0;
+  const loadGists = useCallback(
+    async (showToast = false) => {
+      try {
+        if (showToast) setIsRefreshing(true);
+        setFeedError(null);
+        if (!showToast) setLoading(true);
 
-      let query = supabase
-        .from("gists")
-        .select("*")
-        .eq("status", "published")
-        .order("published_at", { ascending: false })
-        .range(offset, offset + pageSize - 1);
+        // Determine which categories to fetch based on user interests
+        const hasSportsInterest = userInterests.some(i => i.toLowerCase() === "sports");
+        const hasMusicInterest = userInterests.some(i => i.toLowerCase() === "music");
+        
+        let categoriesToFetch: ContentCategory[] = ["news"]; // Always include news
+        
+        if (selectedCategory === "All") {
+          // For "All" tab, only include categories user is interested in
+          if (hasSportsInterest) categoriesToFetch.push("sports");
+          if (hasMusicInterest) categoriesToFetch.push("music");
+        } else {
+          // For specific category tabs, always show that category
+          const category = resolveCategoryKey(selectedCategory);
+          // But if it's sports/music and user doesn't have that interest, still show it (they clicked the tab)
+          categoriesToFetch = [category];
+        }
 
-      if (userTopics.length > 0 && selectedTab === "foryou") {
-        const conditions = userTopics.flatMap((topic) => [
-          `topic_category.ilike.%${topic}%`,
-          `topic.ilike.%${topic}%`,
-        ]);
-        query = query.or(conditions.join(","));
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      if (data) {
-        const gistIds = data.map((g) => g.id);
-
-        const { data: analyticsData } = await supabase
-          .from("post_analytics")
-          .select("*")
-          .in("post_id", gistIds);
-
-        const analyticsMap = new Map(
-          analyticsData?.map((a: any) => [a.post_id, a]) || []
+        const categoryResponses = await Promise.all(
+          categoriesToFetch.map((category) => fetchCategoryContent(category))
         );
 
-        const gistsWithAnalytics: Gist[] = data.map((gist: any) => ({
-          ...gist,
-          analytics:
-            analyticsMap.get(gist.id) || {
-              views: 0,
-              likes: 0,
-              comments: 0,
-              shares: 0,
-              plays: 0,
-            },
-        }));
-
-        if (loadMore) {
-          setGists((prev) => [...prev, ...gistsWithAnalytics]);
-          setPage((prev) => prev + 1);
-        } else {
-          setGists(gistsWithAnalytics);
-          setPage(0);
+        let mergedItems = categoryResponses.flat();
+        
+        // Filter out sports content if user doesn't have Sports interest (only for "All" tab)
+        if (selectedCategory === "All" && !hasSportsInterest) {
+          mergedItems = mergedItems.filter(item => item.category !== "sports");
         }
 
-        setHasMore(data.length === pageSize);
-      }
+        if (selectedCategory === "All") {
+          // For the "All" tab we fetch each category in parallel and then
+          // merge/sort by published date so the UI feels consistent.
+          mergedItems.sort((a, b) => {
+            const dateA = a.published_at ? new Date(a.published_at).getTime() : 0;
+            const dateB = b.published_at ? new Date(b.published_at).getTime() : 0;
+            return dateB - dateA;
+          });
+        }
 
-      // trending, recommended, news, bookmarks → unchanged logic
-
+        // If fetch-content returned items, use them
+        if (mergedItems.length > 0) {
+          // Deduplicate by ID and headline to prevent showing duplicate content
+          const seenHeadlines = new Set<string>();
+          const uniqueItems = mergedItems.filter(item => {
+            const key = `${item.id}-${item.title?.toLowerCase().trim()}`;
+            if (seenHeadlines.has(key)) return false;
+            seenHeadlines.add(key);
+            return true;
+          });
+          setGists(uniqueItems.map(mapContentItemToGist));
+          setFeedError(null); // Clear error if we have content
+        } else {
+          // Fallback: fetch recent gists from database when fetch-content returns empty
+          console.log("fetch-content returned no items, falling back to database gists");
+          const dbGists = await fetchRecentGists(50); // Increased limit
+          if (dbGists.length > 0) {
+            // Deduplicate by ID and headline to show unique content
+            const seenHeadlines = new Set<string>();
+            const hasSportsInterest = userInterests.some(i => i.toLowerCase() === "sports");
+            
+            const uniqueGists = dbGists.filter(gist => {
+              const key = `${gist.id}-${gist.headline?.toLowerCase().trim()}`;
+              if (seenHeadlines.has(key)) return false;
+              // Also check if we've seen this headline before (different ID but same content)
+              const headlineKey = gist.headline?.toLowerCase().trim() || '';
+              if (seenHeadlines.has(headlineKey)) return false;
+              
+              // Filter sports content if user doesn't have Sports interest (only for "All" tab)
+              if (selectedCategory === "All" && !hasSportsInterest) {
+                const isSports = gist.topic?.toLowerCase().includes('sport') || 
+                                 gist.topic_category?.toLowerCase().includes('sport') ||
+                                 gist.topic?.toLowerCase() === 'sports';
+                if (isSports) return false;
+              }
+              
+              seenHeadlines.add(key);
+              seenHeadlines.add(headlineKey);
+              return true;
+            });
+            setGists(uniqueGists.map(mapDbGistToGist));
+            setFeedError(null); // Clear error if fallback succeeded
+          } else {
+            setGists([]);
+            // Only set error if both fetch-content and fallback failed
+            setFeedError("No content available. Please try again later.");
+          }
+        }
     } catch (error) {
-      console.error("Error loading gists:", error);
-      toast.error("Failed to load feed");
+        console.error("Error loading feed content:", error);
+        // Try fallback before showing error
+        try {
+          const dbGists = await fetchRecentGists(50); // Increased limit
+          if (dbGists.length > 0) {
+            // Deduplicate by ID and headline to show unique content
+            const seenHeadlines = new Set<string>();
+            const hasSportsInterest = userInterests.some(i => i.toLowerCase() === "sports");
+            
+            const uniqueGists = dbGists.filter(gist => {
+              const key = `${gist.id}-${gist.headline?.toLowerCase().trim()}`;
+              if (seenHeadlines.has(key)) return false;
+              // Also check if we've seen this headline before (different ID but same content)
+              const headlineKey = gist.headline?.toLowerCase().trim() || '';
+              if (seenHeadlines.has(headlineKey)) return false;
+              
+              // Filter sports content if user doesn't have Sports interest (only for "All" tab)
+              if (selectedCategory === "All" && !hasSportsInterest) {
+                const isSports = gist.topic?.toLowerCase().includes('sport') || 
+                                 gist.topic_category?.toLowerCase().includes('sport') ||
+                                 gist.topic?.toLowerCase() === 'sports';
+                if (isSports) return false;
+              }
+              
+              seenHeadlines.add(key);
+              seenHeadlines.add(headlineKey);
+              return true;
+            });
+            setGists(uniqueGists.map(mapDbGistToGist));
+            setFeedError(null); // Fallback succeeded, no error banner
+            // Debug flag - set to false to hide cache banner from users
+            const SHOW_CACHE_DEBUG = false;
+            if (SHOW_CACHE_DEBUG) {
+              toast.info("Using cached content while live news is updating");
+            }
+          } else {
+            setGists([]);
+            setFeedError(
+              error instanceof Error ? error.message : "Failed to load feed content"
+            );
+            toast.error("Failed to load feed");
+          }
+        } catch (fallbackError) {
+          // Both failed
+          setGists([]);
+          setFeedError(
+            error instanceof Error ? error.message : "Failed to load feed content"
+          );
+          toast.error("Failed to load feed");
+        }
     } finally {
       setLoading(false);
-      setIsLoadingMore(false);
       if (showToast) {
         setIsRefreshing(false);
         toast.success("Feed refreshed!");
       }
     }
-  };
+    },
+    [fetchCategoryContent, selectedCategory, userInterests]
+  );
 
+  // Fetch user interests
   useEffect(() => {
-    loadGists();
-  }, [selectedTab]);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel("gists-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "gists",
-          filter: "status=eq.published",
-        },
-        () => {
-          setNewGistCount((prev) => prev + 1);
-          toast.info("New content available! Tap refresh to see it.");
+    const fetchUserInterests = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        // Fallback to localStorage
+        const stored = localStorage.getItem("fluxaInterests");
+        if (stored) {
+          try {
+            setUserInterests(JSON.parse(stored));
+          } catch (e) {
+            console.error("Error parsing stored interests:", e);
+          }
         }
-      )
-      .subscribe();
+        return;
+      }
 
-    return () => {
-      supabase.removeChannel(channel);
+      const { data } = await supabase
+        .from("user_interests")
+        .select("interest")
+        .eq("user_id", user.id);
+
+      if (data) {
+        const interests = data.map((r) => r.interest);
+        setUserInterests(interests);
+        // Also update localStorage for consistency
+        localStorage.setItem("fluxaInterests", JSON.stringify(interests));
+      } else {
+        // Fallback to localStorage
+        const stored = localStorage.getItem("fluxaInterests");
+        if (stored) {
+          try {
+            setUserInterests(JSON.parse(stored));
+          } catch (e) {
+            console.error("Error parsing stored interests:", e);
+          }
+        }
+      }
     };
+
+    fetchUserInterests();
   }, []);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (
-          entries[0].isIntersecting &&
-          hasMore &&
-          !isLoadingMore &&
-          !loading
-        ) {
-          loadGists(false, true);
-        }
-      },
-      {
-        threshold: 0.1,
-        root: scrollRoot ?? null,
-      }
-    );
+    loadGists();
+  }, [loadGists, selectedTab]);
 
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
+  // Auto-reload feed every 30 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log("🔄 Auto-reloading feed...");
+      loadGists(true); // showToast = true
+    }, 30 * 60 * 1000); // 30 minutes
+
+    return () => clearInterval(interval);
+  }, [loadGists]);
+
+  const handlePlay = async (
+    gistId: string,
+    audioUrl?: string | null,
+    linkUrl?: string
+  ) => {
+    if (!audioUrl) {
+      if (linkUrl) {
+        window.open(linkUrl, "_blank", "noopener,noreferrer");
+      } else {
+        toast.info("Audio not available for this gist yet.");
+      }
+      return;
     }
 
-    return () => {
-      if (loadMoreRef.current) {
-        observer.unobserve(loadMoreRef.current);
-      }
-    };
-  }, [scrollRoot, hasMore, isLoadingMore, loading]);
-
-  const handlePlay = async (gistId: string, audioUrl: string) => {
     if (currentPlayingId === gistId && isPlaying) {
       if (currentAudio.current) {
         currentAudio.current.pause();
@@ -369,25 +554,25 @@ const Feed = () => {
     setIsChatOpen(true);
   };
 
-  const handleTellMore = (gist: Gist) => {
-    navigate("/fluxa-mode", {
-      state: {
-        initialContext: {
-          topic: gist.topic,
-          summary: gist.headline,
-          fullContext: gist.context,
-        },
-      },
-    });
+  const handleCardClick = (gist: Gist) => {
+    navigate(`/post/${gist.source}/${gist.id}?origin=feed`);
   };
 
-  const handleNewsChat = (news: NewsItem) => {
+  const handleCommentClick = (gist: Gist) => {
+    navigate(`/post/${gist.source}/${gist.id}?origin=feed`);
+  };
+
+  const handleFluxaAnalysis = (gist: Gist) => {
+    const prompt = buildAskFluxaPrompt({
+      title: gist.headline,
+      summary: gist.context,
+      category: gist.topic,
+    });
+
     navigate("/fluxa-mode", {
       state: {
         initialContext: {
-          topic: news.category,
-          summary: news.title,
-          fullContext: news.description || news.title,
+          prompt: prompt,
         },
       },
     });
@@ -426,23 +611,7 @@ const Feed = () => {
     return filtered;
   }, [gists, selectedCategory, searchQuery, selectedTab, bookmarkedGists]);
 
-  const filteredNews: NewsItem[] =
-    selectedCategory === "All"
-      ? newsItems
-      : newsItems.filter((n) =>
-          n.category.toLowerCase().includes(selectedCategory.toLowerCase())
-        );
-
-  const combinedFeed = [
-    ...filteredGists.map((g) => ({
-      type: "gist" as const,
-      data: g,
-    })),
-    ...filteredNews.map((n) => ({
-      type: "news" as const,
-      data: n,
-    })),
-  ];
+  const combinedFeed = filteredGists;
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (contentRef.current && contentRef.current.scrollTop === 0) {
@@ -490,20 +659,22 @@ const Feed = () => {
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
         <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-muted-foreground animate-pulse">
-          Loading your personalized feed...
+          Fluxa is loading gists...
         </p>
       </div>
     );
   }
 
   return (
-    <div
-      ref={contentRef}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      className="min-h-screen lg:h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 pb-28 animate-fade-in overflow-y-auto lg:overflow-hidden"
-    >
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div
+        ref={contentRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="min-h-screen pb-28 animate-fade-in overflow-y-auto relative"
+        style={{ position: 'relative', zIndex: 1 }}
+      >
       {/* Pull to Refresh UI */}
       {isPulling && (
         <div
@@ -618,13 +789,14 @@ const Feed = () => {
       )}
 
       {/* Main Layout */}
-      <div className="container mx-auto px-4 pt-4 pb-6 max-w-6xl lg:py-6 lg:h-[calc(100vh-150px)]">
-        <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px] lg:h-full">
+      <div className="container mx-auto px-4 pt-4 pb-6 max-w-6xl lg:py-6 relative" style={{ position: 'relative', zIndex: 10 }}>
+        <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px]">
           <DesktopNavigationWidget />
 
           <div
             ref={feedColumnRef}
-            className="space-y-6 w-full max-w-[420px] sm:max-w-[520px] md:max-w-[640px] mx-auto lg:max-w-none lg:mx-0 lg:h-full lg:overflow-y-auto lg:pr-3 lg:pb-24"
+            className="space-y-6 w-full max-w-[420px] sm:max-w-[520px] md:max-w-[640px] mx-auto lg:max-w-none lg:mx-0 lg:max-h-[calc(100vh-200px)] lg:overflow-y-auto lg:pr-3 lg:pb-24 scrollbar-hide"
+            style={{ position: 'relative', zIndex: 100 }}
           >
             {/* Desktop Categories */}
             <div className="hidden lg:flex flex-wrap gap-2">
@@ -642,6 +814,12 @@ const Feed = () => {
                 </Badge>
               ))}
             </div>
+
+            {feedError && (
+              <div className="rounded-2xl border border-red-200 bg-red-50/80 dark:border-red-900/40 dark:bg-red-950/40 px-4 py-3 text-sm text-red-700 dark:text-red-200">
+                {feedError}
+              </div>
+            )}
 
             {/* Recommended */}
             {recommendedGists.length > 0 &&
@@ -689,9 +867,9 @@ const Feed = () => {
               )}
 
             {/* Combined Feed */}
-            <div className="space-y-6">
+            <div className="space-y-6" style={{ position: 'relative', zIndex: 100 }}>
               {combinedFeed.length === 0 ? (
-                <Card className="p-12 text-center">
+                <Card className="p-12 text-center" style={{ position: 'relative', zIndex: 100 }}>
                   <p className="text-muted-foreground mb-4">
                     No content available yet
                   </p>
@@ -700,111 +878,43 @@ const Feed = () => {
                   </Button>
                 </Card>
               ) : (
-                combinedFeed.map((item) =>
-                  item.type === "gist" ? (
+                combinedFeed.map((item) => (
                     <FeedCardWithSocial
-                      key={`gist-${item.data.id}`}
-                      id={item.data.id}
-                      imageUrl={item.data.image_url || undefined}
+                    key={`gist-${item.id}`}
+                    id={item.id}
+                    imageUrl={item.image_url || undefined}
+                    imageUrls={{
+                      primary: item.image_url,
+                      source: item.source_image_url,
+                      ai: item.ai_image_url,
+                    }}
                       headline={
                         searchQuery
-                          ? (highlightText(item.data.headline, searchQuery) as any)
-                          : item.data.headline
+                        ? (highlightText(item.headline, searchQuery) as any)
+                        : item.headline
                       }
                       context={
                         searchQuery
-                          ? (highlightText(item.data.context, searchQuery) as any)
-                          : item.data.context
+                        ? (highlightText(item.summary || item.context, searchQuery) as any)
+                        : (item.summary || item.context)
                       }
                       author="Fluxa"
-                      timeAgo="2h ago"
-                      category={item.data.topic}
-                      readTime="5 min"
-                      comments={item.data.analytics?.comments || 0}
-                      views={item.data.analytics?.views || 0}
-                      plays={item.data.analytics?.plays || 0}
-                      shares={item.data.analytics?.shares || 0}
-                      isPlaying={
-                        currentPlayingId === item.data.id && isPlaying
-                      }
-                      onPlay={() =>
-                        handlePlay(item.data.id, item.data.audio_url)
-                      }
-                      onComment={() => handleTellMore(item.data)}
-                      onShare={() => handleShare(item.data)}
-                    />
-                  ) : (
-                    <NewsCard
-                      key={`news-${item.data.id}`}
-                      id={item.data.id}
-                      title={item.data.title}
-                      source={item.data.source}
-                      time={item.data.time}
-                      description={item.data.description}
-                      url={item.data.url}
-                      imageUrl={item.data.image}
-                      category={item.data.category}
-                      entityName={item.data.entityName}
-                      isPlaying={
-                        currentPlayingNewsId === item.data.id && isNewsPlaying
-                      }
-                      isLiked={likedGists.includes(item.data.id)}
-                      isBookmarked={bookmarkedGists.includes(item.data.id)}
-                      onPlay={async (audioUrl?: string) => {
-                        if (
-                          currentPlayingNewsId === item.data.id &&
-                          isNewsPlaying
-                        ) {
-                          newsAudioRef.current?.pause();
-                          setIsNewsPlaying(false);
-                          setCurrentPlayingNewsId(null);
-                        } else {
-                          if (newsAudioRef.current) {
-                            newsAudioRef.current.pause();
-                          }
-                          if (audioUrl) {
-                            const audio = new Audio(audioUrl);
-                            newsAudioRef.current = audio;
-                            audio.play();
-                            setIsNewsPlaying(true);
-                            setCurrentPlayingNewsId(item.data.id);
-                            audio.onended = () => {
-                              setIsNewsPlaying(false);
-                              setCurrentPlayingNewsId(null);
-                            };
-                          } else {
-                            toast.error("Audio not available");
-                          }
-                        }
-                      }}
-                      onLike={() => handleLike(item.data.id)}
-                      onComment={() => handleNewsChat(item.data)}
-                      onBookmark={() => handleBookmark(item.data.id)}
-                      onShare={() => {
-                        if (item.data.url) {
-                          navigator.clipboard.writeText(item.data.url);
-                          toast.success("Link copied!");
-                        }
-                      }}
-                    />
-                  )
-                )
+                    timeAgo={item.published_at ? formatTimeAgo(item.published_at) : "Just now"}
+                    category={item.topic}
+                    readTime="2 min"
+                    comments={item.analytics?.comments || 0}
+                    views={item.analytics?.views || 0}
+                    plays={item.analytics?.plays || 0}
+                    shares={item.analytics?.shares || 0}
+                    isPlaying={currentPlayingId === item.id && isPlaying}
+                    onPlay={() => handlePlay(item.id, item.audio_url, item.url)}
+                    onComment={() => handleCommentClick(item)}
+                    onShare={() => handleShare(item)}
+                    onCardClick={() => handleCardClick(item)}
+                    onFluxaAnalysis={() => handleFluxaAnalysis(item)}
+                  />
+                ))
               )}
-
-              {/* Load More Trigger */}
-              <div ref={loadMoreRef} className="flex justify-center py-8">
-                {isLoadingMore && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    Loading more gists...
-                  </div>
-                )}
-                {!hasMore && gists.length > 0 && (
-                  <p className="text-muted-foreground text-sm">
-                    You've reached the end!
-                  </p>
-                )}
-              </div>
             </div>
           </div>
 
@@ -835,6 +945,7 @@ const Feed = () => {
           onClose={() => setIsChatOpen(false)}
         />
       )}
+      </div>
     </div>
   );
 };

@@ -4,12 +4,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("OK", { headers: corsHeaders });
   }
 
   try {
@@ -108,9 +109,9 @@ serve(async (req) => {
 
     console.log(`📰 Using AI provider: ${providers[0].provider_name}`);
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY not configured");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY not configured");
     }
 
     const summaries = [];
@@ -129,14 +130,14 @@ serve(async (req) => {
 
     for (const article of articles.slice(0, 5)) {
       try {
-        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
+            model: "gpt-4o-mini",
             messages: [
               {
                 role: "system",

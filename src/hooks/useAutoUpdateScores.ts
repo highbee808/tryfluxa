@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { invokeAdminFunction } from '@/lib/invokeAdminFunction';
 import { toast } from 'sonner';
 
 export const useAutoUpdateScores = () => {
@@ -10,7 +10,7 @@ export const useAutoUpdateScores = () => {
     const syncSportsData = async () => {
       try {
         console.log('🔄 Fetching sports results from APIs with fallback...');
-        const { data, error } = await supabase.functions.invoke('fetch-sports-results');
+        const { data, error } = await invokeAdminFunction('fetch-sports-results');
         
         if (error) {
           console.error('Error fetching sports results:', error);
@@ -29,7 +29,7 @@ export const useAutoUpdateScores = () => {
     // Update live scores frequently
     const updateScores = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('update-live-scores');
+        const { data, error } = await invokeAdminFunction('update-live-scores');
         
         if (error) {
           console.error('Error updating scores:', error);
@@ -48,7 +48,7 @@ export const useAutoUpdateScores = () => {
     const validateSportsData = async () => {
       try {
         console.log('🔍 Cross-validating sports data...');
-        const { data, error } = await supabase.functions.invoke('validate-sports-data');
+        const { data, error } = await invokeAdminFunction('validate-sports-data');
         
         if (error) {
           console.error('Error validating sports data:', error);
@@ -65,7 +65,7 @@ export const useAutoUpdateScores = () => {
     const fetchArtistData = async () => {
       try {
         console.log('🎵 Fetching artist data...');
-        const { data, error } = await supabase.functions.invoke('fetch-artist-data');
+        const { data, error } = await invokeAdminFunction('fetch-artist-data');
         
         if (error) {
           console.error('Error fetching artist data:', error);
@@ -82,7 +82,7 @@ export const useAutoUpdateScores = () => {
     const fetchMusicNews = async () => {
       try {
         console.log('📰 Fetching music news...');
-        const { data, error } = await supabase.functions.invoke('fetch-music-news');
+        const { data, error } = await invokeAdminFunction('fetch-music-news');
         
         if (error) {
           console.error('Error fetching music news:', error);

@@ -1,12 +1,69 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import BottomNavigation from "@/components/BottomNavigation";
+import { ShareDialog } from "@/components/ShareDialog";
 import { toast } from "sonner";
-import { Loader2, Volume2, Play, Pause, RefreshCw, Radio, Sparkles } from "lucide-react";
-import { sendFluxaPushNotification } from "@/lib/notifications";
+import { Loader2, RefreshCw, Trophy, Clock, Calendar } from "lucide-react";
+import { FeedCardWithSocial } from "@/components/FeedCardWithSocial";
+import { fetchRecentGists, type DbGist } from "@/lib/feedData";
+
+// Import TEAMS array for logo lookup and name normalization
+const TEAMS = [
+  { name: "Manchester City", league: "Premier League", sport: "football", logo: "https://resources.premierleague.com/premierleague/badges/50/t43.png" },
+  { name: "Arsenal", league: "Premier League", sport: "football", logo: "https://resources.premierleague.com/premierleague/badges/50/t3.png" },
+  { name: "Liverpool", league: "Premier League", sport: "football", logo: "https://resources.premierleague.com/premierleague/badges/50/t14.png" },
+  { name: "Manchester United", league: "Premier League", sport: "football", logo: "https://resources.premierleague.com/premierleague/badges/50/t1.png" },
+  { name: "Chelsea", league: "Premier League", sport: "football", logo: "https://resources.premierleague.com/premierleague/badges/50/t8.png" },
+  { name: "Tottenham", league: "Premier League", sport: "football", logo: "https://resources.premierleague.com/premierleague/badges/50/t6.png" },
+  { name: "Real Madrid", league: "La Liga", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg" },
+  { name: "Barcelona", league: "La Liga", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/4/47/FC_Barcelona_%28crest%29.svg" },
+  { name: "Atletico Madrid", league: "La Liga", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/f/f4/Atletico_Madrid_2017_logo.svg" },
+  { name: "Sevilla", league: "La Liga", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/3/3b/Sevilla_FC_logo.svg" },
+  { name: "Inter Milan", league: "Serie A", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/commons/0/05/FC_Internazionale_Milano_2021.svg" },
+  { name: "AC Milan", league: "Serie A", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/commons/d/d0/Logo_of_AC_Milan.svg" },
+  { name: "Juventus", league: "Serie A", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/commons/a/a8/Juventus_FC_-_pictogram_black_%28Italy%2C_2017%29.svg" },
+  { name: "Napoli", league: "Serie A", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/commons/2/2d/SSC_Neapel.svg" },
+  { name: "Roma", league: "Serie A", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/f/f7/AS_Roma_logo_%282017%29.svg" },
+  { name: "Bayern Munich", league: "Bundesliga", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/commons/1/1b/FC_Bayern_M%C3%BCnchen_logo_%282017%29.svg" },
+  { name: "Borussia Dortmund", league: "Bundesliga", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/commons/6/67/Borussia_Dortmund_logo.svg" },
+  { name: "Paris Saint-Germain", league: "Ligue 1", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/a/a7/Paris_Saint-Germain_F.C..svg" },
+  { name: "Ajax", league: "Eredivisie", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/7/79/Ajax_Amsterdam.svg" },
+  { name: "Porto", league: "Primeira Liga", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/f/f1/FC_Porto.svg" },
+  { name: "Benfica", league: "Primeira Liga", sport: "football", logo: "https://upload.wikimedia.org/wikipedia/en/a/a2/SL_Benfica_logo.svg" },
+  { name: "Los Angeles Lakers", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612747/primary/L/logo.svg" },
+  { name: "Boston Celtics", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612738/primary/L/logo.svg" },
+  { name: "Golden State Warriors", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612744/primary/L/logo.svg" },
+  { name: "Chicago Bulls", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612741/primary/L/logo.svg" },
+  { name: "Miami Heat", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612748/primary/L/logo.svg" },
+  { name: "Brooklyn Nets", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612751/primary/L/logo.svg" },
+  { name: "Milwaukee Bucks", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612749/primary/L/logo.svg" },
+  { name: "Philadelphia 76ers", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612755/primary/L/logo.svg" },
+  { name: "Phoenix Suns", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612756/primary/L/logo.svg" },
+  { name: "Dallas Mavericks", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612742/primary/L/logo.svg" },
+  { name: "New York Knicks", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612752/primary/L/logo.svg" },
+  { name: "Toronto Raptors", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612761/primary/L/logo.svg" },
+  { name: "Denver Nuggets", league: "NBA", sport: "basketball", logo: "https://cdn.nba.com/logos/nba/1610612743/primary/L/logo.svg" },
+];
+
+// Helper function to normalize team names (case-insensitive match)
+const normalizeTeamName = (teamName: string): string => {
+  const normalized = teamName.trim();
+  const matched = TEAMS.find(
+    team => team.name.toLowerCase() === normalized.toLowerCase()
+  );
+  return matched ? matched.name : normalized;
+};
+
+// Helper function to get team logo
+const getTeamLogo = (teamName: string): string | undefined => {
+  const matched = TEAMS.find(
+    team => team.name.toLowerCase() === teamName.toLowerCase()
+  );
+  return matched?.logo;
+};
 
 interface Match {
   id: string;
@@ -20,403 +77,407 @@ interface Match {
   match_id?: string;
 }
 
+interface TeamData {
+  name: string;
+  logo?: string;
+  league?: string;
+  latestMatch?: Match;
+  nextMatch?: Match;
+  news?: any[];
+}
+
 interface Gist {
   id: string;
+  source: "gist" | "news";
+  headline: string;
+  summary?: string;
+  context: string;
+  audio_url?: string | null;
+  image_url: string | null;
   topic: string;
-  narration: string;
-  audio_url: string;
-  meta: {
-    match_id?: string;
-    event_type?: string;
-    is_live_update?: boolean;
+  topic_category: string | null;
+  published_at?: string;
+  url?: string;
+  analytics?: {
+    views: number;
+    likes: number;
+    comments: number;
+    shares: number;
+    plays: number;
   };
 }
 
 const SportsHub = () => {
-  const [matches, setMatches] = useState<Match[]>([]);
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [userTeams, setUserTeams] = useState<string[]>([]);
-  const [matchGists, setMatchGists] = useState<Record<string, Gist>>({});
-  const [playingAudio, setPlayingAudio] = useState<string | null>(null);
-  const [audioElements, setAudioElements] = useState<Record<string, HTMLAudioElement>>({});
-  const [liveUpdates, setLiveUpdates] = useState<Record<string, boolean>>({});
+  const [favoriteTeams, setFavoriteTeams] = useState<string[]>([]);
+  const [rivalTeams, setRivalTeams] = useState<string[]>([]);
+  const [favoriteTeamsData, setFavoriteTeamsData] = useState<Record<string, TeamData>>({});
+  const [rivalTeamsData, setRivalTeamsData] = useState<Record<string, TeamData>>({});
+  const [sportsFeed, setSportsFeed] = useState<Gist[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [generatingGists, setGeneratingGists] = useState(false);
-  const [updateError, setUpdateError] = useState<string | null>(null);
-  const [scoreNotifications, setScoreNotifications] = useState<any[]>([]);
-  const lastScoresRef = useRef<Record<string, string>>({});
+  const [allMatches, setAllMatches] = useState<Match[]>([]);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [selectedGist, setSelectedGist] = useState<Gist | null>(null);
 
+  // Initial load - fetch in parallel for better performance
   useEffect(() => {
-    fetchUserTeams();
-    fetchMatches();
-    
-    // Set up realtime subscriptions
-    const setupRealtimeSubscriptions = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      // Initial fetch of notifications
-      const { data: notifications } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('type', 'score_change')
-        .eq('is_read', false)
-        .order('created_at', { ascending: false })
-        .limit(5);
-      
-      if (notifications && notifications.length > 0) {
-        setScoreNotifications(notifications);
-      }
-      
-      // Subscribe to new notifications
-      const notificationChannel = supabase
-        .channel('score-notifications')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'notifications',
-            filter: `user_id=eq.${user.id}`
-          },
-          (payload) => {
-            console.log('New notification received:', payload);
-            const newNotif = payload.new as any;
-            
-            if (newNotif.type === 'score_change' && !newNotif.is_read) {
-              setScoreNotifications(prev => [newNotif, ...prev]);
-              
-              // Show browser notification if permitted
-              if (Notification.permission === 'granted') {
-                new Notification(newNotif.title, {
-                  body: newNotif.message,
-                  icon: '/fluxa_icon.png',
-                  badge: '/fluxa_icon.png',
-                });
-              }
-              
-              // Show toast notification
-              toast.success(newNotif.title, {
-                description: newNotif.message,
-              });
-            }
-          }
-        )
-        .subscribe();
-      
-      // Subscribe to match result updates
-      const matchChannel = supabase
-        .channel('match-updates')
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'match_results'
-          },
-          (payload) => {
-            console.log('Match updated:', payload);
-            const updatedMatch = payload.new as Match;
-            
-            setMatches(prev => 
-              prev.map(match => 
-                match.match_id === updatedMatch.match_id ? updatedMatch : match
-              )
-            );
-            
-            // Mark as live update for visual feedback
-            if (updatedMatch.match_id) {
-              setLiveUpdates(prev => ({ ...prev, [updatedMatch.match_id!]: true }));
-              setTimeout(() => {
-                setLiveUpdates(prev => ({ ...prev, [updatedMatch.match_id!]: false }));
-              }, 3000);
-            }
-          }
-        )
-        .subscribe();
-      
-      return () => {
-        supabase.removeChannel(notificationChannel);
-        supabase.removeChannel(matchChannel);
-      };
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([
+        fetchUserTeams(),
+        fetchMatches(),
+      ]);
+      // Fetch feed after teams are loaded (needs team names)
+      await fetchSportsFeed();
+      setLoading(false);
     };
-    
-    const cleanup = setupRealtimeSubscriptions();
-    
-    return () => {
-      cleanup.then(cleanupFn => cleanupFn?.());
-    };
+    loadData();
   }, []);
 
   useEffect(() => {
-    if (matches.length > 0) {
-      fetchMatchGists();
-    }
-  }, [matches.length]);
+    // Fetch data for all favorite teams
+    favoriteTeams.forEach(teamName => {
+      if (!favoriteTeamsData[teamName]) {
+        fetchTeamData(teamName, (data) => {
+          setFavoriteTeamsData(prev => ({ ...prev, [teamName]: data }));
+        });
+      }
+    });
+
+    // Fetch data for all rival teams
+    rivalTeams.forEach(teamName => {
+      if (!rivalTeamsData[teamName]) {
+        fetchTeamData(teamName, (data) => {
+          setRivalTeamsData(prev => ({ ...prev, [teamName]: data }));
+        });
+      }
+    });
+  }, [favoriteTeams, rivalTeams]);
 
   const fetchUserTeams = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from("user_teams")
-      .select("favorite_teams")
-      .eq("user_id", user.id);
-
-    if (error) {
-      console.error("Error fetching user teams:", error);
-      return;
-    }
-
-    if (data && data.length > 0) {
-      // Flatten all favorite_teams arrays into a single array
-      const allTeams = data.flatMap(row => row.favorite_teams || []);
-      setUserTeams(allTeams);
+    // Get teams from user metadata (stored in users table)
+    if (user.user_metadata?.favorite_teams || user.user_metadata?.rival_teams) {
+      // Normalize and deduplicate favorite teams
+      const rawFavorites = (user.user_metadata.favorite_teams || []) as string[];
+      const normalizedFavorites = rawFavorites.map(normalizeTeamName);
+      const uniqueFavorites = Array.from(
+        new Map(normalizedFavorites.map(name => [name.toLowerCase(), name])).values()
+      ) as string[];
+      
+      // Normalize and deduplicate rival teams
+      const rawRivals = (user.user_metadata.rival_teams || []) as string[];
+      const normalizedRivals = rawRivals.map(normalizeTeamName);
+      const uniqueRivals = Array.from(
+        new Map(normalizedRivals.map(name => [name.toLowerCase(), name])).values()
+      ) as string[];
+      
+      setFavoriteTeams(uniqueFavorites);
+      setRivalTeams(uniqueRivals);
+      
+      // If duplicates were found, update the user metadata with normalized names
+      if (rawFavorites.length !== uniqueFavorites.length || rawRivals.length !== uniqueRivals.length) {
+        await supabase.auth.updateUser({
+          data: {
+            favorite_teams: uniqueFavorites,
+            rival_teams: uniqueRivals
+          }
+        });
+      }
     }
   };
 
-  const fetchMatches = async (silent = false) => {
-    if (!silent) setLoading(true);
-    if (silent) setRefreshing(true);
-    
+  const fetchTeamData = async (teamName: string, setter: (data: TeamData) => void) => {
+    // Fetch team entity
+    const { data: entity } = await supabase
+      .from("fan_entities")
+      .select("*")
+      .eq("name", teamName)
+      .eq("category", "sports")
+      .single();
+
+    if (entity) {
+      // Safely extract league from stats
+      let league: string | undefined;
+      if (entity.stats && typeof entity.stats === 'object' && 'league' in entity.stats) {
+        const statsLeague = entity.stats.league;
+        if (typeof statsLeague === 'string') {
+          league = statsLeague;
+        }
+      }
+      
+      // Safely extract matches
+      const lastMatch = entity.last_match && typeof entity.last_match === 'object' && !Array.isArray(entity.last_match)
+        ? entity.last_match as unknown as Match 
+        : undefined;
+      const nextMatch = entity.next_match && typeof entity.next_match === 'object' && !Array.isArray(entity.next_match)
+        ? entity.next_match as unknown as Match
+        : undefined;
+      
+      // Safely extract news feed
+      const newsFeed = Array.isArray(entity.news_feed) ? entity.news_feed : [];
+      
+      const teamData: TeamData = {
+        name: entity.name,
+        logo: entity.logo_url || undefined,
+        league: league,
+        latestMatch: lastMatch,
+        nextMatch: nextMatch,
+        news: newsFeed,
+      };
+      setter(teamData);
+    } else {
+      // Fallback: create basic team data
+      setter({
+        name: teamName,
+        latestMatch: undefined,
+        nextMatch: undefined,
+        news: [],
+      });
+    }
+  };
+
+  const fetchMatches = async () => {
     const { data, error } = await supabase
       .from("match_results")
       .select("*")
       .order("match_date", { ascending: false })
-      .limit(30);
-
-    if (error) {
-      if (!silent) toast.error("Failed to load matches");
-      console.error(error);
-    } else {
-      // Check for score changes
-      const newMatches = data || [];
-      newMatches.forEach(match => {
-        const matchKey = match.match_id || match.id;
-        const currentScore = `${match.score_home}-${match.score_away}`;
-        const lastScore = lastScoresRef.current[matchKey];
-        
-        if (lastScore && lastScore !== currentScore && silent) {
-          setLiveUpdates(prev => ({ ...prev, [matchKey]: true }));
-          toast.success("⚽ Score updated!", { duration: 3000 });
-        }
-        
-        lastScoresRef.current[matchKey] = currentScore;
-      });
-      
-      setMatches(newMatches);
-    }
-    
-    setLoading(false);
-    setRefreshing(false);
-  };
-
-  const handleRefreshScores = async () => {
-    setRefreshing(true);
-    setUpdateError(null);
-    
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-live-scores`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to update scores');
-      }
-
-      toast.success(`✅ Scores updated! ${result.updated || 0} entities refreshed`, {
-        duration: 3000,
-      });
-
-      // Fetch the latest matches after the update
-      await fetchMatches(true);
-    } catch (error) {
-      console.error('Error updating scores:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update scores';
-      setUpdateError(errorMessage);
-      toast.error(`❌ ${errorMessage}`, { duration: 5000 });
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const fetchMatchGists = async () => {
-    const { data, error } = await supabase
-      .from("gists")
-      .select("*")
-      .eq("topic_category", "Sports Banter")
-      .eq("status", "published")
-      .not("audio_url", "is", null)
-      .order("created_at", { ascending: false })
       .limit(50);
 
-    if (!error && data) {
-      const gistMap: Record<string, Gist> = {};
-      data.forEach((gist: any) => {
-        if (gist.meta?.match_id) {
-          // Prefer live updates
-          if (!gistMap[gist.meta.match_id] || gist.meta.is_live_update) {
-            gistMap[gist.meta.match_id] = gist;
-          }
-        }
-      });
-      setMatchGists(gistMap);
-      
-      // Play live update notifications if not on page
-      data.forEach((gist: any) => {
-        if (gist.meta?.is_live_update && !document.hasFocus()) {
-          sendFluxaPushNotification("⚽ Live Update!", gist.narration);
-        }
-      });
-    }
-  };
-
-  const playFluxaReaction = (matchId: string, audioUrl: string) => {
-    // Stop currently playing audio
-    if (playingAudio && audioElements[playingAudio]) {
-      audioElements[playingAudio].pause();
-      audioElements[playingAudio].currentTime = 0;
-    }
-
-    // If clicking the same audio, just stop it
-    if (playingAudio === matchId) {
-      setPlayingAudio(null);
-      return;
-    }
-
-    // Create or reuse audio element
-    let audio = audioElements[matchId];
-    if (!audio) {
-      audio = new Audio(audioUrl);
-      audio.onended = () => setPlayingAudio(null);
-      setAudioElements(prev => ({ ...prev, [matchId]: audio }));
-    }
-
-    audio.play();
-    setPlayingAudio(matchId);
-    
-    // Clear live update indicator
-    setLiveUpdates(prev => ({ ...prev, [matchId]: false }));
-  };
-
-  const handleGenerateGists = async () => {
-    setGeneratingGists(true);
-    try {
-      // Generate commentary for live and recent matches
-      const relevantMatches = matches.filter(m => 
-        isLive(m.status) || (m.status === 'Match Finished' && isToday(m))
-      );
-      
-      if (relevantMatches.length === 0) {
-        toast.info("No recent matches to commentate on");
-        setGeneratingGists(false);
-        return;
-      }
-      
-      toast.success(`✨ Fluxa is analyzing ${relevantMatches.length} matches...`);
-      
-      // Generate commentary for each match
-      const promises = relevantMatches.map(async (match) => {
-        const eventType = isLive(match.status) ? 'close_call' : 'full_time';
-        
-        return supabase.functions.invoke('generate-live-commentary', {
-          body: {
-            matchId: match.match_id || match.id,
-            homeTeam: match.team_home,
-            awayTeam: match.team_away,
-            homeScore: match.score_home || 0,
-            awayScore: match.score_away || 0,
-            league: match.league,
-            eventType
-          }
-        });
-      });
-      
-      await Promise.all(promises);
-      
-      // Refresh gists after a short delay
-      setTimeout(() => {
-        fetchMatchGists();
-        toast.success("🎤 Fluxa's commentary is ready!");
-      }, 2000);
-    } catch (err) {
-      toast.error("Error generating commentary");
-      console.error(err);
-    } finally {
-      setGeneratingGists(false);
-    }
-  };
-
-  const handleReaction = async (matchId: string, team: string, reaction: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      toast.error("Please sign in to react");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("sports_fan_reactions")
-      .insert({
-        user_id: user.id,
-        team,
-        reaction,
-        match_id: matchId,
-      });
-
     if (error) {
-      toast.error("Failed to save reaction");
+      console.error("Error fetching matches:", error);
     } else {
-      toast.success(reaction === "cheer" ? "🎉 Cheered!" : "😏 Banter sent!");
+      setAllMatches(data || []);
+      
+      // Update team data with latest matches for all teams
+      const allTeamNames = [...favoriteTeams, ...rivalTeams];
+      allTeamNames.forEach(teamName => {
+        const teamMatches = (data || []).filter(
+          m => m.team_home === teamName || m.team_away === teamName
+        );
+        if (teamMatches.length > 0) {
+          const latestMatch = teamMatches.find(m => m.status === 'Match Finished' || m.status === 'Final') || teamMatches[0];
+          const nextMatch = teamMatches.find(m => m.status === 'Scheduled') || undefined;
+          
+          if (favoriteTeams.includes(teamName)) {
+            setFavoriteTeamsData(prev => ({
+              ...prev,
+              [teamName]: {
+                ...prev[teamName],
+                latestMatch,
+                nextMatch,
+              }
+            }));
+          } else if (rivalTeams.includes(teamName)) {
+            setRivalTeamsData(prev => ({
+              ...prev,
+              [teamName]: {
+                ...prev[teamName],
+                latestMatch,
+                nextMatch,
+              }
+            }));
+          }
+        }
+      });
     }
   };
-  
-  const dismissNotification = async (notifId: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    
-    await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('id', notifId);
-    
-    setScoreNotifications(prev => prev.filter(n => n.id !== notifId));
-  };
 
-  const isUserTeam = (team: string) => userTeams.includes(team);
-  
-  const isLive = (status: string) => 
-    status === 'InProgress' || status === 'Live' || status === 'Halftime' || status === '2H' || status === '1H';
-  
-  const isToday = (match: Match) => {
-    const matchDate = new Date(match.match_date);
-    const today = new Date();
-    return matchDate.toDateString() === today.toDateString();
-  };
+  const fetchSportsFeed = useCallback(async () => {
+    if (refreshing) setRefreshing(true);
+    try {
+      const allTeamNames = [...favoriteTeams, ...rivalTeams];
+      const allNews: any[] = [];
+      const seenHeadlines = new Set<string>();
 
-  const todayMatches = matches.filter(m => {
-    const matchDate = new Date(m.match_date);
-    const today = new Date();
-    return matchDate.toDateString() === today.toDateString();
+      // Fetch news for all selected teams from fan_entities (parallel fetch)
+      const fetchPromises: Promise<any>[] = [];
+      
+      if (allTeamNames.length > 0) {
+        fetchPromises.push(
+          (async () => {
+            const { data: entities } = await supabase
+              .from("fan_entities")
+              .select("name, news_feed")
+              .in("name", allTeamNames)
+              .eq("category", "sports");
+            
+            const newsItems: any[] = [];
+            if (entities) {
+              entities.forEach(entity => {
+                if (entity.news_feed && Array.isArray(entity.news_feed)) {
+                  entity.news_feed.forEach((news: any) => {
+                    const headline = news.title || news.headline || '';
+                    const headlineKey = headline.toLowerCase().trim();
+                    if (headlineKey && !seenHeadlines.has(headlineKey)) {
+                      seenHeadlines.add(headlineKey);
+                      newsItems.push({
+                        id: `news-${entity.name}-${headlineKey}`,
+                        source: "news",
+                        headline: news.title || news.headline || 'Sports News',
+                        summary: news.description || news.summary || news.content?.slice(0, 150) || '',
+                        context: news.description || news.summary || news.content || '',
+                        audio_url: null,
+                        image_url: news.image || news.imageUrl || null,
+                        topic: "Sports",
+                        topic_category: entity.name,
+                        published_at: news.published || news.publishedAt || news.time,
+                        url: news.url,
+                        analytics: {
+                          views: 0,
+                          likes: 0,
+                          comments: 0,
+                          shares: 0,
+                          plays: 0,
+                        },
+                      });
+                    }
+                  });
+                }
+              });
+            }
+            return newsItems;
+          })()
+        );
+      }
+
+      // Fetch sports gists in parallel
+      fetchPromises.push(fetchRecentGists(20).then(dbGists => {
+        const allTeamNamesLower = allTeamNames.map(t => t.toLowerCase());
+        return dbGists
+          .filter(g => {
+            const isSports = g.topic?.toLowerCase().includes('sport') || 
+                            g.topic_category?.toLowerCase().includes('sport') ||
+                            g.topic?.toLowerCase() === 'sports';
+            
+            if (allTeamNames.length > 0) {
+              const headline = g.headline?.toLowerCase() || '';
+              const context = g.context?.toLowerCase() || '';
+              const matchesTeam = allTeamNamesLower.some(team => 
+                headline.includes(team) || context.includes(team)
+              );
+              return isSports || matchesTeam;
+            }
+            
+            return isSports;
+          })
+          .map(mapDbGistToGist);
+      }));
+
+      // Execute all fetches in parallel
+      const results = await Promise.all(fetchPromises);
+      const newsResults = results[0] || [];
+      const sportsGists = results[1] || [];
+
+      // Combine and deduplicate
+      const allContent = [...newsResults, ...sportsGists];
+      
+      // Memoized deduplication
+      const uniqueContent = allContent.filter((item, index, self) => {
+        const headline = item.headline?.toLowerCase().trim() || '';
+        return index === self.findIndex((i) => (i.headline?.toLowerCase().trim() || '') === headline);
+      });
+
+      // Sort by date (newest first)
+      const sortedContent = [...uniqueContent].sort((a, b) => {
+        const aTime = a.published_at ? new Date(a.published_at as string).getTime() : 0;
+        const bTime = b.published_at ? new Date(b.published_at as string).getTime() : 0;
+        return bTime - aTime;
+      });
+      
+      setSportsFeed(sortedContent);
+    } catch (error) {
+      console.error("Error fetching sports feed:", error);
+      toast.error("Failed to load sports feed");
+    } finally {
+      if (refreshing) setRefreshing(false);
+    }
+  }, [favoriteTeams, rivalTeams, refreshing]);
+
+  const mapDbGistToGist = (gist: DbGist): Gist => ({
+    id: gist.id,
+    source: "gist",
+    headline: gist.headline,
+    summary: (gist.meta as any)?.summary || gist.context?.slice(0, 150) + (gist.context && gist.context.length > 150 ? "..." : ""),
+    context: gist.context,
+    audio_url: gist.audio_url || null,
+    image_url: gist.image_url || null,
+    topic: gist.topic || "Sports",
+    topic_category: gist.topic_category || null,
+    published_at: gist.published_at,
+    url: undefined,
+    analytics: {
+      views: 0,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+      plays: 0,
+    },
   });
 
-  const recentMatches = matches.filter(m => 
-    m.status === 'Final' || m.status === 'FullTime' || m.status === 'Match Finished'
-  ).slice(0, 10);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchMatches(), fetchSportsFeed()]);
+    setRefreshing(false);
+    toast.success("Sports feed refreshed!");
+  }, [fetchMatches, fetchSportsFeed]);
 
-  const upcomingMatches = matches.filter(m => {
-    const matchDate = new Date(m.match_date);
-    const today = new Date();
-    return matchDate > today && m.status === 'Scheduled';
-  }).slice(0, 5);
+  // Memoize expensive computations
+  const memoizedSportsFeed = useMemo(() => {
+    return sportsFeed;
+  }, [sportsFeed]);
+
+  const formatTimeUntil = (dateString?: string) => {
+    if (!dateString) return "TBD";
+    const matchDate = new Date(dateString);
+    const now = new Date();
+    const diff = matchDate.getTime() - now.getTime();
+    
+    if (diff < 0) return "Past";
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  };
+
+  const isLive = (status: string) => 
+    status === 'InProgress' || status === 'Live' || status === 'Halftime' || status === '2H' || status === '1H';
+
+  const navigateToTeam = (teamName: string) => {
+    const teamId = teamName.toLowerCase().replace(/\s+/g, '-');
+    navigate(`/sports/team/${teamId}`);
+  };
+
+  // Handlers for card interactions (matching Feed.tsx behavior)
+  const handleCardClick = useCallback((gist: Gist) => {
+    navigate(`/post/${gist.source}/${gist.id}?origin=sports`);
+  }, [navigate]);
+
+  const handleCommentClick = useCallback((gist: Gist) => {
+    navigate(`/post/${gist.source}/${gist.id}?origin=sports`);
+  }, [navigate]);
+
+  const handleShare = useCallback((gist: Gist) => {
+    setSelectedGist(gist);
+    setShareDialogOpen(true);
+  }, []);
+
+  const handlePlay = useCallback((id: string, audioUrl: string | null | undefined, url?: string) => {
+    // Play audio if available, otherwise navigate to URL
+    if (audioUrl) {
+      // Audio playback logic can be added here if needed
+      console.log("Playing audio:", audioUrl);
+    } else if (url) {
+      window.open(url, '_blank');
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -427,235 +488,140 @@ const SportsHub = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-background/80 pb-20">
+    <div className="min-h-screen bg-gradient-to-b from-background to-background/80 pb-32 md:pb-20">
       {/* Header */}
-      <div className="bg-gradient-to-r from-primary/20 via-secondary/20 to-accent/20 p-6">
+      <div className="bg-gradient-to-r from-primary/20 via-secondary/20 to-accent/20 p-4 md:p-6">
         <div className="flex items-center justify-between max-w-4xl mx-auto">
           <div>
-            <h1 className="text-4xl font-bold mb-2">⚽ Sports Hub</h1>
-            <p className="text-muted-foreground">Live scores & match updates</p>
+            <h1 className="text-3xl md:text-4xl font-bold mb-1 md:mb-2">⚽ Sports</h1>
+            <p className="text-sm md:text-base text-muted-foreground">Your personalized sports hub</p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleRefreshScores}
-              disabled={refreshing}
-              className="min-w-[100px]"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Updating...' : 'Refresh'}
-            </Button>
-            <Button
-              size="sm"
-              variant="default"
-              onClick={handleGenerateGists}
-              disabled={generatingGists}
-            >
-              <Sparkles className={`w-4 h-4 mr-2 ${generatingGists ? 'animate-spin' : ''}`} />
-              Generate Gists
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
         </div>
-        
-        {/* Error Alert */}
-        {updateError && (
-          <div className="max-w-4xl mx-auto mt-4">
-            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3">
-              <span className="text-destructive text-xl">⚠️</span>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-destructive mb-1">Update Failed</p>
-                <p className="text-xs text-destructive/80">{updateError}</p>
-              </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setUpdateError(null)}
-                className="text-destructive hover:text-destructive"
-              >
-                ✕
-              </Button>
-            </div>
-          </div>
-        )}
-        
-        {/* Loading Indicator */}
-        {refreshing && (
-          <div className="max-w-4xl mx-auto mt-4">
-            <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center gap-3">
-              <Loader2 className="w-5 h-5 animate-spin text-primary" />
-              <p className="text-sm text-foreground">Fetching latest scores from live data sources...</p>
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="max-w-4xl mx-auto p-4 space-y-6">
-        {/* Score Change Notifications */}
-        {scoreNotifications.length > 0 && (
-          <div className="space-y-2">
-            {scoreNotifications.map((notif) => (
-              <div
-                key={notif.id}
-                className="bg-gradient-to-r from-primary/20 to-accent/20 border border-primary/30 rounded-lg p-4 flex items-start gap-3 animate-in slide-in-from-top"
-              >
-                <span className="text-2xl">{notif.title.includes('Your Team') ? '⚽' : '🚨'}</span>
-                <div className="flex-1">
-                  <p className="font-bold text-foreground">{notif.title}</p>
-                  <p className="text-sm text-muted-foreground">{notif.message}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {new Date(notif.created_at).toLocaleTimeString()}
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => dismissNotification(notif.id)}
-                  className="text-foreground hover:text-foreground"
-                >
-                  ✕
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Today's Matches */}
-        {todayMatches.length > 0 && (
+        {/* Favorite Teams Section - Compact Horizontal Scroll */}
+        {favoriteTeams.length > 0 && (
           <div>
-            <h2 className="text-2xl font-bold mb-3 flex items-center gap-2">
-              Today's Matches
-              {todayMatches.some(m => isLive(m.status)) && (
-                <Badge variant="destructive" className="animate-pulse">
-                  <Radio className="w-3 h-3 mr-1" />
-                  LIVE
-                </Badge>
-              )}
+            <h2 className="text-xl md:text-2xl font-bold mb-3 flex items-center gap-2">
+              ❤️ Favorite Teams ({favoriteTeams.length})
             </h2>
-            <div className="space-y-3">{renderMatches(todayMatches)}</div>
+            <div className="flex overflow-x-auto space-x-2 pb-2 scrollbar-hide -mx-4 px-4">
+              {favoriteTeams.map((teamName) => {
+                const teamLogo = getTeamLogo(teamName) || favoriteTeamsData[teamName]?.logo;
+                return (
+                  teamLogo ? (
+                    <img 
+                      key={teamName}
+                      src={teamLogo} 
+                      alt={teamName} 
+                      className="w-12 h-12 object-contain flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => navigateToTeam(teamName)}
+                    />
+                  ) : null
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {/* Recent Results */}
-        {recentMatches.length > 0 && (
+        {/* Rival Teams Section - Compact Horizontal Scroll */}
+        {rivalTeams.length > 0 && (
           <div>
-            <h2 className="text-2xl font-bold mb-3">Recent Results</h2>
-            <div className="space-y-3">{renderMatches(recentMatches)}</div>
+            <h2 className="text-xl md:text-2xl font-bold mb-3 flex items-center gap-2">
+              😤 Rival Teams ({rivalTeams.length})
+            </h2>
+            <div className="flex overflow-x-auto space-x-2 pb-2 scrollbar-hide -mx-4 px-4">
+              {rivalTeams.map((teamName) => {
+                const teamLogo = getTeamLogo(teamName) || rivalTeamsData[teamName]?.logo;
+                return (
+                  teamLogo ? (
+                    <img 
+                      key={teamName}
+                      src={teamLogo} 
+                      alt={teamName} 
+                      className="w-12 h-12 object-contain flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => navigateToTeam(teamName)}
+                    />
+                  ) : null
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {/* Upcoming Fixtures */}
-        {upcomingMatches.length > 0 && (
-          <div>
-            <h2 className="text-2xl font-bold mb-3">Upcoming Fixtures</h2>
-            <div className="space-y-3">{renderMatches(upcomingMatches)}</div>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {matches.length === 0 && (
-          <Card className="p-12 text-center">
-            <p className="text-muted-foreground mb-4">No matches available</p>
-            <Button onClick={() => fetchMatches()}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
+        {/* Setup Prompt */}
+        {favoriteTeams.length === 0 && rivalTeams.length === 0 && (
+          <Card className="p-6 text-center border-dashed">
+            <Trophy className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-xl font-bold mb-2">Set Up Your Teams</h3>
+            <p className="text-muted-foreground mb-4">
+              Select your favorite and rival teams to get personalized updates
+            </p>
+            <Button onClick={() => navigate("/team-selection")}>
+              Choose Teams
             </Button>
           </Card>
+        )}
+
+        {/* General Sports Feed */}
+        {memoizedSportsFeed.length > 0 && (
+          <div className="space-y-4">
+            {memoizedSportsFeed.map((item) => (
+              <FeedCardWithSocial
+                key={item.id}
+                id={item.id}
+                headline={item.headline}
+                context={item.context}
+                imageUrl={item.image_url || undefined}
+                imageUrls={{
+                  primary: item.image_url || null,
+                  source: null,
+                  ai: null,
+                }}
+                category={item.topic_category || item.topic}
+                timeAgo={item.published_at ? new Date(item.published_at).toLocaleDateString() : undefined}
+                views={item.analytics?.views}
+                plays={item.analytics?.plays}
+                shares={item.analytics?.shares}
+                comments={item.analytics?.comments}
+                isPlaying={false}
+                onPlay={() => handlePlay(item.id, item.audio_url, item.url)}
+                onComment={() => handleCommentClick(item)}
+                onShare={() => handleShare(item)}
+                onCardClick={() => handleCardClick(item)}
+              />
+            ))}
+          </div>
         )}
       </div>
 
       <BottomNavigation />
+
+      {/* Share Dialog */}
+      {selectedGist && (
+        <ShareDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          gist={{
+            id: selectedGist.id,
+            headline: selectedGist.headline,
+            context: selectedGist.context,
+            image_url: selectedGist.image_url || null,
+          }}
+        />
+      )}
     </div>
   );
-
-  function renderMatches(matchList: Match[]) {
-    return matchList.map((match) => (
-      <Card key={match.id} className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Badge variant={isLive(match.status) ? "destructive" : match.status === "Final" ? "secondary" : "default"}>
-              {isLive(match.status) && <Radio className="w-3 h-3 mr-1 animate-pulse" />}
-              {match.status === "Final" ? "FT" : match.status}
-            </Badge>
-            {liveUpdates[match.match_id || match.id] && (
-              <Volume2 className="w-4 h-4 text-primary animate-pulse" />
-            )}
-          </div>
-          <span className="text-xs text-muted-foreground">{match.league}</span>
-        </div>
-
-            <div className="flex items-center justify-between mb-4">
-              <div className={`flex-1 text-center ${isUserTeam(match.team_home) ? "font-bold text-primary" : ""}`}>
-                <p className="text-lg">{match.team_home}</p>
-              </div>
-              
-              <div className="px-6">
-                <div className="text-2xl font-bold">
-                  {match.score_home ?? "-"} : {match.score_away ?? "-"}
-                </div>
-              </div>
-
-              <div className={`flex-1 text-center ${isUserTeam(match.team_away) ? "font-bold text-primary" : ""}`}>
-                <p className="text-lg">{match.team_away}</p>
-              </div>
-            </div>
-
-        {/* Fluxa Audio Reaction */}
-        {matchGists[match.match_id || match.id] && matchGists[match.match_id || match.id].audio_url && (
-          <div className="pt-3 border-t">
-            <Button
-              size="sm"
-              variant="default"
-              className="w-full gap-2 relative"
-              onClick={() => playFluxaReaction(
-                match.match_id || match.id, 
-                matchGists[match.match_id || match.id].audio_url
-              )}
-            >
-              {liveUpdates[match.match_id || match.id] && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full animate-pulse" />
-              )}
-              {playingAudio === (match.match_id || match.id) ? (
-                <>
-                  <Pause className="w-4 h-4" />
-                  Stop Fluxa's Take
-                </>
-              ) : (
-                <>
-                  <Volume2 className={`w-4 h-4 ${liveUpdates[match.match_id || match.id] ? 'animate-pulse' : ''}`} />
-                  {matchGists[match.match_id || match.id].meta?.is_live_update ? '🔴 Live Update' : '🔊 Fluxa\'s Take'}
-                </>
-              )}
-            </Button>
-            {matchGists[match.match_id || match.id].narration && (
-              <p className="text-xs text-muted-foreground mt-2 italic">
-                "{matchGists[match.match_id || match.id].narration}"
-              </p>
-            )}
-          </div>
-        )}
-
-        {match.status === "Final" && (isUserTeam(match.team_home) || isUserTeam(match.team_away)) && (
-          <div className="flex gap-2 justify-center pt-3 border-t">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleReaction(match.id, isUserTeam(match.team_home) ? match.team_home : match.team_away, "cheer")}
-            >
-              🎉 Cheer
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => handleReaction(match.id, isUserTeam(match.team_home) ? match.team_home : match.team_away, "banter")}
-            >
-              😏 Banter
-            </Button>
-          </div>
-        )}
-      </Card>
-    ));
-  }
 };
 
 export default SportsHub;

@@ -4,6 +4,11 @@ import { useArticleLikes, useArticleSaves, useDeeperSummary } from '@/hooks/useS
 interface FeedCardWithSocialProps {
   id: string;
   imageUrl?: string;
+  imageUrls?: {
+    primary?: string | null;
+    source?: string | null;
+    ai?: string | null;
+  };
   headline: string;
   context: string;
   author?: string;
@@ -20,6 +25,8 @@ interface FeedCardWithSocialProps {
   onPlay: () => void;
   onComment?: () => void;
   onShare?: () => void;
+  onCardClick?: () => void;
+  onFluxaAnalysis?: () => void;
 }
 
 export const FeedCardWithSocial = (props: FeedCardWithSocialProps) => {
@@ -30,6 +37,7 @@ export const FeedCardWithSocial = (props: FeedCardWithSocialProps) => {
   return (
     <FeedCard
       {...props}
+      imageUrls={props.imageUrls}
       likes={likesCount}
       isLiked={isLiked}
       bookmarks={0}
@@ -40,8 +48,8 @@ export const FeedCardWithSocial = (props: FeedCardWithSocialProps) => {
       comments={props.comments || 0}
       onLike={toggleLike}
       onBookmark={toggleSave}
-      onDeeperSummary={requestDeeperSummary}
-      deeperSummaryRequested={requested}
+      onCardClick={props.onCardClick}
+      onFluxaAnalysis={props.onFluxaAnalysis}
     />
   );
 };

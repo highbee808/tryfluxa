@@ -1,0 +1,13 @@
+<svg width="800" height="800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="curatedGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#764ba2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f093fb;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="800" height="800" fill="url(#curatedGrad)"/>
+  <circle cx="400" cy="300" r="80" fill="rgba(255,255,255,0.15)"/>
+  <circle cx="400" cy="500" r="100" fill="rgba(255,255,255,0.1)"/>
+</svg>
+

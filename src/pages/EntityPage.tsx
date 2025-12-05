@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeAdminFunction } from "@/lib/invokeAdminFunction";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +66,8 @@ const EntityPage = () => {
   const [bookmarkedNews, setBookmarkedNews] = useState<string[]>([]);
   const [cachedNews, setCachedNews] = useState<any[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
+  const [isFavoriteTeam, setIsFavoriteTeam] = useState(false);
+  const [isRivalTeam, setIsRivalTeam] = useState(false);
   const { brainData, trackReading, adjustSummaryForTone } = useFluxaBrain();
 
   // Enable automatic score updates
@@ -122,8 +125,8 @@ const EntityPage = () => {
     setLoadingNews(true);
     try {
       // Check cache first
-      const { data: cacheData } = await supabase.functions.invoke('news-cache', {
-        body: { entity: entity.name, action: 'get' }
+      const { data: cacheData } = await invokeAdminFunction('news-cache', {
+        entity: entity.name, action: 'get'
       });
 
       if (cacheData?.cached && cacheData?.news?.length > 0) {
@@ -135,12 +138,10 @@ const EntityPage = () => {
         setCachedNews(adjustedNews);
       } else {
         // Fetch fresh with AI summaries
-        const { data: summaryData } = await supabase.functions.invoke('ai-resilient-summary', {
-          body: { 
-            articles: entity.news_feed || [],
-            userId: (await supabase.auth.getUser()).data.user?.id,
-            tone: (brainData?.preferred_tone as 'concise' | 'casual' | 'analytical') || 'casual'
-          }
+        const { data: summaryData } = await invokeAdminFunction('ai-resilient-summary', {
+          articles: entity.news_feed || [],
+          userId: (await supabase.auth.getUser()).data.user?.id,
+          tone: (brainData?.preferred_tone as 'concise' | 'casual' | 'analytical') || 'casual'
         });
 
         if (summaryData?.summaries) {
@@ -268,6 +269,100 @@ const EntityPage = () => {
     setIsFollowing(!!data);
   };
 
+  const checkTeamStatus = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !entity?.name) return;
+
+    // Get teams from user metadata (stored in users table)
+    const favoriteTeams = user.user_metadata?.favorite_teams || [];
+    const rivalTeams = user.user_metadata?.rival_teams || [];
+    
+    setIsFavoriteTeam(favoriteTeams.includes(entity.name));
+    setIsRivalTeam(rivalTeams.includes(entity.name));
+  };
+
+  const handleSwitchTeam = async (type: 'favorite' | 'rival') => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !entity?.name) {
+      toast.error("Please sign in");
+      return;
+    }
+
+    // Get current teams from user metadata
+    let favoriteTeams: string[] = user.user_metadata?.favorite_teams || [];
+    let rivalTeams: string[] = user.user_metadata?.rival_teams || [];
+
+    if (type === 'favorite') {
+      if (isFavoriteTeam) {
+        // Remove from favorites
+        favoriteTeams = favoriteTeams.filter((t: string) => t !== entity.name);
+        setIsFavoriteTeam(false);
+        toast.success(`Removed ${entity.name} from favorites`);
+      } else {
+        // Add to favorites, remove from rivals if present
+        if (isRivalTeam) {
+          rivalTeams = rivalTeams.filter((t: string) => t !== entity.name);
+          setIsRivalTeam(false);
+        }
+        // Add to favorites (support multiple)
+        if (!favoriteTeams.includes(entity.name)) {
+          favoriteTeams.push(entity.name);
+        }
+        setIsFavoriteTeam(true);
+        toast.success(`Added ${entity.name} to favorites`);
+      }
+    } else {
+      if (isRivalTeam) {
+        // Remove from rivals
+        rivalTeams = rivalTeams.filter((t: string) => t !== entity.name);
+        setIsRivalTeam(false);
+        toast.success(`Removed ${entity.name} from rivals`);
+      } else {
+        // Add to rivals, remove from favorites if present
+        if (isFavoriteTeam) {
+          favoriteTeams = favoriteTeams.filter((t: string) => t !== entity.name);
+          setIsFavoriteTeam(false);
+        }
+        // Add to rivals (support multiple)
+        if (!rivalTeams.includes(entity.name)) {
+          rivalTeams.push(entity.name);
+        }
+        setIsRivalTeam(true);
+        toast.success(`Added ${entity.name} to rivals`);
+      }
+    }
+
+    // Save directly to users table via user metadata
+    const { error: saveError } = await supabase.auth.updateUser({
+      data: {
+        favorite_teams: favoriteTeams,
+        rival_teams: rivalTeams
+      }
+    });
+
+    if (saveError) {
+      console.error("Error updating teams:", saveError);
+      toast.error("Failed to update team preferences");
+    }
+  };
+
+  const formatTimeUntil = (dateString?: string) => {
+    if (!dateString) return "TBD";
+    const matchDate = new Date(dateString);
+    const now = new Date();
+    const diff = matchDate.getTime() - now.getTime();
+    
+    if (diff < 0) return "Past";
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  };
+
   const handleFollow = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -356,7 +451,7 @@ const EntityPage = () => {
     toast.loading('Refreshing match data...');
     
     try {
-      await supabase.functions.invoke('update-live-scores');
+      await invokeAdminFunction('update-live-scores', {});
       await fetchEntity();
       toast.success('✅ Match data refreshed!');
     } catch (err) {
@@ -443,18 +538,60 @@ const EntityPage = () => {
                 <div className="flex-1 w-full">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
                     <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-center sm:text-left w-full sm:w-auto">{entity.name}</h1>
-                    <div className="flex gap-2 w-full sm:w-auto">
+                    <div className="flex gap-2 w-full sm:w-auto flex-wrap">
                       {entity.category === 'sports' && (
-                        <Button
-                          variant="outline"
-                          onClick={handleManualRefresh}
-                          size="sm"
-                          disabled={refreshing}
-                          className="flex-1 sm:flex-none"
-                        >
-                          <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                          Refresh
-                        </Button>
+                        <>
+                          {isFavoriteTeam && (
+                            <Badge variant="default" className="bg-primary text-primary-foreground">
+                              ❤️ Favorite
+                            </Badge>
+                          )}
+                          {isRivalTeam && (
+                            <Badge variant="destructive">
+                              😤 Rival
+                            </Badge>
+                          )}
+                          {!isFavoriteTeam && !isRivalTeam && (
+                            <div className="flex gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleSwitchTeam('favorite')}
+                                className="text-xs"
+                              >
+                                ❤️ Set Favorite
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleSwitchTeam('rival')}
+                                className="text-xs"
+                              >
+                                😤 Set Rival
+                              </Button>
+                            </div>
+                          )}
+                          {(isFavoriteTeam || isRivalTeam) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSwitchTeam(isFavoriteTeam ? 'favorite' : 'rival')}
+                              className="text-xs"
+                            >
+                              Switch
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            onClick={handleManualRefresh}
+                            size="sm"
+                            disabled={refreshing}
+                            className="flex-1 sm:flex-none"
+                          >
+                            <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                            Refresh
+                          </Button>
+                        </>
                       )}
                       <Button
                         variant={isFollowing ? "default" : "outline"}
@@ -468,7 +605,7 @@ const EntityPage = () => {
                     </div>
                   </div>
 
-                  <div className="flex justify-center sm:justify-start mb-3">
+                  <div className="flex justify-center sm:justify-start mb-3 gap-2">
                     <Badge variant="secondary">
                       {entity.category}
                     </Badge>
@@ -640,12 +777,10 @@ const EntityPage = () => {
                             
                             try {
                               const narrationText = `${news.title}. ${news.description || news.source}`;
-                              const { data, error } = await supabase.functions.invoke('text-to-speech', {
-                                body: { 
-                                  text: narrationText,
-                                  voice: 'nova',
-                                  speed: 1.0
-                                }
+                              const { data, error } = await invokeAdminFunction('text-to-speech', {
+                                text: narrationText,
+                                voice: 'nova',
+                                speed: 1.0
                               });
 
                               if (error) throw error;

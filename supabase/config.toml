@@ -1,4 +1,5 @@
-project_id = "zikzuwomznlpgvrftcpf"
+# project_id removed - using standalone Supabase project
+# Set your project reference via environment variables or Supabase CLI
 
 [edge_runtime]
 policy = "per_worker"
@@ -6,30 +7,31 @@ policy = "per_worker"
 [functions.realtime-session]
 verify_jwt = true
 
-[[edge_runtime.cron]]
-name = "auto-generate-gists-every-minute"
-function = "auto-generate-gists"
-schedule = "* * * * *"
-
-[[edge_runtime.cron]]
-name = "fetch-sports-results-hourly"
-function = "fetch-sports-results"
-schedule = "0 * * * *"
-
-[[edge_runtime.cron]]
-name = "update-live-scores-every-5-min"
-function = "update-live-scores"
-schedule = "*/5 * * * *"
-
-[[edge_runtime.cron]]
-name = "process-deeper-summaries-hourly"
-function = "process-deeper-summaries"
-schedule = "0 * * * *"
-
-[[edge_runtime.cron]]
-name = "fetch-team-news-every-6-hours"
-function = "fetch-team-news-cached"
-schedule = "0 */6 * * *"
+# Cron jobs are configured via Supabase Dashboard or via separate cron configuration
+# [[edge_runtime.cron]]
+# name = "auto-generate-gists-every-minute"
+# function = "auto-generate-gists"
+# schedule = "* * * * *"
+#
+# [[edge_runtime.cron]]
+# name = "fetch-sports-results-hourly"
+# function = "fetch-sports-results"
+# schedule = "0 * * * *"
+#
+# [[edge_runtime.cron]]
+# name = "update-live-scores-every-5-min"
+# function = "update-live-scores"
+# schedule = "*/5 * * * *"
+#
+# [[edge_runtime.cron]]
+# name = "process-deeper-summaries-hourly"
+# function = "process-deeper-summaries"
+# schedule = "0 * * * *"
+#
+# [[edge_runtime.cron]]
+# name = "fetch-team-news-every-6-hours"
+# function = "fetch-team-news-cached"
+# schedule = "0 */6 * * *"
 
 [functions.voice-to-fluxa]
 verify_jwt = true
@@ -123,3 +125,9 @@ verify_jwt = true
 
 [functions.compare-teams]
 verify_jwt = true
+
+[functions.spotify-oauth-login]
+verify_jwt = false
+
+[functions.spotify-oauth-callback]
+verify_jwt = false

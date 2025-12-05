@@ -1,0 +1,14 @@
+<svg width="800" height="800" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="popGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF006E;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#8338EC;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3A86FF;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="800" height="800" fill="url(#popGrad)"/>
+  <circle cx="200" cy="200" r="100" fill="rgba(255,255,255,0.15)"/>
+  <circle cx="600" cy="600" r="120" fill="rgba(255,255,255,0.1)"/>
+  <circle cx="400" cy="400" r="150" fill="rgba(255,255,255,0.08)"/>
+</svg>
+

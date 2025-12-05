@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import { Clock, Trophy, Calendar, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeAdminFunction } from "@/lib/invokeAdminFunction";
 import { toast } from "sonner";
 
 interface Match {
@@ -69,11 +70,11 @@ export const MatchesCarousel = ({ entity, primaryColor, secondaryColor }: Matche
 
     setLoadingPrediction(matchId);
     try {
-      const { data, error } = await supabase.functions.invoke("predict-match", {
-        body: { matchId },
+      const { data, error } = await invokeAdminFunction("predict-match", {
+        matchId
       });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message || 'Prediction failed');
 
       setPredictions((prev) => ({
         ...prev,

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeAdminFunction } from "@/lib/invokeAdminFunction";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -107,7 +108,7 @@ const FanbaseHub = () => {
   const handleSyncEntities = async () => {
     setSyncing(true);
     try {
-      const { error } = await supabase.functions.invoke('sync-fan-entities');
+      const { error } = await invokeAdminFunction('sync-fan-entities', {});
       
       if (error) {
         toast.error("Failed to sync entities");

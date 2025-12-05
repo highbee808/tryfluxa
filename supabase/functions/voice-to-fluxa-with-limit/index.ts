@@ -61,7 +61,7 @@ serve(async (req) => {
   console.log("🎙️ Voice-to-Fluxa (with rate limiting) started");
 
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("OK", { headers: corsHeaders });
   }
 
   try {

@@ -24,7 +24,7 @@ export const DesktopRightWidgets = ({
   onPlay,
 }: DesktopRightWidgetsProps) => {
   return (
-    <div className="hidden lg:flex flex-col gap-6 sticky top-24 self-start">
+    <div className="hidden lg:flex flex-col gap-6 sticky bottom-6 self-start max-h-[calc(100vh-8rem)] overflow-y-auto scrollbar-hide">
       <Card className="shadow-glass border-glass-border-light glass">
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-4">

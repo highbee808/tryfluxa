@@ -17,7 +17,7 @@ const chatSchema = z.object({
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("OK", { headers: corsHeaders });
   }
 
   try {

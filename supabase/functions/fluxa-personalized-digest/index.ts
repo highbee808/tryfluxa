@@ -6,15 +6,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Cost estimation helper (approximate tokens and cost for Gemini)
+// Cost estimation helper (approximate tokens and cost for OpenAI)
 function estimateTokensAndCost(inputText: string, outputLength: number): { tokens: number; cost: number } {
   const inputTokens = Math.ceil(inputText.length / 4)
   const outputTokens = outputLength
   const totalTokens = inputTokens + outputTokens
   
-  // Gemini 2.5 Flash pricing: ~$0.075 per 1M input tokens, ~$0.30 per 1M output tokens
-  const inputCost = (inputTokens / 1_000_000) * 0.075
-  const outputCost = (outputTokens / 1_000_000) * 0.30
+  // OpenAI gpt-4o-mini pricing: $0.15 per 1M input tokens, $0.60 per 1M output tokens
+  const inputCost = (inputTokens / 1_000_000) * 0.15
+  const outputCost = (outputTokens / 1_000_000) * 0.60
   const totalCost = inputCost + outputCost
   
   return { tokens: totalTokens, cost: totalCost }
@@ -22,7 +22,7 @@ function estimateTokensAndCost(inputText: string, outputLength: number): { token
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("OK", { headers: corsHeaders });
   }
 
   try {
@@ -86,10 +86,10 @@ serve(async (req) => {
       .select("name, stats, news_feed")
       .in("name", teamNames);
 
-    // Use Lovable AI to generate personalized digest
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY not configured");
+    // Use OpenAI to generate personalized digest
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY not configured");
     }
 
     const aiPrompt = `You are Fluxa, creating a ${period} personalized sports digest for a fan.
@@ -114,14 +114,14 @@ Create a fun, engaging ${period} digest with:
 
 Keep it under 500 words, personality-driven, and exciting!`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "gpt-4o-mini",
         messages: [
           { 
             role: "system", 
@@ -143,8 +143,8 @@ Keep it under 500 words, personality-driven, and exciting!`;
     // Log API usage for cost monitoring
     const usage = estimateTokensAndCost(aiPrompt, digestContent?.length || 0)
     await supabase.from("api_usage_logs").insert({
-      provider: "lovable_ai",
-      endpoint: "gemini-2.5-flash",
+      provider: "openai",
+      endpoint: "gpt-4o-mini",
       tokens_used: usage.tokens,
       estimated_cost: usage.cost,
       user_id: userId

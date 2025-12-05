@@ -10,8 +10,8 @@ const corsHeaders = {
 const CACHE_DURATION_MS = 6 * 60 * 60 * 1000;
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return new Response("OK", { headers: corsHeaders })
   }
 
   try {

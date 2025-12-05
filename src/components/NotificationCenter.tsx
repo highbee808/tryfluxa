@@ -10,6 +10,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeAdminFunction } from "@/lib/invokeAdminFunction";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
@@ -58,14 +59,12 @@ export const NotificationCenter = () => {
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
             try {
-              await supabase.functions.invoke('send-push-notification', {
-                body: {
-                  userId: user.id,
-                  title: newNotification.title,
-                  body: newNotification.message,
-                  url: newNotification.gist_id ? `/post/${newNotification.gist_id}` : '/',
-                  notificationId: newNotification.id
-                }
+              await invokeAdminFunction('send-push-notification', {
+                userId: user.id,
+                title: newNotification.title,
+                body: newNotification.message,
+                url: newNotification.gist_id ? `/post/${newNotification.gist_id}` : '/',
+                notificationId: newNotification.id
               });
             } catch (error) {
               console.error('Error sending push notification:', error);

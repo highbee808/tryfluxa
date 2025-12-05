@@ -2,13 +2,14 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return new Response("OK", { headers: corsHeaders })
   }
 
   // This function can be called by:
@@ -19,26 +20,36 @@ serve(async (req) => {
   try {
     console.log('⚽ Generating sports banter...')
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    // Use SB_SERVICE_ROLE_KEY (Supabase doesn't allow SUPABASE_ prefix in secret names)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const serviceRoleKey = Deno.env.get('SB_SERVICE_ROLE_KEY')
+    
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error('Missing SUPABASE_URL or SB_SERVICE_ROLE_KEY')
+    }
+    
+    const supabase = createClient(supabaseUrl, serviceRoleKey)
 
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiApiKey) {
       throw new Error('OPENAI_API_KEY not configured')
     }
 
-    // Get all users with team preferences
-    const { data: userTeams, error: userError } = await supabase
-      .from('user_teams')
-      .select('*')
+    // Get all users with team preferences from auth.users
+    const { data: usersData, error: userError } = await supabase.auth.admin.listUsers()
 
     if (userError) {
       throw userError
     }
 
-    if (!userTeams || userTeams.length === 0) {
+    // Filter users who have team preferences
+    const usersWithTeams = usersData?.users?.filter(user => {
+      const favoriteTeams = user.user_metadata?.favorite_teams || []
+      const rivalTeams = user.user_metadata?.rival_teams || []
+      return favoriteTeams.length > 0 || rivalTeams.length > 0
+    }) || []
+
+    if (usersWithTeams.length === 0) {
       console.log('No users with team preferences found')
       return new Response(
         JSON.stringify({ success: true, message: 'No users to generate banter for' }),
@@ -68,14 +79,14 @@ serve(async (req) => {
       )
     }
 
-    console.log(`Processing ${matches.length} matches for ${userTeams.length} users`)
+    console.log(`Processing ${matches.length} matches for ${usersWithTeams.length} users`)
 
     let banterGenerated = 0
 
     // For each user, check if any of their teams played
-    for (const user of userTeams) {
-      const favoriteTeams = user.favorite_teams || []
-      const rivalTeams = user.rival_teams || []
+    for (const user of usersWithTeams) {
+      const favoriteTeams = (user.user_metadata?.favorite_teams || []) as string[]
+      const rivalTeams = (user.user_metadata?.rival_teams || []) as string[]
 
       for (const match of matches) {
         let mood = ''
@@ -137,7 +148,7 @@ Style requirements:
 
 Return only the commentary text, nothing else.`
 
-          // Generate banter using OpenAI gpt-4o-mini
+          // Generate banter using OpenAI gpt-4o-mini with Nigerian banter tone
           const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -147,7 +158,7 @@ Return only the commentary text, nothing else.`
             body: JSON.stringify({
               model: 'gpt-4o-mini',
               messages: [
-                { role: 'system', content: 'You are Fluxa, a witty AI sports commentator with a playful personality.' },
+                { role: 'system', content: 'You are Fluxa, a witty AI sports commentator with a playful Nigerian banter personality. Use Nigerian expressions and slang naturally.' },
                 { role: 'user', content: prompt }
               ],
             }),
@@ -170,38 +181,15 @@ Return only the commentary text, nothing else.`
             .from('gists')
             .select('id')
             .eq('topic', headline)
-            .eq('meta->user_id', user.user_id)
+            .eq('meta->user_id', user.id)
             .single()
 
           if (existingGist) {
-            console.log(`Gist already exists for user ${user.user_id} and match ${match.match_id}`)
+            console.log(`Gist already exists for user ${user.id} and match ${match.match_id}`)
             continue
           }
 
-          // Generate Fluxa voice audio using TTS
-          console.log('🎙️ Generating Fluxa audio reaction...')
-          let audioUrl = ''
-          
-          try {
-            const ttsResponse = await supabase.functions.invoke('text-to-speech', {
-              body: { 
-                text: commentary, 
-                voice: 'shimmer',
-                speed: 0.94
-              }
-            })
-
-            if (ttsResponse.data?.audioUrl) {
-              audioUrl = ttsResponse.data.audioUrl
-              console.log('✅ Audio generated:', audioUrl)
-            } else {
-              console.error('TTS error:', ttsResponse.error)
-            }
-          } catch (ttsError) {
-            console.error('Failed to generate TTS:', ttsError)
-          }
-
-          // Insert gist with audio (published if audio generated, draft if not)
+          // Insert gist without audio (audio removed)
           const { error: gistError } = await supabase
             .from('gists')
             .insert({
@@ -210,23 +198,24 @@ Return only the commentary text, nothing else.`
               context: `${match.league} match result`,
               script: script,
               narration: commentary,
-              audio_url: audioUrl,
+              audio_url: '', // Empty string since audio is removed (NOT NULL constraint)
               topic_category: 'Sports Banter',
-              status: audioUrl ? 'published' : 'draft',
+              status: 'published',
               meta: {
-                user_id: user.user_id,
+                user_id: user.id,
                 match_id: match.match_id,
                 mood: mood,
                 team: userTeam,
               },
               news_published_at: match.match_date,
+              created_at: new Date().toISOString(),
             })
 
           if (gistError) {
             console.error('Error creating gist:', gistError)
           } else {
             banterGenerated++
-            console.log(`✅ Generated banter for user ${user.user_id}: ${headline}`)
+            console.log(`✅ Generated banter for user ${user.id}: ${headline}`)
           }
         }
       }

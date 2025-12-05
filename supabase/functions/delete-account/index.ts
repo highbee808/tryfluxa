@@ -2,13 +2,14 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return new Response("OK", { headers: corsHeaders })
   }
 
   try {
@@ -58,7 +59,6 @@ serve(async (req) => {
       { name: 'notifications', table: 'notifications' },
       { name: 'user_interests', table: 'user_interests' },
       { name: 'user_subniches', table: 'user_subniches' },
-      { name: 'user_teams', table: 'user_teams' },
       { name: 'fluxa_memory', table: 'fluxa_memory' },
       { name: 'user_conversations', table: 'user_conversations' },
     ]

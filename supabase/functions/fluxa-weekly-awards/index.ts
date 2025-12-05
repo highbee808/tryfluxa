@@ -46,7 +46,7 @@ async function validateCronSignature(req: Request): Promise<boolean> {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("OK", { headers: corsHeaders });
   }
 
   // Validate HMAC signature for scheduled functions

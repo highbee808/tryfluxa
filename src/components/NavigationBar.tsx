@@ -23,12 +23,17 @@ export const NavigationBar = () => {
         <div className="container mx-auto">
           <div className="frosted-nav flex items-center justify-between gap-6 px-6 py-3">
           {/* Logo */}
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate("/feed")}>
+          <button
+            type="button"
+            aria-label="Go to Fluxa Feed"
+            className="flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-xl"
+            onClick={() => navigate("/feed", { state: undefined })}
+          >
             <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center">
               <FluxaLogo size={20} fillColor="hsl(var(--primary-foreground))" />
             </div>
             <span className="font-bold text-xl">Fluxa</span>
-          </div>
+          </button>
 
           {/* Nav Links */}
           <div className="flex items-center gap-8">

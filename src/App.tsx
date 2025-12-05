@@ -21,6 +21,11 @@ import AdminSponsors from "./pages/AdminSponsors";
 import AnalyticsDashboard from "./pages/AnalyticsDashboard";
 import Analytics from "./pages/Analytics";
 import SportsHub from "./pages/SportsHub";
+import TeamPage from "./pages/TeamPage";
+import Music from "./pages/Music";
+import MusicArtistSelection from "./pages/MusicArtistSelection";
+import ArtistPage from "./pages/ArtistPage";
+import GenrePage from "./pages/GenrePage";
 import Fanbase from "./pages/Fanbase";
 import FanbaseHub from "./pages/FanbaseHub";
 import EntityPage from "./pages/EntityPage";
@@ -28,6 +33,9 @@ import PostDetail from "./pages/PostDetail";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import VoiceHistory from "./pages/VoiceHistory";
+import VibeRoom from "./pages/VibeRoom";
+import VibeRoomsList from "./pages/VibeRoomsList";
+import SpotifyCallback from "./pages/SpotifyCallback";
 import { PushNotificationPrompt } from "./components/PushNotificationPrompt";
 
 const queryClient = new QueryClient();
@@ -54,10 +62,18 @@ const App = () => (
           <Route path="/universe" element={<Universe />} />
           <Route path="/room/:roomId" element={<Room />} />
           <Route path="/sports-hub" element={<SportsHub />} />
+          <Route path="/sports/team/:teamId" element={<TeamPage />} />
+          <Route path="/music" element={<Music />} />
+          <Route path="/music/vibe-rooms" element={<VibeRoomsList />} />
+          <Route path="/music/vibe-room/:roomId" element={<VibeRoom />} />
+          <Route path="/spotify/callback" element={<SpotifyCallback />} />
+          <Route path="/music-artist-selection" element={<MusicArtistSelection />} />
+          <Route path="/music/artist/:artistId" element={<ArtistPage />} />
+          <Route path="/music/genre/:genreId" element={<GenrePage />} />
           <Route path="/fanbase" element={<Fanbase />} />
           <Route path="/fanbase-hub" element={<FanbaseHub />} />
           <Route path="/fanbase/:slug" element={<EntityPage />} />
-          <Route path="/post/:postId" element={<PostDetail />} />
+          <Route path="/post/:source/:id" element={<PostDetail />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/voice-history" element={<VoiceHistory />} />
           <Route path="/admin/sponsors" element={<AdminSponsors />} />

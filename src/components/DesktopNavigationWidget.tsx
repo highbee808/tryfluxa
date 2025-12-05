@@ -3,13 +3,14 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Home, Radio, Trophy, Search, User as UserIcon, Settings, Bookmark } from "lucide-react";
+import { Home, Radio, Trophy, Search, Music, User as UserIcon, Settings, Bookmark } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const navMenuItems = [
   { label: "Feed", icon: Home, path: "/feed" },
   { label: "Fanbase", icon: Radio, path: "/fanbase-hub" },
   { label: "Sports", icon: Trophy, path: "/sports-hub" },
+  { label: "Music", icon: Music, path: "/music" },
   { label: "Explore", icon: Search, path: "/universe" },
 ];
 
@@ -130,7 +131,7 @@ export const DesktopNavigationWidget = () => {
   };
 
   return (
-    <div className="hidden lg:flex flex-col gap-6 sticky top-24 self-start">
+    <div className="hidden lg:flex flex-col gap-6 sticky bottom-6 self-start max-h-[calc(100vh-8rem)] overflow-y-auto scrollbar-hide">
       {/* Profile Summary */}
       <Card className="glass rounded-3xl border-glass-border-light">
         <CardContent className="p-5 flex flex-col gap-4">
@@ -170,7 +171,7 @@ export const DesktopNavigationWidget = () => {
       <Card className="glass-light rounded-3xl border-glass-border-light">
         <CardContent className="p-4 space-y-1">
           {navMenuItems.map(({ label, icon: Icon, path }) => {
-            const isActive = location.pathname === path;
+            const isActive = location.pathname === path || (path === "/music" && location.pathname.startsWith("/music"));
             return (
               <button
                 key={label}

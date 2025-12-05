@@ -1,0 +1,38 @@
+DEPLOY ALL 3 FUNCTIONS - SIMPLE STEPS
+=====================================
+
+The 500 error means generate-gist or text-to-speech aren't deployed.
+
+STEP 1: Deploy generate-gist
+-----------------------------
+1. Supabase Dashboard → Edge Functions
+2. Create function
+3. Name: generate-gist
+4. Copy ALL code from: supabase/functions/generate-gist/index.ts
+5. Paste and Deploy
+
+STEP 2: Deploy text-to-speech
+------------------------------
+1. Create function
+2. Name: text-to-speech
+3. Copy ALL code from: supabase/functions/text-to-speech/index.ts
+4. Paste and Deploy
+
+STEP 3: Redeploy publish-gist
+------------------------------
+1. Find publish-gist function
+2. Edit it
+3. Copy ALL code from: supabase/functions/publish-gist/index.ts
+4. Paste and Deploy
+
+STEP 4: Test
+------------
+1. Wait 30 seconds
+2. Admin panel → Run Full Pipeline Test
+3. Should work now!
+
+If still 500 error:
+- Check function logs in Dashboard
+- Look for specific error message
+- Share the error and I'll fix it
+
