@@ -1,3 +1,4 @@
+console.log("CURSOR SYNC TEST", new Date().toISOString());
 import { useState, useEffect, useRef, useCallback } from "react";
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
