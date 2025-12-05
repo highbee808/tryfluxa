@@ -39,7 +39,24 @@ export async function invokeAdminFunction(functionName: string, payload: Record<
     const responseText = await res.text();
     console.log("📄 Response body:", responseText);
 
-    const json = res.ok ? JSON.parse(responseText) : {};
+    // Safely parse JSON - handle both successful and error responses gracefully
+    let json: any = {};
+    try {
+      json = responseText ? JSON.parse(responseText) : {};
+    } catch (parseError) {
+      console.warn("⚠️ Failed to parse JSON response:", parseError);
+      // If successful response has invalid JSON, treat as error
+      if (res.ok) {
+        return {
+          data: null,
+          error: {
+            message: `Invalid JSON response from Edge Function: ${responseText.substring(0, 100)}`,
+          },
+        };
+      }
+      // For error responses, keep empty json object and use responseText in error message
+    }
+
     if (!res.ok) {
       return { data: null, error: json.error || { message: `Edge Function failed (${res.status}): ${responseText}` } };
     }
