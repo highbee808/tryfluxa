@@ -1,16 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getApiBaseUrl, getSupabaseAnonKey } from "./apiConfig";
 
 export async function invokeAdminFunction(functionName: string, payload: Record<string, any> = {}) {
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim();
-  const PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() || import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
-
-  if (!SUPABASE_URL || !PUBLISHABLE_KEY) {
-    return { data: null, error: { message: "Missing VITE_SUPABASE_URL or VITE_SUPABASE_PUBLISHABLE_KEY" } };
-  }
-
-  const endpoint = `${SUPABASE_URL}/functions/v1/${functionName}`;
-
   try {
+    const apiBase = getApiBaseUrl();
+    const anonKey = getSupabaseAnonKey();
+    const endpoint = `${apiBase}/${functionName}`;
+
+    // Debug logging
+    console.log("🔗 Calling admin function:", endpoint);
+
     // Get the user's JWT token from their session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     const jwtToken = session?.access_token;
@@ -18,14 +17,15 @@ export async function invokeAdminFunction(functionName: string, payload: Record<
     // Build headers with JWT if available, otherwise fall back to anon key
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "apikey": PUBLISHABLE_KEY,
+      "apikey": anonKey,
+      "x-client-info": "fluxa-frontend",
     };
 
     if (jwtToken) {
       headers["Authorization"] = `Bearer ${jwtToken}`;
     } else {
       // Fallback to anon key if no session (shouldn't happen in admin UI, but handle gracefully)
-      headers["Authorization"] = `Bearer ${PUBLISHABLE_KEY}`;
+      headers["Authorization"] = `Bearer ${anonKey}`;
     }
 
     const res = await fetch(endpoint, {
@@ -34,13 +34,19 @@ export async function invokeAdminFunction(functionName: string, payload: Record<
       body: JSON.stringify(payload),
     });
 
-    const json = await res.json().catch(() => ({}));
+    // Debug logging
+    console.log("📡 Response status:", res.status);
+    const responseText = await res.text();
+    console.log("📄 Response body:", responseText);
+
+    const json = res.ok ? JSON.parse(responseText) : {};
     if (!res.ok) {
-      return { data: null, error: json.error || { message: `Edge Function failed (${res.status})` } };
+      return { data: null, error: json.error || { message: `Edge Function failed (${res.status}): ${responseText}` } };
     }
     return { data: json, error: null };
   } catch (e: any) {
-    return { data: null, error: { message: "NetworkError — cannot reach Supabase Edge Functions" } };
+    console.error("❌ Network error:", e);
+    return { data: null, error: { message: `NetworkError — cannot reach Supabase Edge Functions: ${e.message}` } };
   }
 }
 

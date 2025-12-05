@@ -113,7 +113,11 @@ export function getSpotifyLoginUrlWithCallback(): string {
     );
   }
   
-  const frontendUrl = window.location.origin;
+  // Use FRONTEND_URL in production, window.location.origin in dev
+  const frontendUrl = import.meta.env.PROD
+    ? (import.meta.env.VITE_FRONTEND_URL || import.meta.env.FRONTEND_URL || "https://tryfluxa.vercel.app")
+    : window.location.origin;
+  
   const baseUrl = supabaseUrl.replace(/\/$/, "");
   const callbackUrl = `${baseUrl}/functions/v1/spotify-oauth-callback?frontend_redirect_uri=${encodeURIComponent(frontendUrl)}`;
   return `${getSpotifyLoginUrl()}?redirect_uri=${encodeURIComponent(callbackUrl)}`;

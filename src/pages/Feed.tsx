@@ -36,7 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { highlightText } from "@/lib/highlightText";
-import { buildFunctionUrl, functionAuthHeaders } from "@/lib/functionsBase";
+import { getApiBaseUrl, getDefaultHeaders } from "@/lib/apiConfig";
 import { fetchRecentGists, type DbGist } from "@/lib/feedData";
 
 type ContentCategory = "news" | "sports" | "music";
@@ -227,18 +227,12 @@ const Feed = () => {
 
   const fetchCategoryContent = useCallback(
     async (category: ContentCategory) => {
-      const url = buildFunctionUrl("fetch-content", {
-        category,
-        query: DEFAULT_CATEGORY_QUERIES[category],
-        limit: DEFAULT_LIMIT,
-        ttl_minutes: DEFAULT_TTL_MINUTES,
-      });
+      const API_BASE = getApiBaseUrl();
+      const url = `${API_BASE}/fetch-content?category=${category}&query=${DEFAULT_CATEGORY_QUERIES[category]}&limit=${DEFAULT_LIMIT}&ttl_minutes=${DEFAULT_TTL_MINUTES}`;
 
       try {
         const response = await fetch(url, {
-          headers: {
-            ...functionAuthHeaders(),
-          },
+          headers: getDefaultHeaders(),
         });
         if (!response.ok) {
           const errorText = await response.text();

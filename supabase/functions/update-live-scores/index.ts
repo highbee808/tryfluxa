@@ -1,11 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-}
+import { corsHeaders } from "../_shared/http.ts";
 
 interface ScoreChange {
   match_id: string;
@@ -43,29 +38,29 @@ async function notifyUsersOfScoreChange(
       const isRival = rivalTeams.includes(team)
       
       if (!isFavorite && !isRival) continue
-        const homeScore = change.is_home ? change.new_score : (matchInfo.team_home === team ? change.old_score : change.new_score)
-        const awayScore = !change.is_home ? change.new_score : (matchInfo.team_away === team ? change.old_score : change.new_score)
-        const scoreText = `${matchInfo.team_home} ${homeScore ?? 0} - ${awayScore ?? 0} ${matchInfo.team_away}`
-        
-        const message = isFavorite
-          ? `🎯 ${team} just scored! ${scoreText}`
-          : `⚠️ Rival team ${team} scored against ${opponent}! ${scoreText}`
-        
-        const { error: notifError } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: user.id,
-            type: 'score_change',
-            title: isFavorite ? '⚽ Your Team Scored!' : '🚨 Rival Team Update',
-            message,
-            entity_name: team
-          })
-        
-        if (notifError) {
-          console.error('Error creating notification:', notifError)
-        } else {
-          console.log(`Notification sent to user ${user.id} for ${team}`)
-        }
+      
+      const homeScore = change.is_home ? change.new_score : (matchInfo.team_home === team ? change.old_score : change.new_score)
+      const awayScore = !change.is_home ? change.new_score : (matchInfo.team_away === team ? change.old_score : change.new_score)
+      const scoreText = `${matchInfo.team_home} ${homeScore ?? 0} - ${awayScore ?? 0} ${matchInfo.team_away}`
+      
+      const message = isFavorite
+        ? `🎯 ${team} just scored! ${scoreText}`
+        : `⚠️ Rival team ${team} scored against ${opponent}! ${scoreText}`
+      
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: user.id,
+          type: 'score_change',
+          title: isFavorite ? '⚽ Your Team Scored!' : '🚨 Rival Team Update',
+          message,
+          entity_name: team
+        })
+      
+      if (notifError) {
+        console.error('Error creating notification:', notifError)
+      } else {
+        console.log(`Notification sent to user ${user.id} for ${team}`)
       }
     }
   }
@@ -321,31 +316,31 @@ serve(async (req) => {
             })
           }
           
-        // Send notifications if there are score changes
-        if (scoreChanges.length > 0) {
-          await notifyUsersOfScoreChange(supabase, scoreChanges, {
-            team_home: liveMatch.team_home,
-            team_away: liveMatch.team_away,
-            league: liveMatch.league
-          })
-          
-          // Generate live commentary for goals
-          try {
-            await supabase.functions.invoke('generate-live-commentary', {
-              body: {
-                matchId: liveMatch.match_id,
-                homeTeam: liveMatch.team_home,
-                awayTeam: liveMatch.team_away,
-                homeScore: liveMatch.score_home,
-                awayScore: liveMatch.score_away,
-                league: liveMatch.league,
-                eventType: 'goal'
-              }
+          // Send notifications if there are score changes
+          if (scoreChanges.length > 0) {
+            await notifyUsersOfScoreChange(supabase, scoreChanges, {
+              team_home: liveMatch.team_home,
+              team_away: liveMatch.team_away,
+              league: liveMatch.league
             })
-          } catch (commentaryError) {
-            console.error('Failed to generate commentary:', commentaryError)
+            
+            // Generate live commentary for goals
+            try {
+              await supabase.functions.invoke('generate-live-commentary', {
+                body: {
+                  matchId: liveMatch.match_id,
+                  homeTeam: liveMatch.team_home,
+                  awayTeam: liveMatch.team_away,
+                  homeScore: liveMatch.score_home,
+                  awayScore: liveMatch.score_away,
+                  league: liveMatch.league,
+                  eventType: 'goal'
+                }
+              })
+            } catch (commentaryError) {
+              console.error('Failed to generate commentary:', commentaryError)
+            }
           }
-        }
         }
 
         // Find completed matches - support multiple status variations

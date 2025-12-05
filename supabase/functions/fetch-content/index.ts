@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.1";
+import { corsHeaders } from "../_shared/http.ts";
 
 type Category = "news" | "sports" | "music";
 
@@ -15,13 +16,6 @@ interface NormalizedApiItem {
   source?: string | null;
   raw: Record<string, unknown>;
 }
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-cron-secret",
-};
 
 const ALLOWED_CATEGORIES: Category[] = ["news", "sports", "music"];
 const DEFAULT_LIMIT = 20;

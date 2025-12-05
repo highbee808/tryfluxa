@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
+import { corsHeaders } from "../_shared/http.ts";
 import {
   SPOTIFY_CLIENT_ID,
   SPOTIFY_REDIRECT_URI,
@@ -7,7 +8,12 @@ import {
 const SCOPES =
   "user-read-email user-read-private user-read-playback-state user-modify-playback-state";
 
-serve(async () => {
+serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   const state = crypto.randomUUID();
 
   const loginUrl = new URL("https://accounts.spotify.com/authorize");
@@ -21,9 +27,7 @@ serve(async () => {
     status: 307,
     headers: {
       Location: loginUrl.toString(),
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "*",
+      ...corsHeaders,
     },
   });
 });

@@ -1,48 +1,40 @@
 /**
  * Helper for calling Supabase Edge Functions with automatic Authorization header
  * Fixes "401 Missing authorization header" errors
+ * Includes debug logging for production troubleshooting
  */
 
-function getSupabaseUrl(): string {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  if (!url || url.trim() === "") {
-    throw new Error(
-      "❌ Missing VITE_SUPABASE_URL — check your .env.local file. " +
-      "Run 'npm run verify-env' to validate your environment variables."
-    );
-  }
-  return url;
-}
-
-function getAnonKey(): string {
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY || 
-              import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  
-  if (!key || key.trim() === "") {
-    throw new Error(
-      "❌ Missing VITE_SUPABASE_ANON_KEY — check your .env.local file. " +
-      "Run 'npm run verify-env' to validate your environment variables."
-    );
-  }
-  return key;
-}
+import { getApiBaseUrl, getSupabaseAnonKey } from "./apiConfig";
 
 export async function callSupabaseFunction(path: string, body: any = {}) {
-  const supabaseUrl = getSupabaseUrl();
-  const anonKey = getAnonKey();
+  const apiBase = getApiBaseUrl();
+  const anonKey = getSupabaseAnonKey();
+  const functionUrl = `${apiBase}/${path}`;
 
-  // Ensure URL doesn't have trailing slash
-  const baseUrl = supabaseUrl.replace(/\/$/, "");
-  const functionUrl = `${baseUrl}/functions/v1/${path}`;
+  // Debug logging
+  if (import.meta.env.DEV) {
+    console.log("🔗 Calling Supabase Function:", functionUrl);
+  }
 
   const response = await fetch(functionUrl, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${anonKey}`,
       "Content-Type": "application/json",
+      apikey: anonKey,
+      "x-client-info": "fluxa-frontend",
     },
     body: JSON.stringify(body),
   });
+
+  // Debug logging
+  if (import.meta.env.DEV) {
+    console.log("📡 Response status:", response.status);
+    if (!response.ok) {
+      const errorText = await response.clone().text();
+      console.error("❌ Response error:", errorText);
+    }
+  }
 
   return response;
 }

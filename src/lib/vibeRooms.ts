@@ -3,6 +3,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import { getApiBaseUrl, getDefaultHeaders } from "./apiConfig";
 import type {
   VibeRoom,
   CreateRoomRequest,
@@ -11,29 +12,19 @@ import type {
   UpdateTrackStateRequest,
 } from "@/types/vibeRooms";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
 /**
  * Create a new vibe room
  */
 export async function createVibeRoom(data: CreateRoomRequest): Promise<VibeRoom> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw new Error("Missing Supabase configuration");
-  }
-
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error("User not authenticated");
   }
 
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/vibe-room/create`, {
+  const apiBase = getApiBaseUrl();
+  const response = await fetch(`${apiBase}/vibe-room/create`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      apikey: SUPABASE_ANON_KEY,
-    },
+    headers: getDefaultHeaders(),
     body: JSON.stringify(data),
   });
 
@@ -50,22 +41,15 @@ export async function createVibeRoom(data: CreateRoomRequest): Promise<VibeRoom>
  * Join a vibe room
  */
 export async function joinVibeRoom(data: JoinRoomRequest): Promise<void> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw new Error("Missing Supabase configuration");
-  }
-
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error("User not authenticated");
   }
 
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/vibe-room/join`, {
+  const apiBase = getApiBaseUrl();
+  const response = await fetch(`${apiBase}/vibe-room/join`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      apikey: SUPABASE_ANON_KEY,
-    },
+    headers: getDefaultHeaders(),
     body: JSON.stringify(data),
   });
 
@@ -79,22 +63,15 @@ export async function joinVibeRoom(data: JoinRoomRequest): Promise<void> {
  * Leave a vibe room
  */
 export async function leaveVibeRoom(data: LeaveRoomRequest): Promise<void> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw new Error("Missing Supabase configuration");
-  }
-
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error("User not authenticated");
   }
 
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/vibe-room/leave`, {
+  const apiBase = getApiBaseUrl();
+  const response = await fetch(`${apiBase}/vibe-room/leave`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      apikey: SUPABASE_ANON_KEY,
-    },
+    headers: getDefaultHeaders(),
     body: JSON.stringify(data),
   });
 
@@ -108,22 +85,15 @@ export async function leaveVibeRoom(data: LeaveRoomRequest): Promise<void> {
  * Update track state (host only)
  */
 export async function updateTrackState(data: UpdateTrackStateRequest): Promise<void> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw new Error("Missing Supabase configuration");
-  }
-
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error("User not authenticated");
   }
 
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/vibe-room/update-track-state`, {
+  const apiBase = getApiBaseUrl();
+  const response = await fetch(`${apiBase}/vibe-room/update-track-state`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      apikey: SUPABASE_ANON_KEY,
-    },
+    headers: getDefaultHeaders(),
     body: JSON.stringify(data),
   });
 
@@ -137,17 +107,10 @@ export async function updateTrackState(data: UpdateTrackStateRequest): Promise<v
  * List public rooms
  */
 export async function listPublicRooms(): Promise<VibeRoom[]> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw new Error("Missing Supabase configuration");
-  }
-
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/vibe-room/list`, {
+  const apiBase = getApiBaseUrl();
+  const response = await fetch(`${apiBase}/vibe-room/list`, {
     method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      apikey: SUPABASE_ANON_KEY,
-    },
+    headers: getDefaultHeaders(),
   });
 
   if (!response.ok) {
@@ -163,17 +126,10 @@ export async function listPublicRooms(): Promise<VibeRoom[]> {
  * Get room details
  */
 export async function getRoomDetails(roomId: string): Promise<VibeRoom> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    throw new Error("Missing Supabase configuration");
-  }
-
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/vibe-room/room/${roomId}`, {
+  const apiBase = getApiBaseUrl();
+  const response = await fetch(`${apiBase}/vibe-room/room/${roomId}`, {
     method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      apikey: SUPABASE_ANON_KEY,
-    },
+    headers: getDefaultHeaders(),
   });
 
   if (!response.ok) {
