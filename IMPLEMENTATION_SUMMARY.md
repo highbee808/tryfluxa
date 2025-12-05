@@ -141,6 +141,14 @@ Comprehensive test script that:
 - ✅ Provides detailed error reporting
 
 **Usage:**
+
+**Windows PowerShell:**
+```powershell
+$env:VITE_SUPABASE_URL="https://your-project.supabase.co"
+.\test-connection.ps1
+```
+
+**Linux/Mac (Bash):**
 ```bash
 export VITE_SUPABASE_URL=https://your-project.supabase.co
 node test-connection.js
