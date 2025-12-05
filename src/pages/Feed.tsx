@@ -229,7 +229,14 @@ const Feed = () => {
   const fetchCategoryContent = useCallback(
     async (category: ContentCategory) => {
       const API_BASE = getApiBaseUrl();
-      const url = `${API_BASE}/fetch-content?category=${category}&query=${DEFAULT_CATEGORY_QUERIES[category]}&limit=${DEFAULT_LIMIT}&ttl_minutes=${DEFAULT_TTL_MINUTES}`;
+      
+      // Use URL and URLSearchParams to properly encode query parameters
+      const urlObj = new URL(`${API_BASE}/fetch-content`);
+      urlObj.searchParams.set("category", category);
+      urlObj.searchParams.set("query", DEFAULT_CATEGORY_QUERIES[category]);
+      urlObj.searchParams.set("limit", String(DEFAULT_LIMIT));
+      urlObj.searchParams.set("ttl_minutes", String(DEFAULT_TTL_MINUTES));
+      const url = urlObj.toString();
 
       try {
         const response = await fetch(url, {
