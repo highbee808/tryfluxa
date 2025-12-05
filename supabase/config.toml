@@ -1,5 +1,5 @@
-# project_id removed - using standalone Supabase project
-# Set your project reference via environment variables or Supabase CLI
+# Project reference for Supabase project
+project_id = "vzjyclgrqoyxbbzplkgw"
 
 [edge_runtime]
 policy = "per_worker"

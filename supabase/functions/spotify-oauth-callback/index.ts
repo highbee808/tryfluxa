@@ -4,13 +4,14 @@ import {
   SPOTIFY_CLIENT_ID,
   SPOTIFY_CLIENT_SECRET,
   SPOTIFY_REDIRECT_URI,
+  SPOTIFY_FRONTEND_CALLBACK_URL,
   FRONTEND_URL,
 } from "../_shared/env.ts";
 
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response("OK", { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -59,8 +60,8 @@ serve(async (req) => {
       );
     }
 
-    // Redirect back to Fluxa app with tokens
-    const appUrl = new URL(`${FRONTEND_URL}/spotify/callback`);
+    // Redirect back to Fluxa frontend with tokens
+    const appUrl = new URL(SPOTIFY_FRONTEND_CALLBACK_URL);
     appUrl.searchParams.set("access_token", tokenData.access_token);
     if (tokenData.refresh_token)
       appUrl.searchParams.set("refresh_token", tokenData.refresh_token);

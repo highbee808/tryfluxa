@@ -1,10 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
+import { corsHeaders, createResponse } from "../_shared/http.ts";
 
 /* -------------------------------------------------
    Spotify Authentication
@@ -71,7 +66,7 @@ async function searchSpotifyArtists(query: string, token: string): Promise<any[]
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("OK", { headers: cors });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -86,10 +81,7 @@ serve(async (req) => {
     }
 
     if (!query || query.trim().length < 2) {
-      return new Response(
-        JSON.stringify({ results: [] }),
-        { headers: { ...cors, "Content-Type": "application/json" }, status: 200 }
-      );
+      return createResponse({ results: [] }, 200);
     }
 
     console.log("[music-search] Searching for:", query);
@@ -97,10 +89,7 @@ serve(async (req) => {
     // Get Spotify token
     const token = await getSpotifyToken();
     if (!token) {
-      return new Response(
-        JSON.stringify({ results: [] }),
-        { headers: { ...cors, "Content-Type": "application/json" }, status: 200 }
-      );
+      return createResponse({ results: [] }, 200);
     }
 
     // Search Spotify
@@ -118,17 +107,14 @@ serve(async (req) => {
 
     console.log("[music-search] Returning", results.length, "results");
 
-    return new Response(
-      JSON.stringify({ results }),
-      { headers: { ...cors, "Content-Type": "application/json" }, status: 200 }
-    );
+    return createResponse({ results }, 200);
 
   } catch (err) {
     console.error("[music-search] Error:", err);
-    return new Response(
-      JSON.stringify({ results: [], error: err instanceof Error ? err.message : "Unknown error" }),
-      { headers: { ...cors, "Content-Type": "application/json" }, status: 200 }
-    );
+    return createResponse({ 
+      results: [], 
+      error: err instanceof Error ? err.message : "Unknown error" 
+    }, 200);
   }
 });
 

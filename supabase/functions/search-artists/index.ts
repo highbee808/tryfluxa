@@ -1,32 +1,25 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders, createResponse } from "../_shared/http.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("OK", { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { query } = await req.json();
+    // Support both GET (query params) and POST (body)
+    let query: string | null = null;
+    
+    if (req.method === "GET") {
+      const url = new URL(req.url);
+      query = url.searchParams.get("q") || url.searchParams.get("query");
+    } else {
+      const body = await req.json().catch(() => ({}));
+      query = body.query || body.q || null;
+    }
 
     if (!query || !query.trim()) {
-      return new Response(
-        JSON.stringify({ artists: [] }),
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          },
-        }
-      );
+      return createResponse({ artists: [] }, 200);
     }
 
     console.log('🔍 Searching Last.fm for:', query);
@@ -37,18 +30,7 @@ serve(async (req) => {
     
     if (!LASTFM_API_KEY) {
       console.error('Last.fm API key not configured');
-      return new Response(
-        JSON.stringify({ error: 'Last.fm API key not configured', artists: [] }),
-        { 
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          },
-        }
-      );
+      return createResponse({ error: 'Last.fm API key not configured', artists: [] }, 200);
     }
 
     // Timeout wrapper for Last.fm API calls
@@ -73,54 +55,21 @@ serve(async (req) => {
     
     if (!response.ok) {
       console.error('Last.fm API error:', response.status, response.statusText);
-      return new Response(
-        JSON.stringify({ error: 'Last.fm API error', artists: [] }),
-        { 
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          },
-        }
-      );
+      return createResponse({ error: 'Last.fm API error', artists: [] }, 200);
     }
 
     const data = await response.json();
     
     if (data.error) {
       console.error('Last.fm API returned error:', data.message);
-      return new Response(
-        JSON.stringify({ error: data.message, artists: [] }),
-        { 
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          },
-        }
-      );
+      return createResponse({ error: data.message, artists: [] }, 200);
     }
 
     // Parse Last.fm response
     const artists = data.results?.artistmatches?.artist || [];
     
     if (!Array.isArray(artists)) {
-      return new Response(
-        JSON.stringify({ artists: [] }),
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          },
-        }
-      );
+      return createResponse({ artists: [] }, 200);
     }
 
     // Map Last.fm results to clean format
@@ -151,36 +100,14 @@ serve(async (req) => {
 
     console.log(`✅ Found ${mappedArtists.length} artists from Last.fm`);
 
-    return new Response(
-      JSON.stringify({ artists: mappedArtists }),
-      {
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        },
-      }
-    );
+    return createResponse({ artists: mappedArtists }, 200);
 
   } catch (error) {
     console.error('Error in search-artists:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        artists: [] 
-      }),
-      { 
-        status: 200,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        },
-      }
-    );
+    return createResponse({ 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      artists: [] 
+    }, 200);
   }
 });
 

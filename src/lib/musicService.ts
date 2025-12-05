@@ -1180,7 +1180,7 @@ export async function searchArtistsSpotify(query: string): Promise<ArtistSearchR
       return [];
     }
 
-    const url = `${SUPABASE_URL}/functions/v1/music-search?q=${encodeURIComponent(trimmed)}`;
+    const url = `${SUPABASE_URL}/functions/v1/search-artists?q=${encodeURIComponent(trimmed)}`;
     const response = await fetch(url, {
       method: "GET",
       headers: {
@@ -1191,12 +1191,18 @@ export async function searchArtistsSpotify(query: string): Promise<ArtistSearchR
     });
 
     if (!response.ok) {
+      // Handle 401 - token refresh needed
+      if (response.status === 401) {
+        console.warn("[searchArtistsSpotify] 401 Unauthorized - token may be expired");
+        // Note: search-artists doesn't require Spotify auth, so this shouldn't happen
+        // But we handle it gracefully
+      }
       console.error("[searchArtistsSpotify] API error:", response.status);
       return [];
     }
 
     const data = await response.json();
-    const results = (data.results || []) as ArtistSearchResult[];
+    const results = (data.artists || []) as ArtistSearchResult[];
     console.log("[Search] suggestions:", results);
     return results;
   } catch (err) {

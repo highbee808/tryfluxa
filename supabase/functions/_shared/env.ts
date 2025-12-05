@@ -59,8 +59,19 @@ export const SPOTIFY_CLIENT_ID =
 export const SPOTIFY_CLIENT_SECRET = Deno.env.get("SPOTIFY_CLIENT_SECRET");
 
 export const FRONTEND_URL =
-  Deno.env.get("FRONTEND_URL") ?? "https://tryfluxa.vercel.app";
+  Deno.env.get("FRONTEND_URL") ?? Deno.env.get("VITE_FRONTEND_URL") ?? "https://tryfluxa.vercel.app";
 
+// Spotify OAuth redirect URI - this is what gets registered in Spotify Dashboard
+// It points to the Edge Function that handles the OAuth callback
 export const SPOTIFY_REDIRECT_URI =
   Deno.env.get("SPOTIFY_REDIRECT_URI") ??
-  `${FRONTEND_URL}/spotify/callback`;
+  (() => {
+    const supabaseUrl = Deno.env.get("VITE_SUPABASE_URL") || Deno.env.get("SUPABASE_URL") || "https://vzjyclgrqoyxbbzplkgw.supabase.co";
+    return `${supabaseUrl}/functions/v1/spotify-oauth-callback`;
+  })();
+
+// Frontend callback URL (where user is redirected after OAuth completes)
+// Default to /api/spotify/callback but fallback to /spotify/callback for backward compatibility
+export const SPOTIFY_FRONTEND_CALLBACK_URL =
+  Deno.env.get("SPOTIFY_FRONTEND_CALLBACK_URL") ??
+  `${FRONTEND_URL}/api/spotify/callback`;
