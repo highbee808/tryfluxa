@@ -231,11 +231,16 @@ const Feed = () => {
       const API_BASE = getApiBaseUrl();
       
       // Use URL and URLSearchParams to properly encode query parameters
-      const urlObj = new URL(`${API_BASE}/fetch-content`);
+      // Ensure base URL doesn't have trailing slash to avoid double slashes
+      const baseUrl = API_BASE.replace(/\/$/, "");
+      const urlObj = new URL(`${baseUrl}/fetch-content`);
+      
+      // All query parameters are automatically URL-encoded by URLSearchParams
       urlObj.searchParams.set("category", category);
       urlObj.searchParams.set("query", DEFAULT_CATEGORY_QUERIES[category]);
       urlObj.searchParams.set("limit", String(DEFAULT_LIMIT));
       urlObj.searchParams.set("ttl_minutes", String(DEFAULT_TTL_MINUTES));
+      
       const url = urlObj.toString();
 
       try {
