@@ -4,6 +4,7 @@ import { isSpotifyConnected, disconnectSpotify } from "@/lib/spotifyAuth";
 import { Music, Check, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
+import { getApiBaseUrl } from "@/lib/apiConfig";
 
 interface SpotifyLoginButtonProps {
   variant?: "default" | "outline" | "ghost";
@@ -28,8 +29,9 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
   }, []);
 
   const handleConnect = () => {
-    window.location.href =
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/spotify-oauth-login`;
+    // Use centralized API helper for consistent URL construction
+    const apiBase = getApiBaseUrl();
+    window.location.href = `${apiBase}/spotify-oauth-login`;
   };
 
   const handleDisconnect = () => {

@@ -42,10 +42,12 @@ npx supabase functions deploy music-trending --project-ref vzjyclgrqoyxbbzplkgw
 npx supabase functions deploy music-trending-searches --project-ref vzjyclgrqoyxbbzplkgw
 ```
 
-**Option C: Deploy all functions at once**
-```bash
-npx supabase functions deploy --project-ref vzjyclgrqoyxbbzplkgw --all
+**Option C: Use the deployment script (deploys all functions)**
+```powershell
+.\scripts\deploy-spotify-functions.ps1
 ```
+
+**Note:** Supabase CLI doesn't support `--all` flag. Functions must be deployed individually or using a script.
 
 ### 4. Verify Deployment
 

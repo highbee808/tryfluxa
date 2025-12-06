@@ -4,6 +4,7 @@
  */
 
 import { supabase } from "@/integrations/supabase/client";
+import { getApiBaseUrl, getDefaultHeaders } from "./apiConfig";
 
 // Music API Provider Configuration
 const MUSIC_API_PROVIDER = import.meta.env.VITE_MUSIC_API_PROVIDER || 'lastfm';
@@ -1172,22 +1173,17 @@ export async function searchArtistsSpotify(query: string): Promise<ArtistSearchR
   console.log("[Search] query:", trimmed);
 
   try {
-    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-    const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-      console.warn("[searchArtistsSpotify] Missing Supabase credentials");
-      return [];
-    }
-
-    const url = `${SUPABASE_URL}/functions/v1/search-artists?q=${encodeURIComponent(trimmed)}`;
+    // Use centralized API helpers for consistent URL construction and proper encoding
+    const API_BASE = getApiBaseUrl();
+    
+    // Use URL and URLSearchParams to properly encode query parameters
+    const urlObj = new URL(`${API_BASE}/search-artists`);
+    urlObj.searchParams.set("q", trimmed);
+    const url = urlObj.toString();
+    
     const response = await fetch(url, {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
-        "apikey": SUPABASE_PUBLISHABLE_KEY,
-      },
+      headers: getDefaultHeaders(),
     });
 
     if (!response.ok) {
