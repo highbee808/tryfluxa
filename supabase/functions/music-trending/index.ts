@@ -139,9 +139,9 @@ async function fetchWithTimeout(url: string, ms = 4500): Promise<Response> {
 }
 
 async function getSpotifyToken(): Promise<string | null> {
-  const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID") ?? Deno.env.get("SPOTIFY_CLIENT_ID");
-  const clientSecret = Deno.env.get("SPOTIFY_CLIENT_SECRET");
-  const authUrl = Deno.env.get("SPOTIFY_AUTH_URL") || "https://accounts.spotify.com/api/token";
+  const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
+  const clientSecret = Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET");
+  const authUrl = "https://accounts.spotify.com/api/token";
 
   if (!clientId || !clientSecret) {
     console.log("[music-trending] ⚠️ Spotify credentials not found");
@@ -168,7 +168,7 @@ async function getSpotifyToken(): Promise<string | null> {
 }
 
 async function fetchSpotifyTrending(token: string): Promise<MusicItem[]> {
-  const base = Deno.env.get("SPOTIFY_API_BASE") || "https://api.spotify.com/v1";
+  const base = Deno.env.get("VITE_SPOTIFY_API_BASE") || "https://api.spotify.com/v1";
   // Fetch global top tracks
   const url = `${base}/playlists/37i9dQZEVXbMDoHDwVN2tF/tracks?limit=20`; // Global Top 50
 

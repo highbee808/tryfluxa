@@ -11,13 +11,17 @@ const cors = {
 -------------------------------------------------- */
 
 async function getSpotifyAccessToken() {
-  const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID") ?? Deno.env.get("SPOTIFY_CLIENT_ID")!;
-  const clientSecret = Deno.env.get("SPOTIFY_CLIENT_SECRET")!;
-  const authUrl = Deno.env.get("SPOTIFY_AUTH_URL") || "https://accounts.spotify.com/api/token";
+  const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
+  const clientSecret = Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET");
+
+  if (!clientId || !clientSecret) {
+    console.error("[artist-profile] Missing VITE_SPOTIFY_CLIENT_ID or VITE_SPOTIFY_CLIENT_SECRET");
+    return null;
+  }
 
   const authHeader = btoa(`${clientId}:${clientSecret}`);
 
-  const res = await fetch(authUrl, {
+  const res = await fetch("https://accounts.spotify.com/api/token", {
     method: "POST",
     headers: {
       "Authorization": `Basic ${authHeader}`,
@@ -40,7 +44,7 @@ async function getSpotifyAccessToken() {
 -------------------------------------------------- */
 
 async function spotifyGET(path: string, token: string) {
-  const base = Deno.env.get("SPOTIFY_API_BASE") || "https://api.spotify.com/v1";
+  const base = Deno.env.get("VITE_SPOTIFY_API_BASE") || "https://api.spotify.com/v1";
   const url = `${base}${path}`;
 
   const res = await fetch(url, {

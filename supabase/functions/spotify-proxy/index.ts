@@ -6,8 +6,8 @@ const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-const clientId = Deno.env.get("SPOTIFY_CLIENT_ID");
-const clientSecret = Deno.env.get("SPOTIFY_CLIENT_SECRET");
+const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
+const clientSecret = Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET");
 
 // Simple in-memory token cache per function instance
 let cachedToken: string | null = null;
@@ -21,7 +21,7 @@ async function getAccessToken(): Promise<string> {
   }
 
   if (!clientId || !clientSecret) {
-    console.error("Missing SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET");
+    console.error("Missing VITE_SPOTIFY_CLIENT_ID or VITE_SPOTIFY_CLIENT_SECRET");
     throw new Error("spotify_env_missing");
   }
 

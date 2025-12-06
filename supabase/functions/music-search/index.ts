@@ -6,9 +6,9 @@ import { corsHeaders, createResponse } from "../_shared/http.ts";
 -------------------------------------------------- */
 
 async function getSpotifyToken(): Promise<string | null> {
-  const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID") ?? Deno.env.get("SPOTIFY_CLIENT_ID");
-  const clientSecret = Deno.env.get("SPOTIFY_CLIENT_SECRET");
-  const authUrl = Deno.env.get("SPOTIFY_AUTH_URL") || "https://accounts.spotify.com/api/token";
+  const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
+  const clientSecret = Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET");
+  const authUrl = "https://accounts.spotify.com/api/token";
 
   if (!clientId || !clientSecret) {
     console.log("[music-search] ⚠️ Spotify credentials not found");
@@ -39,7 +39,7 @@ async function getSpotifyToken(): Promise<string | null> {
 -------------------------------------------------- */
 
 async function searchSpotifyArtists(query: string, token: string): Promise<any[]> {
-  const base = Deno.env.get("SPOTIFY_API_BASE") || "https://api.spotify.com/v1";
+  const base = Deno.env.get("VITE_SPOTIFY_API_BASE") || "https://api.spotify.com/v1";
   const url = `${base}/search?q=${encodeURIComponent(query)}&type=artist&limit=10`;
 
   try {

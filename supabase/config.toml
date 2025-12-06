@@ -134,3 +134,6 @@ verify_jwt = false
 
 [functions.spotify-proxy]
 verify_jwt = false
+
+[functions.spotify-token]
+verify_jwt = false
