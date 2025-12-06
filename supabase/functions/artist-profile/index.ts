@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { env, ensureSpotifyEnv } from "../_shared/env.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -11,8 +12,8 @@ const cors = {
 -------------------------------------------------- */
 
 async function getSpotifyAccessToken() {
-  const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
-  const clientSecret = Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET");
+  const clientId = env.SPOTIFY_CLIENT_ID;
+  const clientSecret = env.SPOTIFY_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
     console.error("[artist-profile] Missing VITE_SPOTIFY_CLIENT_ID or VITE_SPOTIFY_CLIENT_SECRET");
@@ -44,7 +45,7 @@ async function getSpotifyAccessToken() {
 -------------------------------------------------- */
 
 async function spotifyGET(path: string, token: string) {
-  const base = Deno.env.get("VITE_SPOTIFY_API_BASE") || "https://api.spotify.com/v1";
+  const base = env.SPOTIFY_API_BASE;
   const url = `${base}${path}`;
 
   const res = await fetch(url, {
@@ -82,6 +83,17 @@ serve(async (req) => {
   }
 
   try {
+    // Ensure Spotify env vars are present (no Supabase requirement)
+    ensureSpotifyEnv();
+
+    // Debug log to verify env vars without exposing secrets
+    console.log("[artist-profile] env flags", {
+      hasSpotifyClientId: !!env.SPOTIFY_CLIENT_ID,
+      hasSpotifySecret: !!env.SPOTIFY_CLIENT_SECRET,
+      hasSpotifyApiBase: !!env.SPOTIFY_API_BASE,
+      hasSupabaseUrl: !!env.SUPABASE_URL,
+    });
+
     // Support both GET (query param) and POST (body) for compatibility
     let slug: string | null = null;
     
@@ -164,7 +176,7 @@ serve(async (req) => {
 
     // Optionally fetch Last.fm for bio (if needed)
     let bio = null;
-    const LASTFM_KEY = Deno.env.get("LASTFM_API_KEY") || Deno.env.get("LAST_FM_API_KEY");
+    const LASTFM_KEY = env.LASTFM_API_KEY;
     if (LASTFM_KEY) {
       try {
         const lastfmUrl = `https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist=${encodeURIComponent(artist.name)}&api_key=${LASTFM_KEY}&format=json`;

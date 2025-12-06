@@ -26,6 +26,8 @@ supabase functions deploy spotify-oauth-login
 supabase functions deploy spotify-oauth-callback
 supabase functions deploy spotify-proxy
 supabase functions deploy artist-profile
+supabase functions deploy log-artist-search
+supabase functions deploy music-trending-searches
 ```
 
 ## Vercel Environment Variables
