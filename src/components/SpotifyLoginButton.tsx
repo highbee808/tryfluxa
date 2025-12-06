@@ -28,10 +28,20 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
     setConnected(isSpotifyConnected());
   }, []);
 
-  const handleConnect = () => {
-    // Use centralized API helper for consistent URL construction
-    const apiBase = getApiBaseUrl();
-    window.location.href = `${apiBase}/spotify-oauth-login`;
+  const handleConnect = async () => {
+    try {
+      // Use PKCE flow for secure OAuth
+      const { getSpotifyLoginUrlWithPKCE } = await import("@/lib/spotifyAuth");
+      const loginUrl = await getSpotifyLoginUrlWithPKCE();
+      window.location.href = loginUrl;
+    } catch (error) {
+      console.error("Failed to generate Spotify login URL:", error);
+      toast({
+        title: "Connection Error",
+        description: error instanceof Error ? error.message : "Failed to connect to Spotify",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDisconnect = () => {

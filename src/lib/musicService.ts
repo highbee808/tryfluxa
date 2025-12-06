@@ -177,8 +177,16 @@ export async function fetchArtistProfile(artistId: string): Promise<Artist | nul
       body: JSON.stringify({ artist: artistId }),
     });
 
+    // Handle 401 - missing environment variables
+    if (response.status === 401) {
+      console.error('[fetchArtistProfile] 401 Unauthorized - Missing Supabase credentials');
+      console.error('[fetchArtistProfile] Required env vars: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY');
+      return null;
+    }
+
     if (!response.ok) {
-      console.error(`[fetchArtistProfile] Edge Function failed: ${response.status}`);
+      const errorText = await response.text().catch(() => 'Unknown error');
+      console.error(`[fetchArtistProfile] Edge Function failed: ${response.status}`, errorText);
       return null;
     }
 
@@ -315,8 +323,16 @@ async function fetchLastFmArtistInfo(artistName: string): Promise<any> {
       4500
     );
     
+    // Handle 401 - missing environment variables
+    if (response.status === 401) {
+      console.error('[fetchLastFmArtistInfo] 401 Unauthorized - Missing Supabase credentials');
+      console.error('[fetchLastFmArtistInfo] Required env vars: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY');
+      return null;
+    }
+    
     if (!response.ok) {
-      console.warn(`[fetchLastFmArtistInfo] HTTP ${response.status}`);
+      const errorText = await response.text().catch(() => 'Unknown error');
+      console.warn(`[fetchLastFmArtistInfo] HTTP ${response.status}`, errorText);
       return null;
     }
 
@@ -446,8 +462,16 @@ async function fetchLastFmTopAlbums(artistName: string, limit = 6): Promise<Albu
       4500
     );
     
+    // Handle 401 - missing environment variables
+    if (response.status === 401) {
+      console.error('[fetchLastFmTopAlbums] 401 Unauthorized - Missing Supabase credentials');
+      console.error('[fetchLastFmTopAlbums] Required env vars: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY');
+      return [];
+    }
+    
     if (!response.ok) {
-      console.warn(`[fetchLastFmTopAlbums] HTTP ${response.status}`);
+      const errorText = await response.text().catch(() => 'Unknown error');
+      console.warn(`[fetchLastFmTopAlbums] HTTP ${response.status}`, errorText);
       return [];
     }
 
@@ -520,8 +544,16 @@ async function fetchLastFmSimilarArtists(artistName: string, limit = 5): Promise
       4500
     );
     
+    // Handle 401 - missing environment variables
+    if (response.status === 401) {
+      console.error('[fetchLastFmSimilarArtists] 401 Unauthorized - Missing Supabase credentials');
+      console.error('[fetchLastFmSimilarArtists] Required env vars: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY');
+      return [];
+    }
+    
     if (!response.ok) {
-      console.warn(`[fetchLastFmSimilarArtists] HTTP ${response.status}`);
+      const errorText = await response.text().catch(() => 'Unknown error');
+      console.warn(`[fetchLastFmSimilarArtists] HTTP ${response.status}`, errorText);
       return [];
     }
 

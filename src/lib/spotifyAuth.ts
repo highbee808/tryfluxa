@@ -1,9 +1,15 @@
 /**
  * Spotify Authentication Utilities
- * Helper functions for Spotify OAuth flow
+ * Helper functions for Spotify OAuth flow with PKCE
  */
 
 import { getFrontendUrl } from "./apiConfig";
+import {
+  generateCodeVerifier,
+  generateCodeChallenge,
+  storeCodeVerifier,
+  clearCodeVerifier,
+} from "./pkce";
 
 /**
  * Get Spotify access token (with auto-refresh)
@@ -87,7 +93,73 @@ export function isSpotifyConnected(): boolean {
 }
 
 /**
+ * Get Spotify redirect URI based on environment
+ */
+export function getSpotifyRedirectUri(): string {
+  const isProduction = import.meta.env.PROD;
+  
+  if (isProduction) {
+    // Production: use VITE_SPOTIFY_REDIRECT_URI or default to Vercel URL
+    const redirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI;
+    if (redirectUri) {
+      // Protective guard: warn if redirect_uri doesn't match Vercel domain in production
+      if (!redirectUri.includes('tryfluxa.vercel.app')) {
+        console.warn(
+          '[Spotify OAuth] Production redirect_uri does not match Vercel domain:',
+          redirectUri
+        );
+      }
+      return redirectUri;
+    }
+    return 'https://tryfluxa.vercel.app/spotify/callback';
+  } else {
+    // Development: use localhost
+    return 'http://localhost:5173/spotify/callback';
+  }
+}
+
+/**
+ * Generate PKCE flow and return login URL
+ */
+export async function getSpotifyLoginUrlWithPKCE(): Promise<string> {
+  // Validate required environment variables
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  if (!supabaseUrl) {
+    throw new Error(
+      "Missing VITE_SUPABASE_URL — check your .env.local file. " +
+      "Run 'npm run verify-env' to validate your environment variables."
+    );
+  }
+
+  const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
+  if (!clientId) {
+    throw new Error(
+      "Missing VITE_SPOTIFY_CLIENT_ID — check your .env.local file."
+    );
+  }
+
+  // Generate PKCE code verifier and challenge
+  const codeVerifier = generateCodeVerifier();
+  const codeChallenge = await generateCodeChallenge(codeVerifier);
+  
+  // Store code verifier in sessionStorage
+  storeCodeVerifier(codeVerifier);
+
+  // Build login URL with PKCE parameters
+  const redirectUri = getSpotifyRedirectUri();
+  const baseUrl = supabaseUrl.replace(/\/$/, "");
+  const loginUrl = new URL(`${baseUrl}/functions/v1/spotify-oauth-login`);
+  
+  loginUrl.searchParams.set('redirect_uri', redirectUri);
+  loginUrl.searchParams.set('code_challenge', codeChallenge);
+  loginUrl.searchParams.set('code_challenge_method', 'S256');
+
+  return loginUrl.toString();
+}
+
+/**
  * Get Spotify login URL constant - Constructed from environment variables
+ * @deprecated Use getSpotifyLoginUrlWithPKCE() instead
  */
 export function getSpotifyLoginUrl(): string {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -105,6 +177,7 @@ export function getSpotifyLoginUrl(): string {
 
 /**
  * Get Spotify login URL with proper callback redirect
+ * @deprecated Use getSpotifyLoginUrlWithPKCE() instead
  */
 export function getSpotifyLoginUrlWithCallback(): string {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -132,4 +205,5 @@ export function disconnectSpotify(): void {
   localStorage.removeItem("spotify_refresh_token");
   localStorage.removeItem("spotify_expires_in");
   localStorage.removeItem("spotify_token_timestamp");
+  clearCodeVerifier();
 }
