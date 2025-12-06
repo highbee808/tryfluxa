@@ -1,12 +1,5 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { corsHeaders } from "../_shared/http.ts";
-import {
-  SPOTIFY_CLIENT_ID,
-  SPOTIFY_CLIENT_SECRET,
-  SPOTIFY_REDIRECT_URI,
-  SPOTIFY_FRONTEND_CALLBACK_URL,
-  FRONTEND_URL,
-} from "../_shared/env.ts";
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -26,7 +19,17 @@ serve(async (req) => {
       );
     }
 
-    if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
+    const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
+    const clientSecret = Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET");
+    const redirectUri = Deno.env.get("VITE_SPOTIFY_REDIRECT_URI");
+    const frontendUrl = Deno.env.get("VITE_FRONTEND_URL") || "https://tryfluxa.vercel.app";
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      console.error("Missing Spotify credentials:", {
+        hasClientId: !!clientId,
+        hasClientSecret: !!clientSecret,
+        hasRedirectUri: !!redirectUri,
+      });
       return new Response(
         JSON.stringify({ error: "Missing Spotify credentials" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -42,9 +45,9 @@ serve(async (req) => {
       body: new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        redirect_uri: SPOTIFY_REDIRECT_URI,
-        client_id: SPOTIFY_CLIENT_ID,
-        client_secret: SPOTIFY_CLIENT_SECRET,
+        redirect_uri: redirectUri,
+        client_id: clientId,
+        client_secret: clientSecret,
       }),
     });
 
@@ -61,7 +64,7 @@ serve(async (req) => {
     }
 
     // Redirect back to Fluxa frontend with tokens
-    const appUrl = new URL(SPOTIFY_FRONTEND_CALLBACK_URL);
+    const appUrl = new URL(`${frontendUrl}/spotify/callback`);
     appUrl.searchParams.set("access_token", tokenData.access_token);
     if (tokenData.refresh_token)
       appUrl.searchParams.set("refresh_token", tokenData.refresh_token);

@@ -1,9 +1,5 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { corsHeaders } from "../_shared/http.ts";
-import {
-  SPOTIFY_CLIENT_ID,
-  SPOTIFY_CLIENT_SECRET,
-} from "../_shared/env.ts";
 
 const SCOPES =
   "user-read-email user-read-private user-read-playback-state user-modify-playback-state";
@@ -30,8 +26,11 @@ serve(async (req) => {
         );
       }
 
-      if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
-        console.error("Missing SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET in Supabase Secrets");
+      const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
+      const clientSecret = Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET");
+
+      if (!clientId || !clientSecret) {
+        console.error("Missing VITE_SPOTIFY_CLIENT_ID or VITE_SPOTIFY_CLIENT_SECRET in Supabase Secrets");
         return new Response(
           JSON.stringify({ error: "Server configuration error - missing Spotify credentials" }),
           {
@@ -51,7 +50,7 @@ serve(async (req) => {
           grant_type: "authorization_code",
           code,
           redirect_uri,
-          client_id: SPOTIFY_CLIENT_ID,
+          client_id: clientId,
           code_verifier: code_verifier,
         }),
       });
@@ -105,10 +104,12 @@ serve(async (req) => {
   const code_challenge = url.searchParams.get("code_challenge");
   const code_challenge_method = url.searchParams.get("code_challenge_method") || "S256";
 
-  if (!SPOTIFY_CLIENT_ID) {
-    console.error("Missing SPOTIFY_CLIENT_ID in Supabase Secrets");
+  const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
+
+  if (!clientId) {
+    console.error("Missing VITE_SPOTIFY_CLIENT_ID in Supabase Secrets");
     return new Response(
-      JSON.stringify({ error: "Server configuration error - missing SPOTIFY_CLIENT_ID" }),
+      JSON.stringify({ error: "Server configuration error - missing VITE_SPOTIFY_CLIENT_ID" }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -129,7 +130,7 @@ serve(async (req) => {
   const state = crypto.randomUUID();
 
   const loginUrl = new URL("https://accounts.spotify.com/authorize");
-  loginUrl.searchParams.set("client_id", SPOTIFY_CLIENT_ID);
+  loginUrl.searchParams.set("client_id", clientId);
   loginUrl.searchParams.set("response_type", "code");
   loginUrl.searchParams.set("redirect_uri", redirect_uri);
   loginUrl.searchParams.set("scope", SCOPES);
