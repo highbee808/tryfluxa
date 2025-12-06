@@ -131,3 +131,6 @@ verify_jwt = false
 
 [functions.spotify-oauth-callback]
 verify_jwt = false
+
+[functions.spotify-proxy]
+verify_jwt = false

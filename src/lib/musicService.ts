@@ -1163,6 +1163,7 @@ export async function searchArtistsFromSpotify(query: string): Promise<ArtistSea
 
 /**
  * Search artists from Spotify API (for autocomplete)
+ * Uses spotify-proxy Edge Function with Client Credentials (no user OAuth required)
  */
 export async function searchArtistsSpotify(query: string): Promise<ArtistSearchResult[]> {
   const trimmed = query.trim();
@@ -1173,33 +1174,34 @@ export async function searchArtistsSpotify(query: string): Promise<ArtistSearchR
   console.log("[Search] query:", trimmed);
 
   try {
-    // Use centralized API helpers for consistent URL construction and proper encoding
-    const API_BASE = getApiBaseUrl();
-    
-    // Use URL and URLSearchParams to properly encode query parameters
-    const urlObj = new URL(`${API_BASE}/search-artists`);
-    urlObj.searchParams.set("q", trimmed);
-    const url = urlObj.toString();
-    
-    const response = await fetch(url, {
-      method: "GET",
-      headers: getDefaultHeaders(),
+    // Use Supabase Edge Function invoke for spotify-proxy (Client Credentials flow)
+    // This does NOT require user OAuth - uses app credentials only
+    const { data, error } = await supabase.functions.invoke("spotify-proxy", {
+      body: { action: "searchArtists", query: trimmed },
     });
 
-    if (!response.ok) {
-      // Handle 401 - token refresh needed
-      if (response.status === 401) {
-        console.warn("[searchArtistsSpotify] 401 Unauthorized - token may be expired");
-        // Note: search-artists doesn't require Spotify auth, so this shouldn't happen
-        // But we handle it gracefully
-      }
-      console.error("[searchArtistsSpotify] API error:", response.status);
+    if (error) {
+      console.error("[searchArtistsSpotify] spotify-proxy error:", error);
       return [];
     }
 
-    const data = await response.json();
-    const results = (data.artists || []) as ArtistSearchResult[];
-    console.log("[Search] suggestions:", results);
+    // Map Spotify API response format to ArtistSearchResult format
+    const spotifyArtists = (data as any)?.artists ?? [];
+    const results: ArtistSearchResult[] = spotifyArtists.map((artist: any) => {
+      // Extract image URL (Spotify format: images array with objects containing url)
+      const imageUrl = artist.images?.[0]?.url || artist.images?.[1]?.url || null;
+
+      return {
+        id: artist.id,
+        name: artist.name,
+        imageUrl: imageUrl,
+        genres: artist.genres || [],
+        popularity: artist.popularity || undefined,
+        source: "spotify" as const,
+      };
+    });
+
+    console.log("[Search] suggestions:", results.length, "artists");
     return results;
   } catch (err) {
     console.error("[searchArtistsSpotify] Error:", err);
