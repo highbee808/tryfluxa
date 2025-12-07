@@ -28,20 +28,22 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
   }, []);
 
   const handleConnect = async () => {
+    const SUPABASE_AUTH_URL =
+      "https://vzjyclgrqoyxbbzplkgw.supabase.co/functions/v1/spotify-oauth-login";
+
     try {
-      const res = await fetch("/api/get-spotify-auth-url", {
+      const res = await fetch(SUPABASE_AUTH_URL, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
 
-      // Check if we got a JSON response
       const text = await res.text();
       let data;
 
       try {
         data = JSON.parse(text);
-      } catch (err) {
-        throw new Error("Backend returned HTML instead of JSON: " + text);
+      } catch {
+        throw new Error("Supabase returned HTML instead of JSON: " + text);
       }
 
       if (!res.ok) {
@@ -49,15 +51,15 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
       }
 
       if (!data.authUrl) {
-        throw new Error("Missing authUrl from API response");
+        throw new Error("Missing authUrl in response");
       }
 
       window.location.href = data.authUrl;
-    } catch (error: any) {
-      console.error("Spotify connect error:", error);
+    } catch (err: any) {
+      console.error(err);
       toast({
         title: "Connection Error",
-        description: error.message || "Connection failed",
+        description: err.message || "Connection failed",
         variant: "destructive",
       });
     }
