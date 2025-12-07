@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { isSpotifyConnected, disconnectSpotify, getSpotifyAuthUrl } from "@/lib/spotifyAuth";
+import { isSpotifyConnected, disconnectSpotify } from "@/lib/spotifyAuth";
 import { Music, Check, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
@@ -29,22 +29,40 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
 
   const handleConnect = async () => {
     try {
-      const url = await getSpotifyAuthUrl();
-      if (!url) {
+      const res = await fetch("/api/get-spotify-auth-url", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      // Handle non-JSON responses gracefully
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseError) {
+        const text = await res.text();
+        console.error("[SpotifyLoginButton] Failed to parse response:", text);
+        throw new Error("Invalid response from server");
+      }
+
+      // Check if we have a valid URL
+      if (data?.url) {
+        // Perform redirect to Spotify authorization
+        window.location.href = data.url;
+      } else {
+        // No URL in response - show error
+        const errorMsg = data?.error || "Invalid auth URL";
+        console.error("[SpotifyLoginButton] Invalid auth URL:", errorMsg);
         toast({
           title: "Connection Error",
           description: "Unable to connect to Spotify. Please check your configuration and try again.",
           variant: "destructive",
         });
-        return;
       }
-      // Perform redirect to Spotify authorization
-      window.location.href = url;
     } catch (err) {
-      console.error("[SpotifyLoginButton] Connection error:", err);
+      console.error("[SpotifyLoginButton] Spotify connect error:", err);
       toast({
         title: "Connection Error",
-        description: err instanceof Error ? err.message : "Failed to connect to Spotify",
+        description: "Unable to connect to Spotify. Please check your configuration and try again.",
         variant: "destructive",
       });
     }

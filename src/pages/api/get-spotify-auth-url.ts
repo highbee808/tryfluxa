@@ -1,51 +1,75 @@
-import { buildSpotifyAuthURL, validateSpotifyAuthEnv } from "@/lib/spotify/oauth";
-import { generateCodeVerifier, generateCodeChallenge } from "@/lib/pkce";
-
 export async function GET() {
   try {
     // Read environment variables from import.meta.env (Vite)
     const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
     const redirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI;
 
-    // Log missing variables to console
-    if (!clientId) {
-      console.error("[get-spotify-auth-url] Missing VITE_SPOTIFY_CLIENT_ID");
+    // Validate required environment variables
+    if (!clientId || !redirectUri) {
+      console.error("[get-spotify-auth-url] Missing Spotify env vars:", { 
+        hasClientId: !!clientId, 
+        hasRedirectUri: !!redirectUri 
+      });
+      return new Response(
+        JSON.stringify({ error: "Spotify configuration missing" }),
+        { 
+          status: 500,
+          headers: { "Content-Type": "application/json" }
+        }
+      );
     }
-    if (!redirectUri) {
-      console.error("[get-spotify-auth-url] Missing VITE_SPOTIFY_REDIRECT_URI");
+
+    // Build authorization URL with PKCE for security
+    let url: string;
+    try {
+      const { generateCodeVerifier, generateCodeChallenge } = await import("@/lib/pkce");
+      const codeVerifier = generateCodeVerifier();
+      const codeChallenge = await generateCodeChallenge(codeVerifier);
+      const state = crypto.randomUUID();
+
+      const params = new URLSearchParams({
+        client_id: clientId,
+        response_type: "code",
+        redirect_uri: redirectUri,
+        scope: "user-read-email user-read-private user-top-read user-library-read streaming playlist-read-private",
+        code_challenge: codeChallenge,
+        code_challenge_method: "S256",
+        state: state,
+        show_dialog: "true",
+      });
+
+      url = `https://accounts.spotify.com/authorize?${params.toString()}`;
+    } catch (pkceError) {
+      // Fallback to non-PKCE flow if PKCE generation fails
+      console.warn("[get-spotify-auth-url] PKCE generation failed, using basic OAuth:", pkceError);
+      const params = new URLSearchParams({
+        client_id: clientId,
+        response_type: "code",
+        redirect_uri: redirectUri,
+        scope: "user-read-email user-read-private user-top-read user-library-read streaming playlist-read-private",
+        show_dialog: "true",
+      });
+      url = `https://accounts.spotify.com/authorize?${params.toString()}`;
     }
 
-    // Validate and throw if missing (will return 500 error)
-    validateSpotifyAuthEnv();
-
-    // Generate PKCE code verifier and challenge
-    const codeVerifier = generateCodeVerifier();
-    const codeChallenge = await generateCodeChallenge(codeVerifier);
-    
-    // Generate state for CSRF protection
-    const state = crypto.randomUUID();
-
-    // Build authorization URL with PKCE
-    const url = buildSpotifyAuthURL(codeChallenge, state);
-
-    // Return only the URL as requested
+    // Return JSON response with URL
     return new Response(
-      JSON.stringify({ url }), 
+      JSON.stringify({ url }),
       { 
         status: 200,
         headers: { "Content-Type": "application/json" }
       }
     );
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : "Failed to generate auth URL";
-    console.error("[get-spotify-auth-url] Error:", errorMessage);
+  } catch (err: any) {
+    // Never break on errors - always return valid JSON
+    const errorMessage = err?.message || err?.toString() || "Failed to generate Spotify auth URL";
+    console.error("[get-spotify-auth-url] AUTH URL ERROR:", errorMessage);
     
-    // Return 500 error with message when env vars are missing
     return new Response(
       JSON.stringify({ 
-        error: errorMessage,
+        error: "Failed to generate Spotify auth URL",
         url: null
-      }), 
+      }),
       { 
         status: 500,
         headers: { "Content-Type": "application/json" }
