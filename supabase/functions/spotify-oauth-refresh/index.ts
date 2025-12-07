@@ -4,7 +4,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, createErrorResponse, createResponse, parseBody } from "../_shared/http.ts";
-import { ENV } from "../_shared/env.ts";
+import { env } from "../_shared/env.ts";
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -38,8 +38,8 @@ serve(async (req) => {
       body: new URLSearchParams({
         grant_type: "refresh_token",
         refresh_token: refreshToken,
-        client_id: Deno.env.get("SPOTIFY_CLIENT_ID") || "",
-        client_secret: Deno.env.get("SPOTIFY_CLIENT_SECRET") || "",
+        client_id: env.SPOTIFY_CLIENT_ID,
+        client_secret: env.SPOTIFY_CLIENT_SECRET,
       }),
     });
 

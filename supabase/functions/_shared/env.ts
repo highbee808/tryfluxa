@@ -14,10 +14,10 @@ export const env = {
   SUPABASE_ANON_KEY: "2d48d50211dd293b3b13815e65e15f4f17401f49f2436f9ee4e629a86e98752",
   SUPABASE_SERVICE_ROLE_KEY: "",
 
-  SPOTIFY_CLIENT_ID: "5eb9f883bc4c4c7892ba679ebd8fe189",
-  SPOTIFY_CLIENT_SECRET: "c1ade36db76249139046783aced3d5e0",
-  SPOTIFY_API_BASE: "https://api.spotify.com/v1",
-  SPOTIFY_REDIRECT_URI: "https://tryfluxa.vercel.app/spotify/callback",
+  SPOTIFY_CLIENT_ID: Deno.env.get("VITE_SPOTIFY_CLIENT_ID")!,
+  SPOTIFY_CLIENT_SECRET: Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET")!,
+  SPOTIFY_API_BASE: Deno.env.get("VITE_SPOTIFY_API_BASE")!,
+  SPOTIFY_REDIRECT_URI: Deno.env.get("VITE_SPOTIFY_REDIRECT_URI")!,
 
   FRONTEND_URL: "https://tryfluxa.vercel.app",
 

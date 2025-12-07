@@ -29,56 +29,29 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
 
   const handleConnect = async () => {
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-      
-      if (!supabaseUrl) {
-        throw new Error("Missing VITE_SUPABASE_URL");
+      const response = await fetch("/api/get-spotify-auth-url");
+
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error("[SpotifyLoginButton] API failed:", errText);
+        throw new Error("Failed to request Spotify authorization");
       }
 
-      const res = await fetch(
-        `${supabaseUrl}/functions/v1/spotify-oauth-login`,
-        {
-          method: "GET",
-          headers: { 
-            "Content-Type": "application/json",
-            ...(supabaseAnonKey && {
-              "Authorization": `Bearer ${supabaseAnonKey}`,
-              "apikey": supabaseAnonKey,
-            }),
-          },
-        }
-      );
+      const data = await response.json();
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error("[SpotifyLoginButton] Spotify auth function failed:", res.status, errorText);
-        throw new Error("Spotify auth function failed");
+      if (!data.authUrl) {
+        console.error("[SpotifyLoginButton] Missing authUrl:", data);
+        throw new Error("Invalid Spotify authorization URL");
       }
 
-      // Parse response safely
-      let data;
-      try {
-        data = await res.json();
-      } catch (parseError) {
-        const text = await res.text();
-        console.error("[SpotifyLoginButton] Failed to parse JSON response:", text);
-        throw new Error("Invalid JSON response from server");
-      }
-
-      // Validate response has authUrl
-      if (!data?.authUrl) {
-        console.error("[SpotifyLoginButton] Spotify authUrl missing in response:", data);
-        throw new Error("Spotify authUrl missing");
-      }
-
-      // Redirect to Spotify authorization
+      // Redirect user to Spotify login page
       window.location.href = data.authUrl;
     } catch (err) {
       console.error("[SpotifyLoginButton] Spotify connect error:", err);
       toast({
         title: "Connection Error",
-        description: err instanceof Error ? err.message : "Unable to connect to Spotify. Please check your configuration and try again.",
+        description:
+          err instanceof Error ? err.message : "Unable to connect to Spotify.",
         variant: "destructive",
       });
     }

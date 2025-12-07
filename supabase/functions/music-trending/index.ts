@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { env } from "../_shared/env.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -139,8 +140,8 @@ async function fetchWithTimeout(url: string, ms = 4500): Promise<Response> {
 }
 
 async function getSpotifyToken(): Promise<string | null> {
-  const clientId = Deno.env.get("SPOTIFY_CLIENT_ID");
-  const clientSecret = Deno.env.get("SPOTIFY_CLIENT_SECRET");
+  const clientId = env.SPOTIFY_CLIENT_ID;
+  const clientSecret = env.SPOTIFY_CLIENT_SECRET;
   const authUrl = "https://accounts.spotify.com/api/token";
 
   if (!clientId || !clientSecret) {
@@ -171,7 +172,7 @@ async function getSpotifyToken(): Promise<string | null> {
 }
 
 async function fetchSpotifyTrending(token: string): Promise<MusicItem[]> {
-  const base = Deno.env.get("SPOTIFY_API_BASE") || "https://api.spotify.com/v1";
+  const base = env.SPOTIFY_API_BASE;
   // Fetch global top tracks
   const url = `${base}/playlists/37i9dQZEVXbMDoHDwVN2tF/tracks?limit=20`; // Global Top 50
 

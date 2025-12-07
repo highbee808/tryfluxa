@@ -198,44 +198,24 @@ export function getSpotifyLoginUrlWithCallback(): string {
 }
 
 /**
- * Get Spotify authorization URL from Supabase Edge Function
+ * Get Spotify authorization URL from local API route
  * @returns Authorization URL or null if error
  */
 export async function getSpotifyAuthUrl(): Promise<string | null> {
   try {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    if (!supabaseUrl) {
-      throw new Error("Missing VITE_SUPABASE_URL");
+    const response = await fetch("/api/get-spotify-auth-url");
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("[getSpotifyAuthUrl] API failed:", errText);
+      throw new Error("Failed to request Spotify authorization");
     }
 
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const data = await response.json();
 
-    const res = await fetch(
-      `${supabaseUrl}/functions/v1/spotify-oauth-login`,
-      {
-        method: "GET",
-        headers: { 
-          "Content-Type": "application/json",
-          ...(supabaseAnonKey && {
-            "Authorization": `Bearer ${supabaseAnonKey}`,
-            "apikey": supabaseAnonKey,
-          }),
-        },
-      }
-    );
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error("[getSpotifyAuthUrl] Spotify auth function failed:", res.status, errorText);
-      throw new Error("Spotify auth function failed");
-    }
-
-    const data = await res.json();
-    
-    // Validate response has authUrl
     if (!data.authUrl) {
-      console.error("[getSpotifyAuthUrl] Spotify authUrl missing in response:", data);
-      throw new Error(data.error || "Spotify authUrl missing");
+      console.error("[getSpotifyAuthUrl] Missing authUrl:", data);
+      throw new Error("Invalid Spotify authorization URL");
     }
 
     console.log("[getSpotifyAuthUrl] Generated Spotify Auth URL");

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { env } from "../_shared/env.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -11,8 +12,8 @@ const cors = {
 -------------------------------------------------- */
 
 async function getSpotifyToken() {
-  const id = Deno.env.get("SPOTIFY_CLIENT_ID");
-  const secret = Deno.env.get("SPOTIFY_CLIENT_SECRET");
+  const id = env.SPOTIFY_CLIENT_ID;
+  const secret = env.SPOTIFY_CLIENT_SECRET;
   const authUrl = "https://accounts.spotify.com/api/token";
 
   const auth = btoa(`${id}:${secret}`);
@@ -40,7 +41,7 @@ async function getSpotifyToken() {
 -------------------------------------------------- */
 
 async function spotifyGET(path: string, token: string) {
-  const base = Deno.env.get("SPOTIFY_API_BASE") || "https://api.spotify.com/v1";
+  const base = env.SPOTIFY_API_BASE;
   const url = `${base}${path}`;
 
   const res = await fetch(url, {
