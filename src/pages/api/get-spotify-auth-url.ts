@@ -1,39 +1,50 @@
+const SUPABASE_SPOTIFY_LOGIN =
+  "https://vzjyclgrqoyxbbzplkgw.supabase.co/functions/v1/spotify-oauth-login";
+
 export async function GET() {
   try {
-    const redirect_uri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI;
-    const client_id = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
+    // Get Supabase anon key for authentication (optional but recommended)
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-    if (!redirect_uri || !client_id) {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (supabaseAnonKey) {
+      headers["Authorization"] = `Bearer ${supabaseAnonKey}`;
+      headers["apikey"] = supabaseAnonKey;
+    }
+
+    const res = await fetch(SUPABASE_SPOTIFY_LOGIN, {
+      method: "GET",
+      headers,
+    });
+
+    // If Supabase fails, forward JSON error
+    if (!res.ok) {
+      const errorText = await res.text();
       return new Response(
-        JSON.stringify({
-          error: "Missing Spotify environment variables",
-          redirect_uri: !!redirect_uri,
-          client_id: !!client_id,
-        }),
-        { status: 500, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: `Supabase error: ${errorText}` }),
+        {
+          status: res.status,
+          headers: { "Content-Type": "application/json" },
+        }
       );
     }
 
-    const state = crypto.randomUUID();
-
-    const authUrl =
-      "https://accounts.spotify.com/authorize" +
-      `?client_id=${client_id}` +
-      `&response_type=code` +
-      `&redirect_uri=${encodeURIComponent(redirect_uri)}` +
-      `&scope=${encodeURIComponent(
-        "user-read-email user-read-private user-read-playback-state user-modify-playback-state"
-      )}` +
-      `&state=${state}`;
-
-    return new Response(JSON.stringify({ authUrl }), {
+    // Ensure valid JSON is returned
+    const data = await res.json();
+    return new Response(JSON.stringify(data), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
-  } catch (err: any) {
+  } catch (err) {
     return new Response(
-      JSON.stringify({ error: "Internal error generating auth URL", details: err?.message || String(err) }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      JSON.stringify({
+        error: "Server error",
+        message: (err as Error).message,
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
     );
   }
 }
