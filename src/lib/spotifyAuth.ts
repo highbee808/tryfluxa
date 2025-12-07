@@ -198,6 +198,30 @@ export function getSpotifyLoginUrlWithCallback(): string {
 }
 
 /**
+ * Get Spotify authorization URL from API
+ */
+export async function getSpotifyAuthUrl(): Promise<string | null> {
+  try {
+    const res = await fetch("/api/get-spotify-auth-url", {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!res.ok) {
+      console.error("Failed to fetch Spotify auth URL", await res.text());
+      throw new Error("Unable to get Spotify authorization URL");
+    }
+
+    const data = await res.json();
+    console.log("Spotify Auth URL:", data.url);
+    return data.url;
+  } catch (err) {
+    console.error("getSpotifyAuthUrl ERROR:", err);
+    return null;
+  }
+}
+
+/**
  * Disconnect Spotify (clear tokens)
  */
 export function disconnectSpotify(): void {

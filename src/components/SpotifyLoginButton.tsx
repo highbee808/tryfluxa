@@ -1,10 +1,9 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { isSpotifyConnected, disconnectSpotify } from "@/lib/spotifyAuth";
+import { isSpotifyConnected, disconnectSpotify, getSpotifyAuthUrl } from "@/lib/spotifyAuth";
 import { Music, Check, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
-import { getApiBaseUrl } from "@/lib/apiConfig";
 
 interface SpotifyLoginButtonProps {
   variant?: "default" | "outline" | "ghost";
@@ -29,20 +28,12 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
   }, []);
 
   const handleConnect = async () => {
-    try {
-      const authUrl = await fetch("/api/get-spotify-auth-url").then(res =>
-        res.text()
-      );
-
-      window.location.href = authUrl;
-    } catch (err) {
-      console.error("Spotify Connect Error:", err);
-      toast({
-        title: "Connection Error",
-        description: "Failed to connect to Spotify",
-        variant: "destructive",
-      });
+    const url = await getSpotifyAuthUrl();
+    if (!url) {
+      alert("Unable to connect to Spotify. Please try again.");
+      return;
     }
+    window.location.href = url;   // <-- IMPORTANT REDIRECT
   };
 
   const handleDisconnect = () => {
