@@ -28,12 +28,26 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
   }, []);
 
   const handleConnect = async () => {
-    const url = await getSpotifyAuthUrl();
-    if (!url) {
-      alert("Unable to connect to Spotify. Please try again.");
-      return;
+    try {
+      const url = await getSpotifyAuthUrl();
+      if (!url) {
+        toast({
+          title: "Connection Error",
+          description: "Unable to connect to Spotify. Please check your configuration and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      // Perform redirect to Spotify authorization
+      window.location.href = url;
+    } catch (err) {
+      console.error("[SpotifyLoginButton] Connection error:", err);
+      toast({
+        title: "Connection Error",
+        description: err instanceof Error ? err.message : "Failed to connect to Spotify",
+        variant: "destructive",
+      });
     }
-    window.location.href = url;   // <-- IMPORTANT REDIRECT
   };
 
   const handleDisconnect = () => {

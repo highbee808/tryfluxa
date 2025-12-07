@@ -198,7 +198,9 @@ export function getSpotifyLoginUrlWithCallback(): string {
 }
 
 /**
- * Get Spotify authorization URL from API
+ * Get Spotify authorization URL from API with PKCE
+ * Code verifier is stored client-side by the API route
+ * @returns Authorization URL or null if error
  */
 export async function getSpotifyAuthUrl(): Promise<string | null> {
   try {
@@ -208,15 +210,23 @@ export async function getSpotifyAuthUrl(): Promise<string | null> {
     });
 
     if (!res.ok) {
-      console.error("Failed to fetch Spotify auth URL", await res.text());
-      throw new Error("Unable to get Spotify authorization URL");
+      const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+      console.error("[getSpotifyAuthUrl] Failed to fetch Spotify auth URL:", res.status, errorData);
+      throw new Error(errorData.error || "Unable to get Spotify authorization URL");
     }
 
     const data = await res.json();
-    console.log("Spotify Auth URL:", data.url);
+    
+    // Validate response has URL
+    if (!data.url) {
+      console.error("[getSpotifyAuthUrl] API returned null or missing URL:", data);
+      throw new Error(data.error || "Invalid response from Spotify auth API");
+    }
+
+    console.log("[getSpotifyAuthUrl] Generated Spotify Auth URL");
     return data.url;
   } catch (err) {
-    console.error("getSpotifyAuthUrl ERROR:", err);
+    console.error("[getSpotifyAuthUrl] ERROR:", err);
     return null;
   }
 }
