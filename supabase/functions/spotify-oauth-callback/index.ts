@@ -9,9 +9,17 @@ serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state");
+    // Handle POST request with code in body
+    let code: string | null = null;
+    
+    if (req.method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      code = body.code || null;
+    } else {
+      // Handle GET request with code in query params (for backward compatibility)
+      const url = new URL(req.url);
+      code = url.searchParams.get("code");
+    }
 
     if (!code) {
       return new Response(
@@ -23,7 +31,6 @@ serve(async (req) => {
     const clientId = env.SPOTIFY_CLIENT_ID;
     const clientSecret = env.SPOTIFY_CLIENT_SECRET;
     const redirectUri = env.SPOTIFY_REDIRECT_URI;
-    const frontendUrl = env.FRONTEND_URL;
 
     if (!clientId || !clientSecret || !redirectUri) {
       console.error("❌ Missing Spotify env vars:", {
@@ -64,21 +71,19 @@ serve(async (req) => {
       );
     }
 
-    // Redirect back to Fluxa frontend with tokens
-    const appUrl = new URL(`${frontendUrl}/spotify/callback`);
-    appUrl.searchParams.set("access_token", tokenData.access_token);
-    if (tokenData.refresh_token)
-      appUrl.searchParams.set("refresh_token", tokenData.refresh_token);
-    if (tokenData.expires_in)
-      appUrl.searchParams.set("expires_in", tokenData.expires_in.toString());
-
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: appUrl.toString(),
-        ...corsHeaders,
-      },
-    });
+    // Return JSON with tokens (frontend will handle storage)
+    return new Response(
+      JSON.stringify({
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
+        expires_in: tokenData.expires_in,
+        token_type: tokenData.token_type,
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   } catch (err) {
     console.error("OAuth callback error:", err);
     return new Response(

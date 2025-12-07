@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { corsHeaders } from "../_shared/http.ts";
-import { env } from "../_shared/env.ts";
+import { SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI, env } from "../_shared/env.ts";
 
 const SCOPES =
   "user-read-email user-read-private user-read-playback-state user-modify-playback-state";
@@ -90,40 +90,21 @@ serve(async (req) => {
     }
 
     // Handle GET request for authorization URL generation
-    const clientId = env.SPOTIFY_CLIENT_ID;
-    const redirectUri = env.SPOTIFY_REDIRECT_URI;
-
-    if (!clientId || !redirectUri) {
-      console.error("[spotify-oauth-login] Missing Spotify env vars:", {
-        hasClientId: !!clientId,
-        hasRedirectUri: !!redirectUri,
-      });
-      return new Response(
-        JSON.stringify({
-          error: "Missing Spotify configuration (CLIENT_ID or REDIRECT_URI)",
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Generate state for CSRF protection
+    // Use exported constants directly (validated on module load)
     const state = crypto.randomUUID();
 
-    // Build authorization URL
-    const loginUrl = new URL("https://accounts.spotify.com/authorize");
-    loginUrl.searchParams.set("client_id", clientId);
-    loginUrl.searchParams.set("response_type", "code");
-    loginUrl.searchParams.set("redirect_uri", redirectUri);
-    loginUrl.searchParams.set("scope", SCOPES);
-    loginUrl.searchParams.set("state", state);
+    const authUrl =
+      "https://accounts.spotify.com/authorize" +
+      `?client_id=${SPOTIFY_CLIENT_ID}` +
+      `&response_type=code` +
+      `&redirect_uri=${encodeURIComponent(SPOTIFY_REDIRECT_URI)}` +
+      `&scope=${encodeURIComponent(SCOPES)}` +
+      `&state=${state}`;
 
     // Return JSON with authUrl (not a redirect)
     return new Response(
       JSON.stringify({
-        authUrl: loginUrl.toString(),
+        authUrl,
       }),
       {
         status: 200,

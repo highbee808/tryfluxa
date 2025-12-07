@@ -67,7 +67,6 @@ const App = () => (
           <Route path="/music/vibe-rooms" element={<VibeRoomsList />} />
           <Route path="/music/vibe-room/:roomId" element={<VibeRoom />} />
           <Route path="/spotify/callback" element={<SpotifyCallback />} />
-          <Route path="/api/spotify/callback" element={<SpotifyCallback />} />
           <Route path="/music-artist-selection" element={<MusicArtistSelection />} />
           <Route path="/music/artist/:artistId" element={<ArtistPage />} />
           <Route path="/music/genre/:genreId" element={<GenrePage />} />

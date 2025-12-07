@@ -22,50 +22,56 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
 }) => {
   const { toast } = useToast();
   const [connected, setConnected] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setConnected(isSpotifyConnected());
   }, []);
 
   const handleConnect = async () => {
+    setLoading(true);
     try {
-      const response = await fetch("/api/get-spotify-auth-url");
+      const res = await fetch("/api/get-spotify-auth-url");
 
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error("[SpotifyLoginButton] API failed:", errText);
-        throw new Error("Failed to request Spotify authorization");
-      }
+      const text = await res.text();
 
-      let data;
+      // Attempt JSON parse safely
+      let data: any;
       try {
-        data = await response.json();
-      } catch (parseError) {
-        console.error("[SpotifyLoginButton] Failed to parse JSON response:", parseError);
+        data = JSON.parse(text);
+      } catch (err) {
         toast({
           title: "Connection Error",
-          description: "Spotify backend error. Check Edge Function logs.",
+          description: "Invalid response from server (HTML was returned). Check Supabase function output.",
           variant: "destructive",
         });
+        console.error("Non-JSON response:", text);
+        setLoading(false);
         return;
       }
 
       if (!data.authUrl) {
-        console.error("[SpotifyLoginButton] Missing authUrl:", data);
-        throw new Error("Invalid Spotify authorization URL");
+        toast({
+          title: "Connection Error",
+          description: "Missing auth URL. Backend may be misconfigured.",
+          variant: "destructive",
+        });
+        console.error("Response:", data);
+        setLoading(false);
+        return;
       }
 
-      // Redirect user to Spotify login page
+      // Valid — redirect user
       window.location.href = data.authUrl;
     } catch (err) {
-      console.error("[SpotifyLoginButton] Spotify connect error:", err);
+      console.error(err);
       toast({
         title: "Connection Error",
-        description:
-          err instanceof Error ? err.message : "Unable to connect to Spotify.",
+        description: "Unable to connect to Spotify.",
         variant: "destructive",
       });
     }
+    setLoading(false);
   };
 
   const handleDisconnect = () => {
@@ -98,10 +104,11 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
       variant={variant}
       size={size}
       onClick={handleConnect}
+      disabled={loading}
       className={`gap-2 ${className}`}
     >
       <Music className="w-4 h-4" />
-      Connect Spotify
+      {loading ? "Connecting..." : "Connect Spotify"}
     </Button>
   );
 };
