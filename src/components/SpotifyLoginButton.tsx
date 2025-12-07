@@ -22,56 +22,45 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
 }) => {
   const { toast } = useToast();
   const [connected, setConnected] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setConnected(isSpotifyConnected());
   }, []);
 
   const handleConnect = async () => {
-    setLoading(true);
     try {
-      const res = await fetch("/api/get-spotify-auth-url");
+      const res = await fetch("/api/get-spotify-auth-url", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
 
+      // Check if we got a JSON response
       const text = await res.text();
+      let data;
 
-      // Attempt JSON parse safely
-      let data: any;
       try {
         data = JSON.parse(text);
       } catch (err) {
-        toast({
-          title: "Connection Error",
-          description: "Invalid response from server (HTML was returned). Check Supabase function output.",
-          variant: "destructive",
-        });
-        console.error("Non-JSON response:", text);
-        setLoading(false);
-        return;
+        throw new Error("Backend returned HTML instead of JSON: " + text);
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to fetch auth URL");
       }
 
       if (!data.authUrl) {
-        toast({
-          title: "Connection Error",
-          description: "Missing auth URL. Backend may be misconfigured.",
-          variant: "destructive",
-        });
-        console.error("Response:", data);
-        setLoading(false);
-        return;
+        throw new Error("Missing authUrl from API response");
       }
 
-      // Valid — redirect user
       window.location.href = data.authUrl;
-    } catch (err) {
-      console.error(err);
+    } catch (error: any) {
+      console.error("Spotify connect error:", error);
       toast({
         title: "Connection Error",
-        description: "Unable to connect to Spotify.",
+        description: error.message || "Connection failed",
         variant: "destructive",
       });
     }
-    setLoading(false);
   };
 
   const handleDisconnect = () => {
@@ -104,11 +93,10 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
       variant={variant}
       size={size}
       onClick={handleConnect}
-      disabled={loading}
       className={`gap-2 ${className}`}
     >
       <Music className="w-4 h-4" />
-      {loading ? "Connecting..." : "Connect Spotify"}
+      Connect Spotify
     </Button>
   );
 };
