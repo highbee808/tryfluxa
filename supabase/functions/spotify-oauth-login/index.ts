@@ -11,9 +11,9 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Handle POST request for token exchange (after callback)
-  if (req.method === "POST") {
-    try {
+  try {
+    // Handle POST request for token exchange (after callback)
+    if (req.method === "POST") {
       const body = await req.json().catch(() => ({}));
       const { code, redirect_uri, code_verifier } = body;
 
@@ -87,23 +87,9 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
-    } catch (err) {
-      console.error("Token exchange error:", err);
-      return new Response(
-        JSON.stringify({
-          error: "Internal server error",
-          details: err instanceof Error ? err.message : "Unknown error",
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
     }
-  }
 
-  // Handle GET request for authorization URL generation (with PKCE)
-  try {
+    // Handle GET request for authorization URL generation
     const clientId = env.SPOTIFY_CLIENT_ID;
     const redirectUri = env.SPOTIFY_REDIRECT_URI;
 
@@ -145,15 +131,18 @@ serve(async (req) => {
       }
     );
   } catch (err) {
-    console.error("[spotify-oauth-login] Error generating auth URL:", err);
+    console.error("[spotify-oauth-login] Error:", err);
     return new Response(
       JSON.stringify({
-        error: "Failed to generate Spotify authorization URL",
-        details: err instanceof Error ? err.message : "Unknown error",
+        error: err instanceof Error ? err.message : "Unknown error",
       }),
       {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "*",
+        },
       }
     );
   }

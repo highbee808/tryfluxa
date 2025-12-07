@@ -1,12 +1,35 @@
 /**
- * Hard-coded Environment Variables for Supabase Edge Functions
+ * Environment Variables for Supabase Edge Functions
  * 
- * This file provides hard-coded environment values to ensure
- * consistent behavior across all Edge Functions.
+ * This file provides environment values loaded from Supabase secrets.
+ * Uses Supabase secret names (not Vite names).
  */
 
 /**
- * Environment object with hard-coded values
+ * Required environment variable validator
+ * Throws Error with JSON-friendly message if missing
+ */
+// @ts-ignore - Deno is available in Edge Functions runtime
+function required(key: string): string {
+  // @ts-ignore - Deno is available in Edge Functions runtime
+  const value = Deno.env.get(key);
+  if (!value) {
+    throw new Error(`Missing required env variable: ${key}`);
+  }
+  return value;
+}
+
+/**
+ * Export individual Spotify environment variables with validation
+ * These use Supabase secret names (SPOTIFY_CLIENT_ID, not VITE_SPOTIFY_CLIENT_ID)
+ */
+export const SPOTIFY_CLIENT_ID = required("SPOTIFY_CLIENT_ID");
+export const SPOTIFY_CLIENT_SECRET = required("SPOTIFY_CLIENT_SECRET");
+export const SPOTIFY_REDIRECT_URI = required("SPOTIFY_REDIRECT_URI");
+export const SPOTIFY_API_BASE = required("SPOTIFY_API_BASE");
+
+/**
+ * Environment object for backward compatibility
  * Use this for reading env vars in Edge Functions
  */
 export const env = {
@@ -14,10 +37,10 @@ export const env = {
   SUPABASE_ANON_KEY: "2d48d50211dd293b3b13815e65e15f4f17401f49f2436f9ee4e629a86e98752",
   SUPABASE_SERVICE_ROLE_KEY: "",
 
-  SPOTIFY_CLIENT_ID: Deno.env.get("VITE_SPOTIFY_CLIENT_ID")!,
-  SPOTIFY_CLIENT_SECRET: Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET")!,
-  SPOTIFY_API_BASE: Deno.env.get("VITE_SPOTIFY_API_BASE")!,
-  SPOTIFY_REDIRECT_URI: Deno.env.get("VITE_SPOTIFY_REDIRECT_URI")!,
+  SPOTIFY_CLIENT_ID,
+  SPOTIFY_CLIENT_SECRET,
+  SPOTIFY_API_BASE,
+  SPOTIFY_REDIRECT_URI,
 
   FRONTEND_URL: "https://tryfluxa.vercel.app",
 

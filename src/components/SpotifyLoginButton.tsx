@@ -37,7 +37,18 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
         throw new Error("Failed to request Spotify authorization");
       }
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error("[SpotifyLoginButton] Failed to parse JSON response:", parseError);
+        toast({
+          title: "Connection Error",
+          description: "Spotify backend error. Check Edge Function logs.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       if (!data.authUrl) {
         console.error("[SpotifyLoginButton] Missing authUrl:", data);
