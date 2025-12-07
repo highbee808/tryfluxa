@@ -34,7 +34,7 @@ export const env = {
 
 /**
  * Ensure Supabase environment variables are present
- * Throws 401 Response if missing (for functions that need Supabase)
+ * Throws 401 Response if missing (for functions that need Supabase with anon key)
  */
 export function ensureSupabaseEnv(): void {
   const missing: string[] = [];
@@ -46,6 +46,33 @@ export function ensureSupabaseEnv(): void {
     throw new Response(
       JSON.stringify({
         message: 'Missing Supabase credentials',
+        missing,
+      }),
+      { 
+        status: 401, 
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        } 
+      },
+    );
+  }
+}
+
+/**
+ * Ensure Supabase environment variables are present (for functions using service role key)
+ * Throws 401 Response if missing (for functions that need Supabase with service role key)
+ */
+export function ensureSupabaseServiceEnv(): void {
+  const missing: string[] = [];
+  if (!env.SUPABASE_URL) missing.push('SUPABASE_URL');
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+
+  if (missing.length) {
+    console.error('[env] Missing Supabase service role env vars:', missing.join(', '));
+    throw new Response(
+      JSON.stringify({
+        message: 'Missing Supabase service role credentials',
         missing,
       }),
       { 

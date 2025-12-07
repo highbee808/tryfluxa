@@ -87,7 +87,13 @@ serve(async (req) => {
 
   try {
     // Ensure Spotify env vars are present (no Supabase requirement)
-    ensureSpotifyEnv();
+    try {
+      ensureSpotifyEnv();
+    } catch (response) {
+      // ensureSpotifyEnv() throws a Response, return it directly
+      if (response instanceof Response) return response;
+      throw response;
+    }
 
     // Debug log to verify env vars without exposing secrets
     console.log("[artist-profile] env flags", {

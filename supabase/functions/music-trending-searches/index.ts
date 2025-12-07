@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { env, ensureSupabaseEnv } from "../_shared/env.ts";
+import { env, ensureSupabaseServiceEnv } from "../_shared/env.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -16,11 +16,11 @@ serve(async (req) => {
   try {
     // This function needs Supabase to read search logs from database
     try {
-      ensureSupabaseEnv();
+      ensureSupabaseServiceEnv();
     } catch (response) {
-      // ensureSupabaseEnv() throws a Response - if Supabase env missing, return empty results
+      // ensureSupabaseServiceEnv() throws a Response - if Supabase env missing, return empty results
       if (response instanceof Response) {
-        console.error("[music-trending-searches] Missing Supabase credentials");
+        console.error("[music-trending-searches] Missing Supabase service role credentials");
         return new Response(
           JSON.stringify({ results: [] }),
           { headers: { ...cors, "Content-Type": "application/json" }, status: 200 }
@@ -34,7 +34,7 @@ serve(async (req) => {
 
     // Additional safety check
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error("[music-trending-searches] Missing Supabase credentials after ensureSupabaseEnv check");
+      console.error("[music-trending-searches] Missing Supabase credentials after ensureSupabaseServiceEnv check");
       return new Response(
         JSON.stringify({ results: [] }),
         { headers: { ...cors, "Content-Type": "application/json" }, status: 200 }

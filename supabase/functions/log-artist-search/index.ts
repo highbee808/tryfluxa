@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { env, ensureSupabaseEnv } from "../_shared/env.ts";
+import { env, ensureSupabaseServiceEnv } from "../_shared/env.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -16,9 +16,9 @@ serve(async (req) => {
   try {
     // This function needs Supabase to log searches to database
     try {
-      ensureSupabaseEnv();
+      ensureSupabaseServiceEnv();
     } catch (response) {
-      // ensureSupabaseEnv() throws a Response, return it directly
+      // ensureSupabaseServiceEnv() throws a Response, return it directly
       if (response instanceof Response) return response;
       throw response;
     }
@@ -35,9 +35,9 @@ serve(async (req) => {
     const supabaseUrl = env.SUPABASE_URL;
     const supabaseServiceKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
-    // Additional safety check (shouldn't happen if ensureSupabaseEnv passed)
+    // Additional safety check (shouldn't happen if ensureSupabaseServiceEnv passed)
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error("[log-artist-search] Missing Supabase credentials after ensureSupabaseEnv check");
+      console.error("[log-artist-search] Missing Supabase credentials after ensureSupabaseServiceEnv check");
       return new Response(
         JSON.stringify({ error: "Server configuration error" }),
         { headers: { ...cors, "Content-Type": "application/json" }, status: 500 }
