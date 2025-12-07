@@ -108,35 +108,24 @@ serve(async (req) => {
   const code_challenge = url.searchParams.get("code_challenge");
   const code_challenge_method = url.searchParams.get("code_challenge_method") || "S256";
 
-  const clientId = env.SPOTIFY_CLIENT_ID;
+  const CLIENT_ID = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
+  const REDIRECT_URI = Deno.env.get("VITE_SPOTIFY_REDIRECT_URI");
 
-  if (!clientId) {
-    console.error("❌ Missing SPOTIFY_CLIENT_ID in Supabase Secrets");
+  if (!CLIENT_ID || !REDIRECT_URI) {
     return new Response(
-      JSON.stringify({ error: "Server configuration error - missing SPOTIFY_CLIENT_ID" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
-  }
-
-  if (!redirect_uri) {
-    return new Response(
-      JSON.stringify({ error: "Missing redirect_uri parameter" }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({
+        error: "Missing Spotify configuration (CLIENT_ID or REDIRECT_URI)",
+      }),
+      { status: 500 }
     );
   }
 
   const state = crypto.randomUUID();
 
   const loginUrl = new URL("https://accounts.spotify.com/authorize");
-  loginUrl.searchParams.set("client_id", clientId);
+  loginUrl.searchParams.set("client_id", CLIENT_ID);
   loginUrl.searchParams.set("response_type", "code");
-  loginUrl.searchParams.set("redirect_uri", redirect_uri);
+  loginUrl.searchParams.set("redirect_uri", redirect_uri || REDIRECT_URI);
   loginUrl.searchParams.set("scope", SCOPES);
   loginUrl.searchParams.set("state", state);
 
