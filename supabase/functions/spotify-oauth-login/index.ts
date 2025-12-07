@@ -103,43 +103,58 @@ serve(async (req) => {
   }
 
   // Handle GET request for authorization URL generation (with PKCE)
-  const url = new URL(req.url);
-  const redirect_uri = url.searchParams.get("redirect_uri");
-  const code_challenge = url.searchParams.get("code_challenge");
-  const code_challenge_method = url.searchParams.get("code_challenge_method") || "S256";
+  try {
+    const clientId = env.SPOTIFY_CLIENT_ID;
+    const redirectUri = env.SPOTIFY_REDIRECT_URI;
 
-  const CLIENT_ID = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
-  const REDIRECT_URI = Deno.env.get("VITE_SPOTIFY_REDIRECT_URI");
+    if (!clientId || !redirectUri) {
+      console.error("[spotify-oauth-login] Missing Spotify env vars:", {
+        hasClientId: !!clientId,
+        hasRedirectUri: !!redirectUri,
+      });
+      return new Response(
+        JSON.stringify({
+          error: "Missing Spotify configuration (CLIENT_ID or REDIRECT_URI)",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
-  if (!CLIENT_ID || !REDIRECT_URI) {
+    // Generate state for CSRF protection
+    const state = crypto.randomUUID();
+
+    // Build authorization URL
+    const loginUrl = new URL("https://accounts.spotify.com/authorize");
+    loginUrl.searchParams.set("client_id", clientId);
+    loginUrl.searchParams.set("response_type", "code");
+    loginUrl.searchParams.set("redirect_uri", redirectUri);
+    loginUrl.searchParams.set("scope", SCOPES);
+    loginUrl.searchParams.set("state", state);
+
+    // Return JSON with authUrl (not a redirect)
     return new Response(
       JSON.stringify({
-        error: "Missing Spotify configuration (CLIENT_ID or REDIRECT_URI)",
+        authUrl: loginUrl.toString(),
       }),
-      { status: 500 }
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
+  } catch (err) {
+    console.error("[spotify-oauth-login] Error generating auth URL:", err);
+    return new Response(
+      JSON.stringify({
+        error: "Failed to generate Spotify authorization URL",
+        details: err instanceof Error ? err.message : "Unknown error",
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
     );
   }
-
-  const state = crypto.randomUUID();
-
-  const loginUrl = new URL("https://accounts.spotify.com/authorize");
-  loginUrl.searchParams.set("client_id", CLIENT_ID);
-  loginUrl.searchParams.set("response_type", "code");
-  loginUrl.searchParams.set("redirect_uri", redirect_uri || REDIRECT_URI);
-  loginUrl.searchParams.set("scope", SCOPES);
-  loginUrl.searchParams.set("state", state);
-
-  // Add PKCE parameters if provided
-  if (code_challenge) {
-    loginUrl.searchParams.set("code_challenge", code_challenge);
-    loginUrl.searchParams.set("code_challenge_method", code_challenge_method);
-  }
-
-  return new Response(null, {
-    status: 307,
-    headers: {
-      Location: loginUrl.toString(),
-      ...corsHeaders,
-    },
-  });
 });

@@ -198,33 +198,48 @@ export function getSpotifyLoginUrlWithCallback(): string {
 }
 
 /**
- * Get Spotify authorization URL from API with PKCE
- * Code verifier is stored client-side by the API route
+ * Get Spotify authorization URL from Supabase Edge Function
  * @returns Authorization URL or null if error
  */
 export async function getSpotifyAuthUrl(): Promise<string | null> {
   try {
-    const res = await fetch("/api/get-spotify-auth-url", {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    });
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (!supabaseUrl) {
+      throw new Error("Missing VITE_SUPABASE_URL");
+    }
+
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+    const res = await fetch(
+      `${supabaseUrl}/functions/v1/spotify-oauth-login`,
+      {
+        method: "GET",
+        headers: { 
+          "Content-Type": "application/json",
+          ...(supabaseAnonKey && {
+            "Authorization": `Bearer ${supabaseAnonKey}`,
+            "apikey": supabaseAnonKey,
+          }),
+        },
+      }
+    );
 
     if (!res.ok) {
-      const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
-      console.error("[getSpotifyAuthUrl] Failed to fetch Spotify auth URL:", res.status, errorData);
-      throw new Error(errorData.error || "Unable to get Spotify authorization URL");
+      const errorText = await res.text();
+      console.error("[getSpotifyAuthUrl] Spotify auth function failed:", res.status, errorText);
+      throw new Error("Spotify auth function failed");
     }
 
     const data = await res.json();
     
-    // Validate response has URL
-    if (!data.url) {
-      console.error("[getSpotifyAuthUrl] API returned null or missing URL:", data);
-      throw new Error(data.error || "Invalid response from Spotify auth API");
+    // Validate response has authUrl
+    if (!data.authUrl) {
+      console.error("[getSpotifyAuthUrl] Spotify authUrl missing in response:", data);
+      throw new Error(data.error || "Spotify authUrl missing");
     }
 
     console.log("[getSpotifyAuthUrl] Generated Spotify Auth URL");
-    return data.url;
+    return data.authUrl;
   } catch (err) {
     console.error("[getSpotifyAuthUrl] ERROR:", err);
     return null;
