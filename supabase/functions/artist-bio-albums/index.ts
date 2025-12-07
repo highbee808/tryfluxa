@@ -11,8 +11,8 @@ const cors = {
 -------------------------------------------------- */
 
 async function getSpotifyToken() {
-  const id = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
-  const secret = Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET");
+  const id = Deno.env.get("SPOTIFY_CLIENT_ID");
+  const secret = Deno.env.get("SPOTIFY_CLIENT_SECRET");
   const authUrl = "https://accounts.spotify.com/api/token";
 
   const auth = btoa(`${id}:${secret}`);
@@ -40,7 +40,7 @@ async function getSpotifyToken() {
 -------------------------------------------------- */
 
 async function spotifyGET(path: string, token: string) {
-  const base = Deno.env.get("VITE_SPOTIFY_API_BASE") || "https://api.spotify.com/v1";
+  const base = Deno.env.get("SPOTIFY_API_BASE") || "https://api.spotify.com/v1";
   const url = `${base}${path}`;
 
   const res = await fetch(url, {

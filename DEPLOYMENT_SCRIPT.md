@@ -5,16 +5,26 @@
 Run these commands to set Supabase Edge Function secrets:
 
 ```bash
-# Set Supabase configuration
-supabase secrets set VITE_SUPABASE_URL=https://vzjyclgrqoyxbbzplkgw.supabase.co
-supabase secrets set VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6anljbGdycW95eGJienBsa2d3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Mzc0NzYwNSwiZXhwIjoyMDc5MzIzNjA1fQ.KoTM6PCXJy81_RdN9wa_Q59DFIWDI3dAgLkcMhJazYA
+# IMPORTANT: Backend Edge Functions use NON-prefixed env vars (no VITE_)
+# Remove old VITE_* prefixed secrets if they exist
+supabase secrets unset VITE_SUPABASE_URL
+supabase secrets unset VITE_SUPABASE_ANON_KEY
+supabase secrets unset VITE_SPOTIFY_CLIENT_ID
+supabase secrets unset VITE_SPOTIFY_CLIENT_SECRET
+supabase secrets unset VITE_SPOTIFY_API_BASE
+supabase secrets unset VITE_SPOTIFY_REDIRECT_URI
+supabase secrets unset VITE_FRONTEND_URL
 
-# Set Spotify configuration
-supabase secrets set VITE_SPOTIFY_CLIENT_ID=5eb9f883bc4c4c7892ba679ebd8fe189
-supabase secrets set VITE_SPOTIFY_CLIENT_SECRET=c1ade36db76249139046783aced3d5e0
-supabase secrets set VITE_SPOTIFY_REDIRECT_URI=https://tryfluxa.vercel.app/spotify/callback
-supabase secrets set VITE_SPOTIFY_API_BASE=https://api.spotify.com/v1
-supabase secrets set VITE_FRONTEND_URL=https://tryfluxa.vercel.app
+# Set Supabase configuration (NON-prefixed for backend)
+supabase secrets set SUPABASE_URL=https://vzjyclgrqoyxbbzplkgw.supabase.co
+supabase secrets set SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ6anljbGdycW95eGJienBsa2d3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Mzc0NzYwNSwiZXhwIjoyMDc5MzIzNjA1fQ.KoTM6PCXJy81_RdN9wa_Q59DFIWDI3dAgLkcMhJazYA
+
+# Set Spotify configuration (NON-prefixed for backend)
+supabase secrets set SPOTIFY_CLIENT_ID=5eb9f883bc4c4c7892ba679ebd8fe189
+supabase secrets set SPOTIFY_CLIENT_SECRET=c1ade36db76249139046783aced3d5e0
+supabase secrets set SPOTIFY_REDIRECT_URI=https://tryfluxa.vercel.app/spotify/callback
+supabase secrets set SPOTIFY_API_BASE=https://api.spotify.com/v1
+supabase secrets set FRONTEND_URL=https://tryfluxa.vercel.app
 ```
 
 ## Deploy Updated Edge Functions

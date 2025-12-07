@@ -3,11 +3,16 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1'
-import { ENV } from './env.ts'
+import { env } from './env.ts'
 
-const supabaseUrl = ENV.VITE_SUPABASE_URL
-const serviceKey = ENV.VITE_SUPABASE_SERVICE_ROLE_KEY
-const supabase = createClient(supabaseUrl, serviceKey)
+const supabaseUrl = env.SUPABASE_URL
+const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !serviceKey) {
+  console.error('❌ Missing Supabase credentials in cache.ts');
+}
+
+const supabase = createClient(supabaseUrl || '', serviceKey || '')
 
 export interface CacheEntry<T = any> {
   cache_key: string

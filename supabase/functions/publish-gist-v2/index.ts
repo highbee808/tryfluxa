@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1'
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 import { corsHeaders, createResponse, createErrorResponse, parseBody } from '../_shared/http.ts'
-import { ENV } from '../_shared/env.ts'
+import { env, ensureSupabaseEnv } from '../_shared/env.ts'
 
 const publishSchema = z.object({
   topic: z.string().trim().min(1, 'Topic is required').max(500, 'Topic too long'),
@@ -33,7 +33,9 @@ serve(async (req) => {
     const hasJwt = authHeader.toLowerCase().startsWith('bearer ')
     const cronSecret = Deno.env.get('CRON_SECRET')
     const isCron = cronSecret && cronHeader === cronSecret
-    const serviceRoleKey = ENV.VITE_SUPABASE_SERVICE_ROLE_KEY
+    ensureSupabaseEnv();
+    
+    const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY
     
     // Extract token from Bearer header
     const bearerToken = hasJwt ? authHeader.substring(7).trim() : ''
@@ -49,9 +51,9 @@ serve(async (req) => {
 
     // If JWT is present and it's not a service role key, validate as user
     if (hasJwt && !isServiceRole) {
-      const anonKey = ENV.VITE_SUPABASE_ANON_KEY
+      const anonKey = env.SUPABASE_ANON_KEY
       const supabaseClient = createClient(
-        ENV.VITE_SUPABASE_URL ?? '',
+        env.SUPABASE_URL,
         anonKey,
         { global: { headers: { Authorization: authHeader } } }
       )
@@ -67,12 +69,8 @@ serve(async (req) => {
       console.log('✅ Authenticated via service role key (internal call)')
     }
     
-    const supabaseUrl = ENV.VITE_SUPABASE_URL
-    const dbKey = ENV.VITE_SUPABASE_SERVICE_ROLE_KEY // Always use service key for DB operations and internal calls
-    
-    if (!supabaseUrl || !dbKey) {
-      return createErrorResponse('Missing SUPABASE_URL or authentication key', 500)
-    }
+    const supabaseUrl = env.SUPABASE_URL
+    const dbKey = env.SUPABASE_SERVICE_ROLE_KEY // Always use service key for DB operations and internal calls
 
     const supabase = createClient(supabaseUrl, dbKey)
 

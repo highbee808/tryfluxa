@@ -38,8 +38,8 @@ serve(async (req) => {
       body: new URLSearchParams({
         grant_type: "refresh_token",
         refresh_token: refreshToken,
-        client_id: Deno.env.get("VITE_SPOTIFY_CLIENT_ID") || "",
-        client_secret: Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET") || "",
+        client_id: Deno.env.get("SPOTIFY_CLIENT_ID") || "",
+        client_secret: Deno.env.get("SPOTIFY_CLIENT_SECRET") || "",
       }),
     });
 

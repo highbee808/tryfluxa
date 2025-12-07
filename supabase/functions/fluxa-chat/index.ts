@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeaders, createErrorResponse, parseBody } from '../_shared/http.ts'
-import { ENV } from '../_shared/env.ts'
+import { env, ensureSupabaseEnv } from '../_shared/env.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1'
 
 serve(async (req) => {
@@ -34,9 +34,10 @@ serve(async (req) => {
 
     if (authHeader) {
       try {
+        ensureSupabaseEnv();
         const supabase = createClient(
-          ENV.VITE_SUPABASE_URL,
-          ENV.VITE_SUPABASE_ANON_KEY,
+          env.SUPABASE_URL,
+          env.SUPABASE_ANON_KEY,
           { global: { headers: { Authorization: authHeader } } }
         )
         
@@ -66,7 +67,7 @@ serve(async (req) => {
     }
 
     // Check for OpenAI API key
-    const openaiApiKey = ENV.OPENAI_API_KEY
+    const openaiApiKey = env.OPENAI_API_KEY
     if (!openaiApiKey) {
       console.error('OPENAI_API_KEY not configured')
       return createErrorResponse('Service configuration error', 500)

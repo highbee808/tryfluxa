@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { corsHeaders } from "../_shared/http.ts";
+import { env } from "../_shared/env.ts";
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -19,13 +20,13 @@ serve(async (req) => {
       );
     }
 
-    const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
-    const clientSecret = Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET");
-    const redirectUri = Deno.env.get("VITE_SPOTIFY_REDIRECT_URI");
-    const frontendUrl = Deno.env.get("VITE_FRONTEND_URL") || "https://tryfluxa.vercel.app";
+    const clientId = env.SPOTIFY_CLIENT_ID;
+    const clientSecret = env.SPOTIFY_CLIENT_SECRET;
+    const redirectUri = env.SPOTIFY_REDIRECT_URI;
+    const frontendUrl = env.FRONTEND_URL;
 
     if (!clientId || !clientSecret || !redirectUri) {
-      console.error("Missing Spotify credentials:", {
+      console.error("❌ Missing Spotify env vars:", {
         hasClientId: !!clientId,
         hasClientSecret: !!clientSecret,
         hasRedirectUri: !!redirectUri,

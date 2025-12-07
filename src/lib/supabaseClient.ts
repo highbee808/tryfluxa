@@ -1,8 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
-const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY!;
+// Use frontend build-time vars (these ARE allowed on frontend)
+const url = import.meta.env.VITE_SUPABASE_URL;
+const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseAnon, {
+if (!url || !anon) {
+  console.error("❌ Frontend missing VITE_SUPABASE_* vars", { url: !!url, anon: !!anon });
+}
+
+export const supabase = createClient(url!, anon!, {
   auth: { persistSession: false }
 });

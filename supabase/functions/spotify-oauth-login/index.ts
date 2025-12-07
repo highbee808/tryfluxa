@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { corsHeaders } from "../_shared/http.ts";
+import { env } from "../_shared/env.ts";
 
 const SCOPES =
   "user-read-email user-read-private user-read-playback-state user-modify-playback-state";
@@ -26,11 +27,14 @@ serve(async (req) => {
         );
       }
 
-      const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
-      const clientSecret = Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET");
+      const clientId = env.SPOTIFY_CLIENT_ID;
+      const clientSecret = env.SPOTIFY_CLIENT_SECRET;
 
       if (!clientId || !clientSecret) {
-        console.error("Missing VITE_SPOTIFY_CLIENT_ID or VITE_SPOTIFY_CLIENT_SECRET in Supabase Secrets");
+        console.error("❌ Missing Spotify env vars:", {
+          hasClientId: !!clientId,
+          hasClientSecret: !!clientSecret,
+        });
         return new Response(
           JSON.stringify({ error: "Server configuration error - missing Spotify credentials" }),
           {
@@ -104,12 +108,12 @@ serve(async (req) => {
   const code_challenge = url.searchParams.get("code_challenge");
   const code_challenge_method = url.searchParams.get("code_challenge_method") || "S256";
 
-  const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
+  const clientId = env.SPOTIFY_CLIENT_ID;
 
   if (!clientId) {
-    console.error("Missing VITE_SPOTIFY_CLIENT_ID in Supabase Secrets");
+    console.error("❌ Missing SPOTIFY_CLIENT_ID in Supabase Secrets");
     return new Response(
-      JSON.stringify({ error: "Server configuration error - missing VITE_SPOTIFY_CLIENT_ID" }),
+      JSON.stringify({ error: "Server configuration error - missing SPOTIFY_CLIENT_ID" }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

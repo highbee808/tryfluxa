@@ -1,13 +1,19 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
+const SPOTIFY_CLIENT_ID = "5eb9f883bc4c4c7892ba679ebd8fe189";
+const SPOTIFY_CLIENT_SECRET = "c1ade36db76249139046783aced3d5e0";
+const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
+const SPOTIFY_REDIRECT_URI = "https://tryfluxa.vercel.app/spotify/callback";
+const FRONTEND_URL = "https://tryfluxa.vercel.app";
+
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
-const clientSecret = Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET");
+const clientId = SPOTIFY_CLIENT_ID;
+const clientSecret = SPOTIFY_CLIENT_SECRET;
 
 // Simple in-memory token cache per function instance
 let cachedToken: string | null = null;
@@ -21,7 +27,10 @@ async function getAccessToken(): Promise<string> {
   }
 
   if (!clientId || !clientSecret) {
-    console.error("Missing VITE_SPOTIFY_CLIENT_ID or VITE_SPOTIFY_CLIENT_SECRET");
+    console.error("❌ Missing Spotify env vars:", {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+    });
     throw new Error("spotify_env_missing");
   }
 
@@ -85,7 +94,7 @@ serve(async (req: Request) => {
       });
 
       const res = await fetch(
-        `https://api.spotify.com/v1/search?${params.toString()}`,
+        `${SPOTIFY_API_BASE}/search?${params.toString()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

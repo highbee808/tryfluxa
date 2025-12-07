@@ -1,11 +1,11 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, createResponse, createErrorResponse } from '../_shared/http.ts'
-import { ENV } from '../_shared/env.ts'
+import { env, ensureSupabaseEnv } from '../_shared/env.ts'
 
 // HMAC signature validation for scheduled functions
 async function validateCronSignature(req: Request): Promise<boolean> {
-  const cronSecret = ENV.CRON_SECRET
+  const cronSecret = env.CRON_SECRET
 
   if (!cronSecret) {
     console.warn('CRON_SECRET not configured — skipping cron validation')
@@ -63,12 +63,9 @@ serve(async (req) => {
   try {
     console.log('🤖 Auto-gist generation v2 started at', new Date().toISOString())
 
-    const supabaseUrl = ENV.VITE_SUPABASE_URL
-    const supabaseServiceKey = ENV.VITE_SUPABASE_SERVICE_ROLE_KEY
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing SUPABASE_URL or SB_SERVICE_ROLE_KEY')
-    }
+    ensureSupabaseEnv();
+    const supabaseUrl = env.SUPABASE_URL
+    const supabaseServiceKey = env.SUPABASE_SERVICE_ROLE_KEY
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 

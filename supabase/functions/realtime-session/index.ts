@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { corsHeaders, createErrorResponse } from '../_shared/http.ts'
-import { ENV } from '../_shared/env.ts'
+import { env, ensureSupabaseEnv } from '../_shared/env.ts'
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -12,9 +12,10 @@ serve(async (req) => {
     // Verify authentication (allow either Authorization header or publishable key)
     const authHeader = req.headers.get('Authorization');
     const apiKeyHeader = req.headers.get('apikey');
+    ensureSupabaseEnv();
     const allowedKeys = [
-      ENV.VITE_SUPABASE_ANON_KEY,
-      ENV.VITE_SUPABASE_SERVICE_ROLE_KEY,
+      env.SUPABASE_ANON_KEY,
+      env.SUPABASE_SERVICE_ROLE_KEY,
     ];
 
     // Simple check: is the bearer token or apikey in our allowed list?
@@ -29,7 +30,7 @@ serve(async (req) => {
       }
     }
 
-    const OPENAI_API_KEY = ENV.OPENAI_API_KEY;
+    const OPENAI_API_KEY = env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY is not set');
     }

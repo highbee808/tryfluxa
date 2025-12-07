@@ -107,8 +107,8 @@ async function fetchWithTimeout(url: string, ms = 4500): Promise<Response> {
 }
 
 async function getSpotifyToken(): Promise<string | null> {
-  const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
-  const clientSecret = Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET");
+  const clientId = Deno.env.get("SPOTIFY_CLIENT_ID");
+  const clientSecret = Deno.env.get("SPOTIFY_CLIENT_SECRET");
   const authUrl = "https://accounts.spotify.com/api/token";
 
   if (!clientId || !clientSecret) {
@@ -136,7 +136,7 @@ async function getSpotifyToken(): Promise<string | null> {
 }
 
 async function fetchSpotifyLatest(token: string): Promise<MusicItem[]> {
-  const base = Deno.env.get("VITE_SPOTIFY_API_BASE") || "https://api.spotify.com/v1";
+  const base = Deno.env.get("SPOTIFY_API_BASE") || "https://api.spotify.com/v1";
   // Fetch new releases
   const url = `${base}/browse/new-releases?limit=20`;
 

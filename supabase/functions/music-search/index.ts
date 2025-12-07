@@ -1,17 +1,21 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, createResponse } from "../_shared/http.ts";
+import { env } from "../_shared/env.ts";
 
 /* -------------------------------------------------
    Spotify Authentication
 -------------------------------------------------- */
 
 async function getSpotifyToken(): Promise<string | null> {
-  const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
-  const clientSecret = Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET");
+  const clientId = env.SPOTIFY_CLIENT_ID;
+  const clientSecret = env.SPOTIFY_CLIENT_SECRET;
   const authUrl = "https://accounts.spotify.com/api/token";
 
   if (!clientId || !clientSecret) {
-    console.log("[music-search] ⚠️ Spotify credentials not found");
+    console.error("❌ Missing Spotify env vars:", {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+    });
     return null;
   }
 
@@ -39,7 +43,7 @@ async function getSpotifyToken(): Promise<string | null> {
 -------------------------------------------------- */
 
 async function searchSpotifyArtists(query: string, token: string): Promise<any[]> {
-  const base = Deno.env.get("VITE_SPOTIFY_API_BASE") || "https://api.spotify.com/v1";
+  const base = env.SPOTIFY_API_BASE;
   const url = `${base}/search?q=${encodeURIComponent(query)}&type=artist&limit=10`;
 
   try {

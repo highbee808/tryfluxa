@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1'
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 import { corsHeaders, createErrorResponse, parseBody } from '../_shared/http.ts'
-import { ENV } from '../_shared/env.ts'
+import { env, ensureSupabaseEnv } from '../_shared/env.ts'
 
 // Validation schema
 const ttsSchema = z.object({
@@ -56,12 +56,13 @@ serve(async (req) => {
     const validated = ttsSchema.parse(body)
     const { text, voice, speed, personality } = validated
 
+    ensureSupabaseEnv();
     const supabase = createClient(
-      ENV.VITE_SUPABASE_URL ?? '',
-      ENV.VITE_SUPABASE_SERVICE_ROLE_KEY ?? ''
+      env.SUPABASE_URL,
+      env.SUPABASE_SERVICE_ROLE_KEY
     )
 
-    const OPENAI_KEY = ENV.OPENAI_API_KEY
+    const OPENAI_KEY = env.OPENAI_API_KEY
     if (!OPENAI_KEY) throw new Error("Missing OPENAI_API_KEY")
 
     // Detect emotion and personality tag (fallback to optional personality)

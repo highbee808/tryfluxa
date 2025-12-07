@@ -16,7 +16,10 @@ async function getSpotifyAccessToken() {
   const clientSecret = env.SPOTIFY_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
-    console.error("[artist-profile] Missing VITE_SPOTIFY_CLIENT_ID or VITE_SPOTIFY_CLIENT_SECRET");
+    console.error("❌ Missing Spotify env vars:", {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+    });
     return null;
   }
 

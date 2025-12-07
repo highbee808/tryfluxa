@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, createErrorResponse, createResponse, parseBody } from "../_shared/http.ts";
-import { ENV } from "../_shared/env.ts";
+import { env, ensureSupabaseEnv } from "../_shared/env.ts";
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -10,6 +10,8 @@ serve(async (req) => {
   }
 
   try {
+    ensureSupabaseEnv();
+
     // Get auth token
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
@@ -17,7 +19,7 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace("Bearer ", "");
-    const supabase = createClient(ENV.VITE_SUPABASE_URL, ENV.VITE_SUPABASE_ANON_KEY, {
+    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
 

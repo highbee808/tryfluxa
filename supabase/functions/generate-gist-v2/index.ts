@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 import { corsHeaders, createResponse, createErrorResponse, parseBody } from '../_shared/http.ts'
 import { getCache, setCache, generateCacheKey } from '../_shared/cache.ts'
-import { ENV } from '../_shared/env.ts'
+import { env, ensureSupabaseEnv } from '../_shared/env.ts'
 
 interface Article {
   title: string
@@ -51,8 +51,9 @@ serve(async (req) => {
     }
 
     // Step 1: Gather sources (call gather-sources-v2)
-    const supabaseUrl = ENV.VITE_SUPABASE_URL
-    const serviceKey = ENV.VITE_SUPABASE_SERVICE_ROLE_KEY
+    ensureSupabaseEnv();
+    const supabaseUrl = env.SUPABASE_URL
+    const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY
     
     console.log('📰 Gathering sources...')
     const sourcesResponse = await fetch(`${supabaseUrl}/functions/v1/gather-sources-v2`, {
@@ -80,7 +81,7 @@ serve(async (req) => {
     }
 
     // Step 2: Generate content with OpenAI (only if no external content OR to enhance it)
-    const openaiApiKey = ENV.OPENAI_API_KEY
+    const openaiApiKey = env.OPENAI_API_KEY
     if (!openaiApiKey) {
       throw new Error('OPENAI_API_KEY not configured')
     }

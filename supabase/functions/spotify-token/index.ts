@@ -9,9 +9,21 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Missing code" }), { status: 400 });
     }
 
-    const clientId = Deno.env.get("VITE_SPOTIFY_CLIENT_ID");
-    const clientSecret = Deno.env.get("VITE_SPOTIFY_CLIENT_SECRET");
-    const redirectUri = Deno.env.get("VITE_SPOTIFY_REDIRECT_URI");
+    const clientId = Deno.env.get("SPOTIFY_CLIENT_ID");
+    const clientSecret = Deno.env.get("SPOTIFY_CLIENT_SECRET");
+    const redirectUri = Deno.env.get("SPOTIFY_REDIRECT_URI");
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      console.error("❌ Missing Spotify env vars:", {
+        hasClientId: !!clientId,
+        hasClientSecret: !!clientSecret,
+        hasRedirectUri: !!redirectUri,
+      });
+      return new Response(
+        JSON.stringify({ error: "Missing required Spotify credentials" }),
+        { status: 500 }
+      );
+    }
 
     const auth = encode(`${clientId}:${clientSecret}`);
 
