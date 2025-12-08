@@ -1,15 +1,13 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { isSpotifyConnected, disconnectSpotify } from "@/lib/spotifyAuth";
+import { getSpotifyAuthUrl, isSpotifyConnected, disconnectSpotify } from "@/lib/spotifyAuth";
 import { Music, Check, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect } from "react";
 
 interface SpotifyLoginButtonProps {
   variant?: "default" | "outline" | "ghost";
   size?: "default" | "sm" | "lg" | "icon";
   className?: string;
-  onConnect?: () => void;
   onDisconnect?: () => void;
 }
 
@@ -17,51 +15,32 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
   variant = "default",
   size = "default",
   className = "",
-  onConnect,
   onDisconnect,
 }) => {
   const { toast } = useToast();
   const [connected, setConnected] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setConnected(isSpotifyConnected());
   }, []);
 
   const handleConnect = async () => {
-    const SUPABASE_AUTH_URL =
-      "https://vzjyclgrqoyxbbzplkgw.supabase.co/functions/v1/spotify-oauth-login";
-
     try {
-      const res = await fetch(SUPABASE_AUTH_URL, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
+      setLoading(true);
+      const authUrl = await getSpotifyAuthUrl();
 
-      const text = await res.text();
-      let data;
-
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error("Supabase returned HTML instead of JSON: " + text);
-      }
-
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to fetch auth URL");
-      }
-
-      if (!data.authUrl) {
-        throw new Error("Missing authUrl in response");
-      }
-
-      window.location.href = data.authUrl;
+      // Hard redirect to Spotify login page
+      window.location.href = authUrl;
     } catch (err: any) {
-      console.error(err);
+      console.error("[SpotifyLoginButton] Spotify connect error:", err);
       toast({
         title: "Connection Error",
         description: err.message || "Connection failed",
         variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -96,9 +75,10 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
       size={size}
       onClick={handleConnect}
       className={`gap-2 ${className}`}
+      disabled={loading}
     >
       <Music className="w-4 h-4" />
-      Connect Spotify
+      {loading ? "Connecting..." : "Connect Spotify"}
     </Button>
   );
 };

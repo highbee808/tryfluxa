@@ -1,145 +1,139 @@
-/**
- * Environment Variables for Supabase Edge Functions
- * 
- * This file provides environment values loaded from Supabase secrets.
- * Uses Supabase secret names (not Vite names).
- */
+// supabase/functions/_shared/env.ts
 
-/**
- * Required environment variable validator
- * Throws Error with JSON-friendly message if missing
- */
-// @ts-ignore - Deno is available in Edge Functions runtime
-function required(key: string): string {
-  // @ts-ignore - Deno is available in Edge Functions runtime
+// Minimal Deno type declarations for linting
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
+
+// Helper to safely read env vars in Edge Functions
+const required = (key: string): string => {
   const value = Deno.env.get(key);
   if (!value) {
-    throw new Error(`Missing required env variable: ${key}`);
+    console.error(`[env] Missing required env var: ${key}`);
+    throw new Error(`Missing required env var: ${key}`);
   }
   return value;
-}
+};
 
-/**
- * Export individual Spotify environment variables with validation
- * These use Supabase secret names (SPOTIFY_CLIENT_ID, not VITE_SPOTIFY_CLIENT_ID)
- */
 export const SPOTIFY_CLIENT_ID = required("SPOTIFY_CLIENT_ID");
 export const SPOTIFY_CLIENT_SECRET = required("SPOTIFY_CLIENT_SECRET");
 export const SPOTIFY_REDIRECT_URI = required("SPOTIFY_REDIRECT_URI");
-export const SPOTIFY_API_BASE = required("SPOTIFY_API_BASE");
+export const SPOTIFY_API_BASE = Deno.env.get("SPOTIFY_API_BASE") ??
+  "https://api.spotify.com/v1";
 
-/**
- * Environment object for backward compatibility
- * Use this for reading env vars in Edge Functions
- */
+// CORS helpers for JSON responses
+const corsHeaders: HeadersInit = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "*",
+};
+
+export const jsonResponse = (body: unknown, init: ResponseInit = {}): Response =>
+  new Response(JSON.stringify(body), {
+    ...init,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      ...corsHeaders,
+      ...(init.headers ?? {}),
+    },
+  });
+
+export const jsonError = (message: string, status = 500): Response =>
+  jsonResponse({ error: message }, { status });
+
+export const handleOptions = (req: Request): Response | null => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", {
+      status: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "*",
+      },
+    });
+  }
+  return null;
+};
+
+// Legacy compatibility exports (used by other functions)
 export const env = {
-  SUPABASE_URL: "https://vzjyclgrqoyxbbzplkgw.supabase.co",
-  SUPABASE_ANON_KEY: "2d48d50211dd293b3b13815e65e15f4f17401f49f2436f9ee4e629a86e98752",
-  SUPABASE_SERVICE_ROLE_KEY: "",
-
+  SUPABASE_URL: Deno.env.get("SUPABASE_URL") ?? "",
+  SUPABASE_ANON_KEY: Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+  SUPABASE_SERVICE_ROLE_KEY: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
   SPOTIFY_CLIENT_ID,
   SPOTIFY_CLIENT_SECRET,
   SPOTIFY_API_BASE,
   SPOTIFY_REDIRECT_URI,
-
-  FRONTEND_URL: "https://tryfluxa.vercel.app",
-
-  // Other optional env vars
-  OPENAI_API_KEY: "",
-  CRON_SECRET: "",
-  NEWSAPI_KEY: "",
-  GUARDIAN_API_KEY: "",
-  MEDIASTACK_KEY: "",
-  STAPIPAL_KEY: "",
-  SPORTRADAR_KEY: "",
-  LASTFM_API_KEY: "",
+  FRONTEND_URL: Deno.env.get("FRONTEND_URL") ?? "",
+  OPENAI_API_KEY: Deno.env.get("OPENAI_API_KEY") ?? "",
+  CRON_SECRET: Deno.env.get("CRON_SECRET") ?? "",
+  NEWSAPI_KEY: Deno.env.get("NEWSAPI_KEY") ?? "",
+  GUARDIAN_API_KEY: Deno.env.get("GUARDIAN_API_KEY") ?? "",
+  MEDIASTACK_KEY: Deno.env.get("MEDIASTACK_KEY") ?? "",
+  STAPIPAL_KEY: Deno.env.get("STAPIPAL_KEY") ?? "",
+  SPORTRADAR_KEY: Deno.env.get("SPORTRADAR_KEY") ?? "",
+  LASTFM_API_KEY: Deno.env.get("LASTFM_API_KEY") ?? "",
 };
 
-/**
- * Ensure Supabase environment variables are present
- * Throws 401 Response if missing (for functions that need Supabase with anon key)
- */
 export function ensureSupabaseEnv(): void {
   const missing: string[] = [];
-  if (!env.SUPABASE_URL) missing.push('SUPABASE_URL');
-  if (!env.SUPABASE_ANON_KEY) missing.push('SUPABASE_ANON_KEY');
+  if (!env.SUPABASE_URL) missing.push("SUPABASE_URL");
+  if (!env.SUPABASE_ANON_KEY) missing.push("SUPABASE_ANON_KEY");
 
   if (missing.length) {
-    console.error('[env] Missing Supabase env vars:', missing.join(', '));
-    throw new Response(
-      JSON.stringify({
-        message: 'Missing Supabase credentials',
+    console.error("[env] Missing Supabase env vars:", missing.join(", "));
+    throw jsonResponse(
+      {
+        message: "Missing Supabase credentials",
         missing,
-      }),
-      { 
-        status: 401, 
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        } 
+      },
+      {
+        status: 401,
       },
     );
   }
 }
 
-/**
- * Ensure Supabase environment variables are present (for functions using service role key)
- * Throws 401 Response if missing (for functions that need Supabase with service role key)
- */
 export function ensureSupabaseServiceEnv(): void {
   const missing: string[] = [];
-  if (!env.SUPABASE_URL) missing.push('SUPABASE_URL');
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+  if (!env.SUPABASE_URL) missing.push("SUPABASE_URL");
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
 
   if (missing.length) {
-    console.error('[env] Missing Supabase service role env vars:', missing.join(', '));
-    throw new Response(
-      JSON.stringify({
-        message: 'Missing Supabase service role credentials',
+    console.error("[env] Missing Supabase service role env vars:", missing.join(", "));
+    throw jsonResponse(
+      {
+        message: "Missing Supabase service role credentials",
         missing,
-      }),
-      { 
-        status: 401, 
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        } 
+      },
+      {
+        status: 401,
       },
     );
   }
 }
 
-/**
- * Ensure Spotify environment variables are present
- * Throws 500 Response if missing (for functions that need Spotify)
- */
 export function ensureSpotifyEnv(): void {
   const missing: string[] = [];
-  if (!env.SPOTIFY_CLIENT_ID) missing.push('SPOTIFY_CLIENT_ID');
-  if (!env.SPOTIFY_CLIENT_SECRET) missing.push('SPOTIFY_CLIENT_SECRET');
+  if (!env.SPOTIFY_CLIENT_ID) missing.push("SPOTIFY_CLIENT_ID");
+  if (!env.SPOTIFY_CLIENT_SECRET) missing.push("SPOTIFY_CLIENT_SECRET");
 
   if (missing.length) {
-    console.error('[env] Missing Spotify env vars:', missing.join(', '));
-    throw new Response(
-      JSON.stringify({
-        message: 'Missing Spotify credentials',
+    console.error("[env] Missing Spotify env vars:", missing.join(", "));
+    throw jsonResponse(
+      {
+        message: "Missing Spotify credentials",
         missing,
-      }),
-      { 
-        status: 500, 
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        } 
+      },
+      {
+        status: 500,
       },
     );
   }
 }
 
-/**
- * Legacy ENV object for backward compatibility (throws on access if missing)
- * New code should use `env` object and `ensure*()` functions instead
- */
 export const ENV = {
   get VITE_SUPABASE_URL() {
     if (!env.SUPABASE_URL) throw new Error("Missing SUPABASE_URL");

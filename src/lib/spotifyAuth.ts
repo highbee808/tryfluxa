@@ -197,32 +197,44 @@ export function getSpotifyLoginUrlWithCallback(): string {
   return `${getSpotifyLoginUrl()}?redirect_uri=${encodeURIComponent(callbackUrl)}`;
 }
 
-/**
- * Get Spotify authorization URL from local API route
- * @returns Authorization URL or null if error
- */
-export async function getSpotifyAuthUrl(): Promise<string | null> {
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+if (!SUPABASE_URL) {
+  console.warn(
+    "[spotifyAuth] VITE_SUPABASE_URL is missing – Spotify login will not work.",
+  );
+}
+
+export async function getSpotifyAuthUrl(): Promise<string> {
+  if (!SUPABASE_URL) {
+    throw new Error("Supabase URL is not configured");
+  }
+
+  const url = `${SUPABASE_URL}/functions/v1/spotify-oauth-login`;
+
+  const res = await fetch(url, {
+    method: "GET",
+  });
+
+  const text = await res.text();
+
+  // Try to parse JSON, but also detect HTML misconfigurations
   try {
-    const response = await fetch("/api/get-spotify-auth-url");
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("[getSpotifyAuthUrl] API failed:", errText);
-      throw new Error("Failed to request Spotify authorization");
+    const data = JSON.parse(text) as { authUrl?: string; state?: string; error?: string };
+    if (!res.ok) {
+      throw new Error(data.error || `Spotify login failed with status ${res.status}`);
     }
-
-    const data = await response.json();
-
     if (!data.authUrl) {
-      console.error("[getSpotifyAuthUrl] Missing authUrl:", data);
-      throw new Error("Invalid Spotify authorization URL");
+      throw new Error("Spotify login: authUrl missing in response");
     }
-
-    console.log("[getSpotifyAuthUrl] Generated Spotify Auth URL");
     return data.authUrl;
   } catch (err) {
-    console.error("[getSpotifyAuthUrl] ERROR:", err);
-    return null;
+    if (text.startsWith("<!doctype") || text.startsWith("<html")) {
+      console.error("[spotifyAuth] HTML received instead of JSON:", text.slice(0, 200));
+      throw new Error("Invalid response from Spotify backend (HTML returned instead of JSON). Check Supabase function deployment.");
+    }
+    console.error("[spotifyAuth] Failed to parse JSON:", text);
+    throw err;
   }
 }
 

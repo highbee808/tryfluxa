@@ -1,12 +1,17 @@
 import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
-import { corsHeaders } from "../_shared/http.ts";
-import { env } from "../_shared/env.ts";
+import {
+  SPOTIFY_CLIENT_ID,
+  SPOTIFY_CLIENT_SECRET,
+  SPOTIFY_REDIRECT_URI,
+  jsonResponse,
+  jsonError,
+  handleOptions,
+} from "../_shared/env.ts";
 
 serve(async (req) => {
   // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
+  const maybeOptions = handleOptions(req);
+  if (maybeOptions) return maybeOptions;
 
   try {
     // Handle POST request with code in body
@@ -22,26 +27,7 @@ serve(async (req) => {
     }
 
     if (!code) {
-      return new Response(
-        JSON.stringify({ error: "Missing code" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const clientId = env.SPOTIFY_CLIENT_ID;
-    const clientSecret = env.SPOTIFY_CLIENT_SECRET;
-    const redirectUri = env.SPOTIFY_REDIRECT_URI;
-
-    if (!clientId || !clientSecret || !redirectUri) {
-      console.error("❌ Missing Spotify env vars:", {
-        hasClientId: !!clientId,
-        hasClientSecret: !!clientSecret,
-        hasRedirectUri: !!redirectUri,
-      });
-      return new Response(
-        JSON.stringify({ error: "Missing Spotify credentials" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return jsonError("Missing code", 400);
     }
 
     // Exchange code for access token using unified redirect URI
@@ -53,48 +39,42 @@ serve(async (req) => {
       body: new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        redirect_uri: redirectUri,
-        client_id: clientId,
-        client_secret: clientSecret,
+        redirect_uri: SPOTIFY_REDIRECT_URI,
+        client_id: SPOTIFY_CLIENT_ID,
+        client_secret: SPOTIFY_CLIENT_SECRET,
       }),
     });
 
     const tokenData = await tokenRes.json();
 
     if (!tokenRes.ok) {
-      return new Response(
-        JSON.stringify({
+      return jsonResponse(
+        {
           error: "Spotify token exchange failed",
           details: tokenData,
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        },
+        { status: 500 },
       );
     }
 
     // Return JSON with tokens (frontend will handle storage)
-    return new Response(
-      JSON.stringify({
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token,
-        expires_in: tokenData.expires_in,
-        token_type: tokenData.token_type,
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    const frontendUrl =
+      Deno.env.get("FRONTEND_URL") ?? "https://tryfluxa.vercel.app";
+
+    const redirectUrl = new URL("/music/vibe-rooms", frontendUrl);
+    redirectUrl.searchParams.set("spotify", "connected");
+
+    // TODO: persist tokenData if needed before redirecting
+
+    return new Response(null, {
+      status: 302,
+      headers: {
+        "Location": redirectUrl.toString(),
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
   } catch (err) {
     console.error("OAuth callback error:", err);
-    return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-          ...corsHeaders,
-        },
-      }
-    );
+    return jsonError(err instanceof Error ? err.message : "Unknown error");
   }
 });
