@@ -10,6 +10,9 @@ import MusicSearchBar from "@/components/MusicSearchBar";
 import BottomNavigation from "@/components/BottomNavigation";
 import { Card } from "@/components/ui/card";
 import { Music as MusicIcon, TrendingUp, Calendar } from "lucide-react";
+import { loadMusicKit } from "@/lib/apple/musickit";
+import { searchAppleMusic } from "@/lib/apple/search";
+import { playPreview, pausePreview } from "@/lib/apple/player";
 
 type MusicState = {
   trending: MusicItem[];
@@ -48,6 +51,8 @@ const SkeletonCard = () => (
 
 export default function Music() {
   const [state, setState] = useState<MusicState>(initialState);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<any>(null);
 
   // Load music data
   useEffect(() => {
@@ -98,6 +103,21 @@ export default function Music() {
       cancelled = true;
     };
   }, []); // IMPORTANT: no dependencies, runs once
+
+  useEffect(() => {
+    loadMusicKit().catch((err) =>
+      console.error("[Music] MusicKit load failed:", err),
+    );
+  }, []);
+
+  async function handleSearch(e: React.ChangeEvent<HTMLInputElement>) {
+    const q = e.target.value;
+    setQuery(q);
+
+    if (q.length < 2) return;
+    const data = await searchAppleMusic(q);
+    setResults(data);
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-background/80 pb-32 md:pb-20">
@@ -169,44 +189,53 @@ export default function Music() {
               )}
             </section>
 
-            {/* Trending Music Section */}
-            <section>
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
-                Trending Music
-              </h2>
-              {state.loading ? (
-                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                  <SkeletonCard />
-                  <SkeletonCard />
-                  <SkeletonCard />
-                </div>
-              ) : state.trending.length === 0 ? (
-                <Card className="p-8 text-center">
-                  <TrendingUp className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground text-sm">
-                    No trending music available yet.
-                  </p>
-                </Card>
-              ) : (
-                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                  {state.trending.map((item) => {
-                    // Debug log for Trending section
-                    const artwork = getArtworkForMusicItem(item);
-                    console.log("[Trending] FINAL render:", {
-                      title: item.title,
-                      artwork: artwork,
-                      source: item.source,
-                    });
-                    
-                    return (
-                      <MusicCard key={item.id} item={item} />
-                    );
-                  })}
-                </div>
-              )}
-            </section>
         </>
+
+        <div className="apple-music-section mt-10 space-y-4">
+          <h2 className="section-title text-xl font-semibold">
+            Apple Music Search
+          </h2>
+
+          <input
+            value={query}
+            onChange={handleSearch}
+            placeholder="Search Apple Music…"
+            className="apple-music-search w-full rounded-2xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+          />
+
+          <div className="apple-results grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {results?.results?.songs?.data?.map((song: any) => (
+              <div
+                key={song.id}
+                className="apple-song-card flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:shadow-md"
+                onClick={() => playPreview(song.id)}
+              >
+                <img
+                  src={song.attributes.artwork.url
+                    .replace("{w}", "200")
+                    .replace("{h}", "200")}
+                  alt={song.attributes.name}
+                  className="h-16 w-16 rounded-xl object-cover"
+                />
+                <div className="flex flex-col">
+                  <p className="name text-sm font-semibold">
+                    {song.attributes.name}
+                  </p>
+                  <p className="artist text-xs text-muted-foreground">
+                    {song.attributes.artistName}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={pausePreview}
+            className="apple-pause-btn inline-flex items-center justify-center rounded-xl border border-border bg-muted px-4 py-2 text-sm font-medium transition hover:bg-muted/80"
+          >
+            Pause Preview
+          </button>
+        </div>
       </div>
 
       <BottomNavigation />

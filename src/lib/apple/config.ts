@@ -1,0 +1,4 @@
+export const APPLE_DEV_PREVIEW_TOKEN =
+  "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IkRldmVsb3BlclRva2VuIn0.eyJpc3MiOiJERVZFTE9QRVIiLCJleHAiOjQ3NDY4ODgwMDAsImlhdCI6MTY4ODg4ODAwMH0.tdQ8O8Z1mTZtFwuFp1tYx2I3YtEUEnRhgPpCqBhywSP1P1F2uXzV1g6uPvjNA2FxCq_CJSeP2jK3J3fw53cVOA";
+
+export const useRealMusicKitToken = false; // switch later when paid
