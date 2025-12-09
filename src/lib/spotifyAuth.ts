@@ -7,7 +7,6 @@ import { getFrontendUrl } from "./apiConfig";
 import {
   generateCodeVerifier,
   generateCodeChallenge,
-  storeCodeVerifier,
   clearCodeVerifier,
 } from "./pkce";
 
@@ -93,68 +92,62 @@ export function isSpotifyConnected(): boolean {
 }
 
 /**
- * Get Spotify redirect URI based on environment
+ * Safe redirect resolver:
+ * - If VITE_SPOTIFY_REDIRECT_URI exists (dev), use it
+ * - If SPOTIFY_REDIRECT_URI exists (prod), use it
+ * - Otherwise fall back to localhost for dev convenience
  */
+export function getRedirectUriSafe(): string {
+  const devUri =
+    import.meta.env.VITE_SPOTIFY_REDIRECT_URI ||
+    "http://localhost:4173/spotify/callback";
+
+  const prodUri =
+    import.meta.env.SPOTIFY_REDIRECT_URI ||
+    `${import.meta.env.VITE_FRONTEND_URL}/spotify/callback`;
+
+  return import.meta.env.DEV ? devUri : prodUri;
+}
+
 export function getSpotifyRedirectUri(): string {
-  const isProduction = import.meta.env.PROD;
-  
-  if (isProduction) {
-    // Production: use VITE_SPOTIFY_REDIRECT_URI or default to Vercel URL
-    const redirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI;
-    if (redirectUri) {
-      // Protective guard: warn if redirect_uri doesn't match Vercel domain in production
-      if (!redirectUri.includes('tryfluxa.vercel.app')) {
-        console.warn(
-          '[Spotify OAuth] Production redirect_uri does not match Vercel domain:',
-          redirectUri
-        );
-      }
-      return redirectUri;
-    }
-    return 'https://tryfluxa.vercel.app/spotify/callback';
-  } else {
-    // Development: use localhost
-    return 'http://localhost:5173/spotify/callback';
-  }
+  return getRedirectUriSafe();
 }
 
 /**
  * Generate PKCE flow and return login URL
  */
 export async function getSpotifyLoginUrlWithPKCE(): Promise<string> {
-  // Validate required environment variables
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  if (!supabaseUrl) {
-    throw new Error(
-      "Missing VITE_SUPABASE_URL — check your .env.local file. " +
-      "Run 'npm run verify-env' to validate your environment variables."
-    );
-  }
-
-  const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-  if (!clientId) {
-    throw new Error(
-      "Missing VITE_SPOTIFY_CLIENT_ID — check your .env.local file."
-    );
-  }
-
   // Generate PKCE code verifier and challenge
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
-  
-  // Store code verifier in sessionStorage
-  storeCodeVerifier(codeVerifier);
+  const state = crypto.randomUUID();
 
-  // Build login URL with PKCE parameters
-  const redirectUri = getSpotifyRedirectUri();
-  const baseUrl = supabaseUrl.replace(/\/$/, "");
-  const loginUrl = new URL(`${baseUrl}/functions/v1/spotify-oauth-login`);
-  
-  loginUrl.searchParams.set('redirect_uri', redirectUri);
-  loginUrl.searchParams.set('code_challenge', codeChallenge);
-  loginUrl.searchParams.set('code_challenge_method', 'S256');
+  // Store PKCE + state in localStorage for callback validation
+  persistSpotifyOAuthParams({
+    [SPOTIFY_CODE_VERIFIER_KEY]: codeVerifier,
+    [SPOTIFY_CODE_CHALLENGE_KEY]: codeChallenge,
+    [SPOTIFY_STATE_KEY]: state,
+  });
 
-  return loginUrl.toString();
+  const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
+  if (!clientId) {
+    throw new Error("Missing VITE_SPOTIFY_CLIENT_ID — check your env vars.");
+  }
+
+  const redirectUri = getRedirectUriSafe();
+  const scope = "user-read-email user-read-private user-top-read";
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: "code",
+    redirect_uri: redirectUri,
+    scope,
+    code_challenge: codeChallenge,
+    code_challenge_method: "S256",
+    state,
+  });
+
+  return `https://accounts.spotify.com/authorize?${params.toString()}`;
 }
 
 /**
@@ -195,6 +188,47 @@ export function getSpotifyLoginUrlWithCallback(): string {
   const baseUrl = supabaseUrl.replace(/\/$/, "");
   const callbackUrl = `${baseUrl}/functions/v1/spotify-oauth-callback?frontend_redirect_uri=${encodeURIComponent(frontendUrl)}`;
   return `${getSpotifyLoginUrl()}?redirect_uri=${encodeURIComponent(callbackUrl)}`;
+}
+
+/**
+ * Storage helpers for PKCE + state (localStorage to survive redirects)
+ */
+export const SPOTIFY_STATE_KEY = "spotify_oauth_state";
+export const SPOTIFY_CODE_VERIFIER_KEY = "spotify_code_verifier";
+export const SPOTIFY_CODE_CHALLENGE_KEY = "spotify_code_challenge";
+
+export function persistSpotifyOAuthParams(
+  params: Record<string, string>
+): void {
+  Object.entries(params).forEach(([key, value]) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch (err) {
+      console.warn(`[spotifyAuth] Failed to store ${key}:`, err);
+    }
+  });
+}
+
+export function readSpotifyOAuthParams(): {
+  state: string | null;
+  codeVerifier: string | null;
+  codeChallenge: string | null;
+} {
+  return {
+    state: localStorage.getItem(SPOTIFY_STATE_KEY),
+    codeVerifier: localStorage.getItem(SPOTIFY_CODE_VERIFIER_KEY),
+    codeChallenge: localStorage.getItem(SPOTIFY_CODE_CHALLENGE_KEY),
+  };
+}
+
+export function clearSpotifyOAuthParams(): void {
+  try {
+    localStorage.removeItem(SPOTIFY_STATE_KEY);
+    localStorage.removeItem(SPOTIFY_CODE_VERIFIER_KEY);
+    localStorage.removeItem(SPOTIFY_CODE_CHALLENGE_KEY);
+  } catch (err) {
+    console.warn("[spotifyAuth] Failed to clear OAuth params:", err);
+  }
 }
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;

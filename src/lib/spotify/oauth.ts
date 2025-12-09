@@ -1,17 +1,23 @@
 /**
- * Validate and get Spotify redirect URI from environment
- * @throws Error if VITE_SPOTIFY_REDIRECT_URI is missing
+ * Return the correct Spotify redirect URI for the environment.
+ * Priority: SPOTIFY_REDIRECT_URI (production/Vercel) -> VITE_SPOTIFY_REDIRECT_URI (local)
  */
-export function getSpotifyRedirectURI(): string {
-  const redirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI;
-  
+export function getSpotifyRedirectUri(): string {
+  const productionRedirect = import.meta.env.SPOTIFY_REDIRECT_URI as
+    | string
+    | undefined;
+  const localRedirect = import.meta.env.VITE_SPOTIFY_REDIRECT_URI as
+    | string
+    | undefined;
+
+  const redirectUri = productionRedirect || localRedirect;
+
   if (!redirectUri) {
     throw new Error(
-      "Missing VITE_SPOTIFY_REDIRECT_URI environment variable. " +
-      "Please set it in your .env.local file."
+      "Missing Spotify redirect URI. Set SPOTIFY_REDIRECT_URI (prod) or VITE_SPOTIFY_REDIRECT_URI (local)."
     );
   }
-  
+
   return redirectUri;
 }
 
@@ -22,11 +28,14 @@ export function getSpotifyRedirectURI(): string {
  */
 export function validateSpotifyAuthEnv(): void {
   const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-  const redirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI;
+  const redirectUri =
+    import.meta.env.SPOTIFY_REDIRECT_URI ||
+    import.meta.env.VITE_SPOTIFY_REDIRECT_URI;
 
   const missing: string[] = [];
   if (!clientId) missing.push("VITE_SPOTIFY_CLIENT_ID");
-  if (!redirectUri) missing.push("VITE_SPOTIFY_REDIRECT_URI");
+  if (!redirectUri)
+    missing.push("SPOTIFY_REDIRECT_URI or VITE_SPOTIFY_REDIRECT_URI");
 
   if (missing.length > 0) {
     const errorMessage = `Missing required Spotify environment variables: ${missing.join(", ")}. Please set them in your .env.local file.`;
@@ -46,9 +55,8 @@ export function buildSpotifyAuthURL(codeChallenge: string, state: string): strin
   validateSpotifyAuthEnv();
 
   const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID!;
-  const redirectUri = getSpotifyRedirectURI();
-
-  const scope = "user-read-email user-read-private user-top-read user-library-read";
+  const redirectUri = getSpotifyRedirectUri();
+  const scope = "user-read-email user-read-private user-top-read";
 
   const params = new URLSearchParams({
     client_id: clientId,

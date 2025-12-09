@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { getSpotifyAuthUrl, isSpotifyConnected, disconnectSpotify } from "@/lib/spotifyAuth";
+import {
+  disconnectSpotify,
+  getSpotifyLoginUrlWithPKCE,
+  isSpotifyConnected,
+  getRedirectUriSafe,
+} from "@/lib/spotifyAuth";
 import { Music, Check, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -28,7 +33,8 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
   const handleConnect = async () => {
     try {
       setLoading(true);
-      const authUrl = await getSpotifyAuthUrl();
+      // Ensure redirect base is resolved safely (dev/prod)
+      const authUrl = await getSpotifyLoginUrlWithPKCE();
 
       // Hard redirect to Spotify login page
       window.location.href = authUrl;
