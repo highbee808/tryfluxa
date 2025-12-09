@@ -3,9 +3,9 @@
  */
 
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { createVibeRoom, listPublicRooms, joinVibeRoom } from "@/lib/vibeRooms";
+import { listVibeRooms, createVibeRoom, joinVibeRoom } from "@/lib/vibeRoomApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -14,12 +14,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from "@/hooks/use-toast";
 import BottomNavigation from "@/components/BottomNavigation";
 import { Music, Plus, Users, Crown, Lock, Unlock } from "lucide-react";
-import { SpotifyLoginButton } from "@/components/SpotifyLoginButton";
-import { isSpotifyConnected } from "@/lib/spotifyAuth";
+import { getSpotifyLoginUrlWithPKCE, isSpotifyConnected } from "@/lib/spotifyAuth";
 import type { VibeRoom } from "@/types/vibeRooms";
 
 export default function VibeRoomsList() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [rooms, setRooms] = useState<VibeRoom[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +27,32 @@ export default function VibeRoomsList() {
   const [roomName, setRoomName] = useState("");
   const [privacy, setPrivacy] = useState<"public" | "private">("public");
   const [creating, setCreating] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [spotifyConnected, setSpotifyConnected] = useState<boolean>(isSpotifyConnected());
+  const [spotifyError, setSpotifyError] = useState<string | null>(null);
+
+  const searchParams = new URLSearchParams(location.search);
+  const spotifyParam = searchParams.get("spotify");
+  const errorParam = searchParams.get("error");
+
+  useEffect(() => {
+    if (spotifyParam === "connected") {
+      setSpotifyConnected(true);
+      setSpotifyError(null);
+      toast({
+        title: "Spotify connected",
+        description: "You can now create and join vibe rooms.",
+      });
+    } else if (errorParam === "spotify-auth-failed") {
+      setSpotifyConnected(false);
+      setSpotifyError("Spotify connection failed. Please try again.");
+      toast({
+        title: "Spotify error",
+        description: "Spotify connection failed. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [spotifyParam, errorParam, toast]);
 
   useEffect(() => {
     loadRooms();
@@ -55,7 +81,7 @@ export default function VibeRoomsList() {
   const loadRooms = async () => {
     try {
       setLoading(true);
-      const publicRooms = await listPublicRooms();
+      const publicRooms = await listVibeRooms();
       setRooms(publicRooms);
     } catch (error) {
       console.error("Failed to load rooms:", error);
@@ -108,7 +134,7 @@ export default function VibeRoomsList() {
 
   const handleJoinRoom = async (roomId: string) => {
     try {
-      await joinVibeRoom({ room_id: roomId });
+      await joinVibeRoom(roomId);
       navigate(`/music/vibe-room/${roomId}`);
     } catch (error) {
       console.error("Failed to join room:", error);
@@ -117,6 +143,23 @@ export default function VibeRoomsList() {
         description: error instanceof Error ? error.message : "Failed to join room",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleConnectSpotify = async () => {
+    try {
+      setIsConnecting(true);
+      const authUrl = await getSpotifyLoginUrlWithPKCE();
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error("Spotify connect failed:", error);
+      toast({
+        title: "Spotify error",
+        description: error instanceof Error ? error.message : "Failed to start Spotify auth",
+        variant: "destructive",
+      });
+    } finally {
+      setIsConnecting(false);
     }
   };
 
@@ -132,10 +175,20 @@ export default function VibeRoomsList() {
               <h1 className="text-3xl md:text-4xl font-bold">Vibe Rooms</h1>
             </div>
             <div className="flex items-center gap-2">
-              <SpotifyLoginButton variant="outline" size="sm" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleConnectSpotify}
+                disabled={spotifyConnected || isConnecting}
+              >
+                {spotifyConnected ? "Spotify connected" : isConnecting ? "Connecting..." : "Connect Spotify"}
+              </Button>
+              {spotifyError && (
+                <span className="text-destructive text-sm">{spotifyError}</span>
+              )}
               <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button disabled={!isSpotifyConnected()}>
+                  <Button disabled={!spotifyConnected}>
                     <Plus className="w-4 h-4 mr-2" />
                     Create Room
                   </Button>

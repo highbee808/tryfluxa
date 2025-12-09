@@ -3,13 +3,14 @@
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders, createErrorResponse, createResponse, parseBody } from "../_shared/http.ts";
+import { parseBody } from "../_shared/http.ts";
 import { env } from "../_shared/env.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 
 serve(async (req) => {
-  // Handle CORS preflight
+  const origin = req.headers.get("origin") || "*";
   if (req.method === "OPTIONS") {
-    return new Response("OK", { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders(origin) });
   }
 
   try {
@@ -26,7 +27,10 @@ serve(async (req) => {
     }
 
     if (!refreshToken) {
-      return createErrorResponse("Missing refresh_token parameter", 400);
+      return new Response(
+        JSON.stringify({ error: "Missing refresh_token parameter" }),
+        { status: 400, headers: { ...corsHeaders(origin), "Content-Type": "application/json" } },
+      );
     }
 
     // Exchange refresh token for new access token
@@ -46,21 +50,27 @@ serve(async (req) => {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
       console.error("Spotify token refresh failed:", errorText);
-      return createErrorResponse("Failed to refresh token", tokenResponse.status);
+      return new Response(
+        JSON.stringify({ error: "Failed to refresh token" }),
+        { status: tokenResponse.status, headers: { ...corsHeaders(origin), "Content-Type": "application/json" } },
+      );
     }
 
     const tokenData = await tokenResponse.json();
 
-    return createResponse({
-      access_token: tokenData.access_token,
-      expires_in: tokenData.expires_in || 3600,
-      ...(tokenData.refresh_token && { refresh_token: tokenData.refresh_token }),
-    });
+    return new Response(
+      JSON.stringify({
+        access_token: tokenData.access_token,
+        expires_in: tokenData.expires_in || 3600,
+        ...(tokenData.refresh_token && { refresh_token: tokenData.refresh_token }),
+      }),
+      { status: 200, headers: { ...corsHeaders(origin), "Content-Type": "application/json" } },
+    );
   } catch (error) {
     console.error("Spotify refresh error:", error);
-    return createErrorResponse(
-      error instanceof Error ? error.message : "Failed to refresh token",
-      500
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Failed to refresh token" }),
+      { status: 500, headers: { ...corsHeaders(origin), "Content-Type": "application/json" } },
     );
   }
 });

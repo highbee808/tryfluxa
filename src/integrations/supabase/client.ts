@@ -17,7 +17,11 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: false }
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
 });
 
 // Expose supabase to window for console debugging (dev only)

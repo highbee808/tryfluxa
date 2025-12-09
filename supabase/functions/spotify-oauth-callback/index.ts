@@ -3,15 +3,14 @@ import {
   SPOTIFY_CLIENT_ID,
   SPOTIFY_CLIENT_SECRET,
   SPOTIFY_REDIRECT_URI,
-  jsonResponse,
-  jsonError,
-  handleOptions,
 } from "../_shared/env.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 
 serve(async (req) => {
-  // Handle CORS preflight
-  const maybeOptions = handleOptions(req);
-  if (maybeOptions) return maybeOptions;
+  const origin = req.headers.get("origin") || "*";
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders(origin) });
+  }
 
   try {
     // Handle POST request with code in body
@@ -27,7 +26,10 @@ serve(async (req) => {
     }
 
     if (!code) {
-      return jsonError("Missing code", 400);
+      return new Response(
+        JSON.stringify({ error: "Missing code" }),
+        { status: 400, headers: { ...corsHeaders(origin), "Content-Type": "application/json" } },
+      );
     }
 
     // Exchange code for access token using unified redirect URI
@@ -48,12 +50,12 @@ serve(async (req) => {
     const tokenData = await tokenRes.json();
 
     if (!tokenRes.ok) {
-      return jsonResponse(
-        {
+      return new Response(
+        JSON.stringify({
           error: "Spotify token exchange failed",
           details: tokenData,
-        },
-        { status: 500 },
+        }),
+        { status: 500, headers: { ...corsHeaders(origin), "Content-Type": "application/json" } },
       );
     }
 
@@ -70,11 +72,14 @@ serve(async (req) => {
       status: 302,
       headers: {
         "Location": redirectUrl.toString(),
-        "Access-Control-Allow-Origin": "*",
+        ...corsHeaders(origin),
       },
     });
   } catch (err) {
     console.error("OAuth callback error:", err);
-    return jsonError(err instanceof Error ? err.message : "Unknown error");
+    return new Response(
+      JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders(origin), "Content-Type": "application/json" } },
+    );
   }
 });

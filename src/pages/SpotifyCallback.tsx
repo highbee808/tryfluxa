@@ -13,7 +13,6 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   clearSpotifyOAuthParams,
-  getSpotifyRedirectUri,
   readSpotifyOAuthParams,
 } from "@/lib/spotifyAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +30,8 @@ export default function SpotifyCallback() {
       const code = params.get("code");
       const state = params.get("state");
       const error = params.get("error");
+
+      console.log("🔵 Received Spotify callback with code:", code);
 
       if (error) {
         navigate("/music/vibe-rooms?error=spotify-auth-failed");
@@ -59,14 +60,15 @@ export default function SpotifyCallback() {
       }
 
       try {
-        const redirectUri = getSpotifyRedirectUri();
         const { data, error } = await supabase.functions.invoke("spotify-token", {
+          method: "POST",
           body: {
             code,
-            code_verifier: codeVerifier,
-            redirect_uri: redirectUri,
+            code_verifier: localStorage.getItem("spotify_pkce_verifier") ?? codeVerifier,
           },
         });
+
+        console.log("🔵 Spotify token response:", { data, error });
 
         if (error) {
           throw error;
@@ -91,7 +93,7 @@ export default function SpotifyCallback() {
           title: "Success",
           description: "Spotify Connected!",
         });
-        navigate("/music/vibe-rooms");
+        navigate("/music/vibe-rooms?spotify=connected");
       } catch (err) {
         console.error("[SpotifyCallback] Token exchange failed:", err);
         navigate("/music/vibe-rooms?error=spotify-auth-failed");

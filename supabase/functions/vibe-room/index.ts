@@ -1,13 +1,22 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders, createErrorResponse, createResponse, parseBody } from "../_shared/http.ts";
+import { parseBody } from "../_shared/http.ts";
 import { env, ensureSupabaseEnv } from "../_shared/env.ts";
+import { corsHeaders } from "../_shared/cors.ts";
 
 serve(async (req) => {
+  const origin = req.headers.get("origin") || "*";
+
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response("OK", { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders(origin) });
   }
+
+  const json = (body: any, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
+    });
 
   try {
     ensureSupabaseEnv();
@@ -15,7 +24,7 @@ serve(async (req) => {
     // Get auth token
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return createErrorResponse("Missing authorization header", 401);
+      return json({ error: "Unauthorized" }, 401);
     }
 
     const token = authHeader.replace("Bearer ", "");
@@ -26,7 +35,7 @@ serve(async (req) => {
     // Verify user
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
-      return createErrorResponse("Unauthorized", 401);
+      return json({ error: "Unauthorized" }, 401);
     }
 
     const url = new URL(req.url);
@@ -36,45 +45,45 @@ serve(async (req) => {
     switch (req.method) {
       case "POST":
         if (path === "create") {
-          return await createRoom(supabase, user.id, body);
+          return await createRoom(supabase, user.id, body, json);
         } else if (path === "join") {
-          return await joinRoom(supabase, user.id, body);
+          return await joinRoom(supabase, user.id, body, json);
         } else if (path === "leave") {
-          return await leaveRoom(supabase, user.id, body);
+          return await leaveRoom(supabase, user.id, body, json);
         } else if (path === "update-track-state") {
-          return await updateTrackState(supabase, user.id, body);
+          return await updateTrackState(supabase, user.id, body, json);
         }
         break;
 
       case "GET":
         if (path === "list") {
-          return await listPublicRooms(supabase);
+          return await listPublicRooms(supabase, json);
         } else if (path.startsWith("room/")) {
           const roomId = path.split("/")[1];
-          return await getRoomDetails(supabase, roomId);
+          return await getRoomDetails(supabase, roomId, json);
         }
         break;
     }
 
-    return createErrorResponse("Invalid endpoint", 404);
+    return json({ error: "Invalid endpoint" }, 404);
   } catch (error) {
     console.error("Vibe room error:", error);
-    return createErrorResponse(
-      error instanceof Error ? error.message : "Internal server error",
+    return json(
+      { error: error instanceof Error ? error.message : "Internal server error" },
       500
     );
   }
 });
 
-async function createRoom(supabase: any, userId: string, body: any) {
+async function createRoom(supabase: any, userId: string, body: any, json: (body: any, status?: number) => Response) {
   const { name, privacy = "public" } = body;
 
   if (!name || typeof name !== "string" || name.trim().length === 0) {
-    return createErrorResponse("Room name is required", 400);
+    return json({ error: "Room name is required" }, 400);
   }
 
   if (privacy !== "public" && privacy !== "private") {
-    return createErrorResponse("Privacy must be 'public' or 'private'", 400);
+    return json({ error: "Privacy must be 'public' or 'private'" }, 400);
   }
 
   const { data: room, error } = await supabase
@@ -89,7 +98,7 @@ async function createRoom(supabase: any, userId: string, body: any) {
 
   if (error) {
     console.error("Error creating room:", error);
-    return createErrorResponse("Failed to create room", 500);
+    return json({ error: "Failed to create room" }, 500);
   }
 
   // Auto-join the host
@@ -98,14 +107,14 @@ async function createRoom(supabase: any, userId: string, body: any) {
     user_id: userId,
   });
 
-  return createResponse({ success: true, room }, 201);
+  return json({ success: true, room }, 201);
 }
 
-async function joinRoom(supabase: any, userId: string, body: any) {
+async function joinRoom(supabase: any, userId: string, body: any, json: (body: any, status?: number) => Response) {
   const { room_id } = body;
 
   if (!room_id) {
-    return createErrorResponse("room_id is required", 400);
+    return json({ error: "room_id is required" }, 400);
   }
 
   // Check if room exists and is public
@@ -116,11 +125,11 @@ async function joinRoom(supabase: any, userId: string, body: any) {
     .single();
 
   if (roomError || !room) {
-    return createErrorResponse("Room not found", 404);
+    return json({ error: "Room not found" }, 404);
   }
 
   if (room.privacy === "private" && room.host_user_id !== userId) {
-    return createErrorResponse("Cannot join private room", 403);
+    return json({ error: "Cannot join private room" }, 403);
   }
 
   // Check if already a member
@@ -132,7 +141,7 @@ async function joinRoom(supabase: any, userId: string, body: any) {
     .single();
 
   if (existing) {
-    return createResponse({ success: true, message: "Already a member" });
+    return json({ success: true, message: "Already a member" });
   }
 
   // Join room
@@ -143,17 +152,17 @@ async function joinRoom(supabase: any, userId: string, body: any) {
 
   if (error) {
     console.error("Error joining room:", error);
-    return createErrorResponse("Failed to join room", 500);
+    return json({ error: "Failed to join room" }, 500);
   }
 
-  return createResponse({ success: true });
+  return json({ success: true });
 }
 
-async function leaveRoom(supabase: any, userId: string, body: any) {
+async function leaveRoom(supabase: any, userId: string, body: any, json: (body: any, status?: number) => Response) {
   const { room_id } = body;
 
   if (!room_id) {
-    return createErrorResponse("room_id is required", 400);
+    return json({ error: "room_id is required" }, 400);
   }
 
   // Check if user is the host
@@ -164,7 +173,7 @@ async function leaveRoom(supabase: any, userId: string, body: any) {
     .single();
 
   if (room && room.host_user_id === userId) {
-    return createErrorResponse("Host cannot leave room. Delete the room instead.", 400);
+    return json({ error: "Host cannot leave room. Delete the room instead." }, 400);
   }
 
   const { error } = await supabase
@@ -175,17 +184,17 @@ async function leaveRoom(supabase: any, userId: string, body: any) {
 
   if (error) {
     console.error("Error leaving room:", error);
-    return createErrorResponse("Failed to leave room", 500);
+    return json({ error: "Failed to leave room" }, 500);
   }
 
-  return createResponse({ success: true });
+  return json({ success: true });
 }
 
-async function updateTrackState(supabase: any, userId: string, body: any) {
+async function updateTrackState(supabase: any, userId: string, body: any, json: (body: any, status?: number) => Response) {
   const { room_id, track_id, track_name, track_artist, track_album_art, position_ms, is_playing } = body;
 
   if (!room_id) {
-    return createErrorResponse("room_id is required", 400);
+    return json({ error: "room_id is required" }, 400);
   }
 
   // Verify user is the host
@@ -196,7 +205,7 @@ async function updateTrackState(supabase: any, userId: string, body: any) {
     .single();
 
   if (!room || room.host_user_id !== userId) {
-    return createErrorResponse("Only the host can update track state", 403);
+    return json({ error: "Only the host can update track state" }, 403);
   }
 
   const { error } = await supabase
@@ -216,13 +225,13 @@ async function updateTrackState(supabase: any, userId: string, body: any) {
 
   if (error) {
     console.error("Error updating track state:", error);
-    return createErrorResponse("Failed to update track state", 500);
+    return json({ error: "Failed to update track state" }, 500);
   }
 
-  return createResponse({ success: true });
+  return json({ success: true });
 }
 
-async function listPublicRooms(supabase: any) {
+async function listPublicRooms(supabase: any, json: (body: any, status?: number) => Response) {
   const { data: rooms, error } = await supabase
     .from("vibe_rooms")
     .select(`
@@ -236,13 +245,13 @@ async function listPublicRooms(supabase: any) {
 
   if (error) {
     console.error("Error listing rooms:", error);
-    return createErrorResponse("Failed to list rooms", 500);
+    return json({ error: "Failed to list rooms" }, 500);
   }
 
-  return createResponse({ success: true, rooms: rooms || [] });
+  return json({ success: true, rooms: rooms || [] });
 }
 
-async function getRoomDetails(supabase: any, roomId: string) {
+async function getRoomDetails(supabase: any, roomId: string, json: (body: any, status?: number) => Response) {
   const { data: room, error } = await supabase
     .from("vibe_rooms")
     .select(`
@@ -275,8 +284,8 @@ async function getRoomDetails(supabase: any, roomId: string) {
   }
 
   if (error || !room) {
-    return createErrorResponse("Room not found", 404);
+    return json({ error: "Room not found" }, 404);
   }
 
-  return createResponse({ success: true, room });
+  return json({ success: true, room });
 }

@@ -92,25 +92,20 @@ export function isSpotifyConnected(): boolean {
 }
 
 /**
- * Safe redirect resolver:
- * - If VITE_SPOTIFY_REDIRECT_URI exists (dev), use it
- * - If SPOTIFY_REDIRECT_URI exists (prod), use it
- * - Otherwise fall back to localhost for dev convenience
+ * Spotify redirect resolver
+ * Prefers env override; falls back to current origin.
  */
-export function getRedirectUriSafe(): string {
-  const devUri =
-    import.meta.env.VITE_SPOTIFY_REDIRECT_URI ||
-    "http://localhost:4173/spotify/callback";
-
-  const prodUri =
-    import.meta.env.SPOTIFY_REDIRECT_URI ||
-    `${import.meta.env.VITE_FRONTEND_URL}/spotify/callback`;
-
-  return import.meta.env.DEV ? devUri : prodUri;
+export function getSpotifyRedirectUri(): string {
+  const envRedirect = import.meta.env.VITE_SPOTIFY_REDIRECT_URI;
+  if (envRedirect) return envRedirect;
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/spotify/callback`;
+  }
+  return "https://tryfluxa.vercel.app/spotify/callback";
 }
 
-export function getSpotifyRedirectUri(): string {
-  return getRedirectUriSafe();
+export function getRedirectUriSafe(): string {
+  return getSpotifyRedirectUri();
 }
 
 /**
