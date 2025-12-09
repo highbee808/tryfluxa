@@ -13,3 +13,14 @@ export function handleCors(req: Request, origin: string = "*"): Response | null 
   }
   return null;
 }
+
+/**
+ * Wrap a response with CORS headers using the incoming request origin.
+ */
+export function cors(req: Request, res: Response): Response {
+  const origin = req.headers.get("origin") || "*";
+  const headers = new Headers(res.headers);
+  const corsMap = corsHeaders(origin);
+  Object.entries(corsMap).forEach(([key, value]) => headers.set(key, value));
+  return new Response(res.body, { ...res, headers });
+}
