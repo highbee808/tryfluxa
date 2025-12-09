@@ -1,6 +1,9 @@
 /**
  * Spotify OAuth Callback Handler
  * Receives authorization code from OAuth flow, exchanges it for tokens
+ *
+ * PATCH: use supabase.functions.invoke("spotify-token") instead of fetch()
+ * to avoid CORS and ensure authenticated token exchange.
  */
 
 import { useEffect, useState } from "react";
@@ -13,7 +16,7 @@ import {
   getSpotifyRedirectUri,
   readSpotifyOAuthParams,
 } from "@/lib/spotifyAuth";
-import { callSupabaseFunction } from "@/lib/supabaseFunctionClient";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function SpotifyCallback() {
   const navigate = useNavigate();
@@ -57,26 +60,16 @@ export default function SpotifyCallback() {
 
       try {
         const redirectUri = getSpotifyRedirectUri();
-        const response = await callSupabaseFunction("spotify-token", {
-          code,
-          code_verifier: codeVerifier,
-          redirect_uri: redirectUri,
+        const { data, error } = await supabase.functions.invoke("spotify-token", {
+          body: {
+            code,
+            code_verifier: codeVerifier,
+            redirect_uri: redirectUri,
+          },
         });
 
-        const text = await response.text();
-        let data: any;
-        try {
-          data = JSON.parse(text);
-        } catch (err) {
-          console.error("[SpotifyCallback] Non-JSON response:", text);
-          setErrorMessage("Invalid response from Spotify backend. Please try again.");
-          setIsProcessing(false);
-          return;
-        }
-
-        if (!response.ok || data.error) {
-          navigate("/music/vibe-rooms?error=spotify-auth-failed");
-          return;
+        if (error) {
+          throw error;
         }
 
         // SUCCESS - Store tokens
