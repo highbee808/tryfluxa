@@ -9,10 +9,11 @@ import MusicCard from "@/components/MusicCard";
 import MusicSearchBar from "@/components/MusicSearchBar";
 import BottomNavigation from "@/components/BottomNavigation";
 import { Card } from "@/components/ui/card";
-import { Music as MusicIcon, TrendingUp, Calendar } from "lucide-react";
+import { Music as MusicIcon, TrendingUp, Calendar, Headphones } from "lucide-react";
 import { loadMusicKit } from "@/lib/apple/musickit";
 import { searchAppleMusic } from "@/lib/apple/search";
 import { playPreview, pausePreview } from "@/lib/apple/player";
+import { useNavigate } from "react-router-dom";
 
 type MusicState = {
   trending: MusicItem[];
@@ -53,6 +54,7 @@ export default function Music() {
   const [state, setState] = useState<MusicState>(initialState);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<any>(null);
+  const navigate = useNavigate();
 
   // Load music data
   useEffect(() => {
@@ -121,20 +123,44 @@ export default function Music() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-background/80 pb-32 md:pb-20">
-      {/* Header */}
+      {/* Hero */}
       <div className="bg-gradient-to-r from-primary/20 via-secondary/20 to-accent/20 p-4 md:p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center gap-3 mb-2">
-            <MusicIcon className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl md:text-4xl font-bold">Music</h1>
+        <div className="max-w-7xl mx-auto flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <MusicIcon className="w-9 h-9 text-primary" />
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold">Music</h1>
+              <p className="text-sm md:text-base text-muted-foreground">
+                Your daily mix of artists, vibes, and gossip.
+              </p>
+            </div>
           </div>
-          <p className="text-sm md:text-base text-muted-foreground">
-            Your personalized music hub
-          </p>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-8">
+        {/* Vibe Rooms CTA */}
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() => navigate("/music/vibe-rooms")}
+            className="w-full md:w-auto flex items-center justify-between rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 px-4 py-3 text-white shadow-md hover:shadow-lg transition focus:outline-none focus:ring-2 focus:ring-white/40"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
+                <Headphones className="w-5 h-5" />
+              </div>
+              <div className="flex flex-col text-left">
+                <span className="text-sm font-semibold">Vibe Rooms</span>
+                <span className="text-xs opacity-80">
+                  Join live listening parties and gossip in real-time
+                </span>
+              </div>
+            </div>
+            <span className="ml-3 text-lg">🎧</span>
+          </button>
+        </div>
+
         {/* Search Bar */}
         <div className="sticky top-4 z-10">
           <MusicSearchBar placeholder="who's your fav?" />
@@ -149,52 +175,83 @@ export default function Music() {
           </Card>
         )}
 
-        {/* Regular Content */}
-        <>
-            {/* Latest Drops Section */}
-            <section>
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                Latest Drops
-              </h2>
-              {state.loading ? (
-                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                  <SkeletonCard />
-                  <SkeletonCard />
-                  <SkeletonCard />
-                </div>
-              ) : state.latest.length === 0 ? (
-                <Card className="p-8 text-center">
-                  <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground text-sm">
-                    No recent releases available.
-                  </p>
-                </Card>
-              ) : (
-                <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                  {state.latest.map((item) => {
-                    // Debug log for Latest Drops section (for consistency)
-                    const artwork = getArtworkForMusicItem(item);
-                    console.log("[Latest] FINAL render:", {
-                      title: item.title,
-                      artwork: artwork,
-                      source: item.source,
-                    });
-                    
-                    return (
-                      <MusicCard key={item.id} item={item} />
-                    );
-                  })}
-                </div>
-              )}
-            </section>
+        {/* For You / Latest Drops (vertical list) */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">For You</h2>
+              <p className="text-sm text-muted-foreground">Fresh drops tailored to you</p>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="w-4 h-4" />
+              Latest
+            </div>
+          </div>
+          {state.loading ? (
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+          ) : state.latest.length === 0 ? (
+            <Card className="p-8 text-center">
+              <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <p className="text-muted-foreground text-sm">
+                No recent releases available.
+              </p>
+            </Card>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {state.latest.map((item) => {
+                const artwork = getArtworkForMusicItem(item);
+                console.log("[Latest] FINAL render:", {
+                  title: item.title,
+                  artwork: artwork,
+                  source: item.source,
+                });
 
-        </>
+                return <MusicCard key={item.id} item={item} />;
+              })}
+            </div>
+          )}
+        </section>
 
-        <div className="apple-music-section mt-10 space-y-4">
-          <h2 className="section-title text-xl font-semibold">
-            Apple Music Search
-          </h2>
+        {/* Trending Now / Top Vibes (horizontal carousel) */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">Trending Now</h2>
+              <p className="text-sm text-muted-foreground">Top vibes across the network</p>
+            </div>
+            <TrendingUp className="w-5 h-5 text-muted-foreground" />
+          </div>
+          {state.loading ? (
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+          ) : state.trending.length === 0 ? (
+            <Card className="p-8 text-center">
+              <TrendingUp className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <p className="text-muted-foreground text-sm">
+                No trending tracks right now.
+              </p>
+            </Card>
+          ) : (
+            <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1">
+              {state.trending.map((item) => (
+                <div className="min-w-[240px] max-w-[260px] flex-shrink-0" key={item.id}>
+                  <MusicCard item={item} />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Apple Music Search */}
+        <div className="space-y-4">
+          <h2 className="section-title text-xl font-semibold">Apple Music Search</h2>
 
           <input
             value={query}
