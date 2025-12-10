@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { invokeAdminFunction } from "@/lib/invokeAdminFunction";
+import { getApiBaseUrl, getSupabaseAnonKey } from "@/lib/apiConfig";
+import { supabase } from "@/integrations/supabase/client";
 
 type RealtimeEvent = {
   type: string;
@@ -139,15 +140,42 @@ const VoiceChatModal: React.FC<VoiceChatModalProps> = ({ open, onOpenChange }) =
       }
 
       // 1) Get ephemeral session from our backend edge function
-      const {
-        data: sessionJson,
-        error: sessionError,
-      } = await invokeAdminFunction("realtime-session", {}) as { data: RealtimeSessionResponse | null; error: any };
+      setError(null);
 
-      if (sessionError || !data) {
-        console.error("Session error:", sessionError);
-        throw new Error(sessionError?.message || "Failed to create Realtime session");
+      // Get the user's JWT token from their session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const jwtToken = session?.access_token;
+      const anonKey = getSupabaseAnonKey();
+      const apiBase = getApiBaseUrl();
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "apikey": anonKey,
+        "x-client-info": "fluxa-frontend",
+      };
+
+      if (jwtToken) {
+        headers["Authorization"] = `Bearer ${jwtToken}`;
+      } else {
+        headers["Authorization"] = `Bearer ${anonKey}`;
       }
+
+      const res = await fetch(`${apiBase}/realtime-session`, {
+        method: "POST",
+        headers,
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to start live session");
+      }
+
+      // FIX: data must be defined
+      const data = await res.json();
+      if (!data || !data.client_secret?.value) {
+        throw new Error("Invalid session response");
+      }
+
+      console.log("Live session payload:", data);
 
       const ephemeralKey = data.client_secret?.value;
       const model = data.model ?? "gpt-4o-realtime-preview";
