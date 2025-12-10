@@ -4,6 +4,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getRoom, joinRoom, VibeRoom as ApiVibeRoom, VibeRoomMember as ApiVibeRoomMember } from "../lib/vibeRoomApi";
 import type {
   VibeRoom,
   VibeRoomMember,
@@ -30,67 +31,94 @@ export function useVibeRoom(options: UseVibeRoomOptions) {
   const channelsRef = useRef<any[]>([]);
 
   // Fetch initial room data
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!roomId) return;
 
-    const fetchRoom = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    try {
+      setLoading(true);
+      setError(null);
 
-        // Fetch room details
-        const { data: roomData, error: roomError } = await supabase
-          .from("vibe_rooms")
-          .select(`
-            *,
-            vibe_room_members(
-              id,
-              user_id,
-              joined_at,
-              profiles:user_id(id, username, avatar_url)
-            ),
-            vibe_room_track_state(*)
-          `)
-          .eq("id", roomId)
+      const result = await getRoom(roomId);
+
+      if (!result?.success) {
+        setError(result?.error || "Failed to load room");
+        setRoom(null);
+        setMembers([]);
+        setTrackState(null);
+        setLoading(false);
+        return;
+      }
+
+      const apiRoom = result.room;
+      if (!apiRoom) {
+        setError("Room not found");
+        setRoom(null);
+        setMembers([]);
+        setTrackState(null);
+        setLoading(false);
+        return;
+      }
+
+      // Map API room to VibeRoom type
+      const mappedRoom: VibeRoom = {
+        id: apiRoom.id,
+        name: apiRoom.name,
+        privacy: "public", // Default since backend doesn't return privacy yet
+        host_user_id: apiRoom.host_id,
+        created_at: apiRoom.created_at,
+        updated_at: apiRoom.created_at,
+      };
+
+      setRoom(mappedRoom);
+
+      // Map API members to VibeRoomMember type and fetch profiles
+      const memberPromises = (result.members || apiRoom.members || []).map(async (apiMember) => {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("user_id, display_name, avatar_url")
+          .eq("user_id", apiMember.user_id)
           .single();
 
-        if (roomError) throw roomError;
+        const member: VibeRoomMember = {
+          id: apiMember.id,
+          room_id: apiMember.room_id,
+          user_id: apiMember.user_id,
+          joined_at: apiMember.joined_at,
+          profiles: profile ? {
+            user_id: profile.user_id,
+            display_name: profile.display_name || undefined,
+            avatar_url: profile.avatar_url || undefined,
+          } : undefined,
+        };
+        return member;
+      });
 
-        setRoom(roomData as VibeRoom);
-        setMembers((roomData as any).vibe_room_members || []);
-        setTrackState((roomData as any).vibe_room_track_state || null);
+      const membersWithProfiles = await Promise.all(memberPromises);
+      setMembers(membersWithProfiles);
 
-        // Fetch recent messages
-        const { data: messagesData, error: messagesError } = await supabase
-          .from("vibe_room_messages")
-          .select(`
-            *,
-            profiles:user_id(id, username, avatar_url)
-          `)
-          .eq("room_id", roomId)
-          .order("timestamp", { ascending: false })
-          .limit(50);
+      setTrackState(result.track_state || null);
+      setMessages(result.messages || []);
 
-        if (!messagesError && messagesData) {
-          setMessages(messagesData.reverse() as VibeRoomMessage[]);
-        }
-
-        setLoading(false);
-      } catch (err) {
-        console.error("Error fetching room:", err);
-        setError(err instanceof Error ? err.message : "Failed to load room");
-        setLoading(false);
-      }
-    };
-
-    fetchRoom();
+      setLoading(false);
+    } catch (err) {
+      console.error("Error fetching room:", err);
+      setError(err instanceof Error ? err.message : "Failed to load room");
+      setRoom(null);
+      setMembers([]);
+      setTrackState(null);
+      setLoading(false);
+    }
   }, [roomId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // Set up real-time subscriptions
   useEffect(() => {
     if (!roomId) return;
 
-    // Room updates channel
+    // Room updates channel - using new schema table name
     const roomChannel = supabase
       .channel(`vibe-room-${roomId}`)
       .on(
@@ -98,11 +126,12 @@ export function useVibeRoom(options: UseVibeRoomOptions) {
         {
           event: "UPDATE",
           schema: "public",
-          table: "vibe_rooms",
+          table: "vibe_room",
           filter: `id=eq.${roomId}`,
         },
-        (payload) => {
-          setRoom(payload.new as VibeRoom);
+        async (payload) => {
+          // Reload room data when updated
+          await load();
         }
       )
       .subscribe();
@@ -247,5 +276,11 @@ export function useVibeRoom(options: UseVibeRoomOptions) {
     loading,
     error,
     sendMessage,
+    setRoom,
+    setMembers,
+    setMessages,
+    setTrackState,
+    setLoading,
+    setError,
   };
 }

@@ -1,291 +1,240 @@
+// supabase/functions/vibe-room/index.ts
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers":
+      "authorization, content-type, apikey, x-client-info, supa-session",
+  };
+}
+
+export function handleOptions() {
+  return new Response("ok", {
+    status: 200,
+    headers: {
+      ...corsHeaders(),
+    },
+  });
+}
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { parseBody } from "../_shared/http.ts";
-import { env, ensureSupabaseEnv } from "../_shared/env.ts";
-import { corsHeaders } from "../_shared/cors.ts";
 
 serve(async (req) => {
-  const origin = req.headers.get("origin") || "*";
-
-  // Handle CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders(origin) });
-  }
-
-  const json = (body: any, status = 200) =>
-    new Response(JSON.stringify(body), {
-      status,
-      headers: { ...corsHeaders(origin), "Content-Type": "application/json" },
-    });
-
   try {
-    ensureSupabaseEnv();
-
-    // Get auth token
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return json({ error: "Unauthorized" }, 401);
+    if (req.method === "OPTIONS") {
+      return handleOptions();
     }
 
-    const token = authHeader.replace("Bearer ", "");
-    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
+    if (req.method !== "POST") {
+      return new Response("Method Not Allowed", {
+        status: 405,
+        headers: corsHeaders(),
+      });
+    }
+
+    const headers = corsHeaders();
+    const authHeader = req.headers.get("Authorization") || "";
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL"),
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
+      {
+        global: { headers: { Authorization: authHeader } },
+      },
+    );
+
+    // Parse JSON body safely
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch (_) {
+      body = {};
+    }
+
+    const action = body?.action;
+
+    // Resolve user from token
+    let userId: string | null = null;
+    try {
+      const token = authHeader?.replace("Bearer ", "").trim();
+      if (token) {
+        const { data } = await supabase.auth.getUser(token);
+        userId = data?.user?.id ?? null;
+      }
+    } catch (err) {
+      console.error("Auth resolution failed", err);
+    }
+
+    console.log("VibeRoom request:", {
+      method: req.method,
+      action,
+      body,
+      userId,
     });
 
-    // Verify user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return json({ error: "Unauthorized" }, 401);
+    // ---- LIST ROOMS ----
+    if (action === "list-rooms") {
+      const { data, error } = await supabase
+        .from("vibe_room")
+        .select("id, name, host_id, created_at")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("list-rooms error", error);
+        return new Response(
+          JSON.stringify({ success: false, error: error.message || "Failed to list rooms" }),
+          { status: 200, headers }
+        );
+      }
+
+      return new Response(JSON.stringify({ success: true, rooms: data ?? [] }), {
+        status: 200,
+        headers,
+      });
     }
 
-    const url = new URL(req.url);
-    const path = url.pathname.split("/").pop() || "";
-    const body = await parseBody(req);
+    // ---- CREATE ROOM ----
+    if (action === "create-room") {
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Not authenticated" }),
+          { status: 200, headers }
+        );
+      }
 
-    switch (req.method) {
-      case "POST":
-        if (path === "create") {
-          return await createRoom(supabase, user.id, body, json);
-        } else if (path === "join") {
-          return await joinRoom(supabase, user.id, body, json);
-        } else if (path === "leave") {
-          return await leaveRoom(supabase, user.id, body, json);
-        } else if (path === "update-track-state") {
-          return await updateTrackState(supabase, user.id, body, json);
-        }
-        break;
+      const name = body?.name || body?.room_name || "Untitled Room";
+      const hostId = userId;
 
-      case "GET":
-        if (path === "list") {
-          return await listPublicRooms(supabase, json);
-        } else if (path.startsWith("room/")) {
-          const roomId = path.split("/")[1];
-          return await getRoomDetails(supabase, roomId, json);
+      try {
+        const { data: room, error } = await supabase
+          .from("vibe_room")
+          .insert({ name, host_id: hostId })
+          .select("id, name, host_id, created_at")
+          .single();
+
+        if (error) {
+          console.error("create-room insert error", error);
+          return new Response(
+            JSON.stringify({ success: false, error: error.message || "Failed to create room" }),
+            { status: 200, headers }
+          );
         }
-        break;
+
+        // Add host as member (ignore duplicate errors)
+        await supabase
+          .from("vibe_room_members")
+          .insert({ room_id: room.id, user_id: hostId })
+          .select("id, room_id, user_id")
+          .single()
+          .catch((e) => {
+            console.error("create-room membership insert error", e);
+          });
+
+        return new Response(JSON.stringify({ success: true, room }), {
+          status: 200,
+          headers,
+        });
+      } catch (err) {
+        console.error("create-room unexpected error", err);
+        return new Response(
+          JSON.stringify({ success: false, error: "Internal error" }),
+          { status: 200, headers }
+        );
+      }
     }
 
-    return json({ error: "Invalid endpoint" }, 404);
-  } catch (error) {
-    console.error("Vibe room error:", error);
-    return json(
-      { error: error instanceof Error ? error.message : "Internal server error" },
-      500
+    // ---- GET ROOM ----
+    if (action === "get-room") {
+      const roomId = body?.room_id || body?.id;
+      if (!roomId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "room_id is required" }),
+          { status: 200, headers }
+        );
+      }
+
+      const { data, error } = await supabase
+        .from("vibe_room")
+        .select("id, name, host_id, created_at")
+        .eq("id", roomId)
+        .single();
+
+      if (error) {
+        console.error("get-room error", error);
+        return new Response(
+          JSON.stringify({ success: false, error: error.message || "Failed to load room" }),
+          { status: 200, headers }
+        );
+      }
+
+      return new Response(JSON.stringify({ success: true, room: data }), {
+        status: 200,
+        headers,
+      });
+    }
+
+    // ---- JOIN ROOM ----
+    if (action === "join-room") {
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Not authenticated" }),
+          { status: 200, headers }
+        );
+      }
+
+      const roomId = body?.room_id || body?.id;
+      if (!roomId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "room_id is required" }),
+          { status: 200, headers }
+        );
+      }
+
+      try {
+        const { error } = await supabase
+          .from("vibe_room_members")
+          .insert({ room_id: roomId, user_id: userId })
+          .select("id")
+          .single();
+
+        if (error && !String(error.message).includes("duplicate")) {
+          console.error("join-room insert error", error);
+          return new Response(
+            JSON.stringify({ success: false, error: error.message || "Failed to join room" }),
+            { status: 200, headers }
+          );
+        }
+
+        const { data: room } = await supabase
+          .from("vibe_room")
+          .select("id, name, host_id, created_at")
+          .eq("id", roomId)
+          .single();
+
+        return new Response(JSON.stringify({ success: true, room }), {
+          status: 200,
+          headers,
+        });
+      } catch (err) {
+        console.error("join-room unexpected error", err);
+        return new Response(
+          JSON.stringify({ success: false, error: "Internal error" }),
+          { status: 200, headers }
+        );
+      }
+    }
+
+    // ---- INVALID ACTION ----
+    return new Response(
+      JSON.stringify({ success: false, error: "Invalid action" }),
+      { status: 200, headers }
+    );
+  } catch (err) {
+    console.error("Unhandled vibe-room error", err);
+    return new Response(
+      JSON.stringify({ success: false, error: "Internal error" }),
+      { status: 200, headers: corsHeaders() }
     );
   }
 });
-
-async function createRoom(supabase: any, userId: string, body: any, json: (body: any, status?: number) => Response) {
-  const { name, privacy = "public" } = body;
-
-  if (!name || typeof name !== "string" || name.trim().length === 0) {
-    return json({ error: "Room name is required" }, 400);
-  }
-
-  if (privacy !== "public" && privacy !== "private") {
-    return json({ error: "Privacy must be 'public' or 'private'" }, 400);
-  }
-
-  const { data: room, error } = await supabase
-    .from("vibe_rooms")
-    .insert({
-      name: name.trim(),
-      privacy,
-      host_user_id: userId,
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error creating room:", error);
-    return json({ error: "Failed to create room" }, 500);
-  }
-
-  // Auto-join the host
-  await supabase.from("vibe_room_members").insert({
-    room_id: room.id,
-    user_id: userId,
-  });
-
-  return json({ success: true, room }, 201);
-}
-
-async function joinRoom(supabase: any, userId: string, body: any, json: (body: any, status?: number) => Response) {
-  const { room_id } = body;
-
-  if (!room_id) {
-    return json({ error: "room_id is required" }, 400);
-  }
-
-  // Check if room exists and is public
-  const { data: room, error: roomError } = await supabase
-    .from("vibe_rooms")
-    .select("*")
-    .eq("id", room_id)
-    .single();
-
-  if (roomError || !room) {
-    return json({ error: "Room not found" }, 404);
-  }
-
-  if (room.privacy === "private" && room.host_user_id !== userId) {
-    return json({ error: "Cannot join private room" }, 403);
-  }
-
-  // Check if already a member
-  const { data: existing } = await supabase
-    .from("vibe_room_members")
-    .select("*")
-    .eq("room_id", room_id)
-    .eq("user_id", userId)
-    .single();
-
-  if (existing) {
-    return json({ success: true, message: "Already a member" });
-  }
-
-  // Join room
-  const { error } = await supabase.from("vibe_room_members").insert({
-    room_id,
-    user_id: userId,
-  });
-
-  if (error) {
-    console.error("Error joining room:", error);
-    return json({ error: "Failed to join room" }, 500);
-  }
-
-  return json({ success: true });
-}
-
-async function leaveRoom(supabase: any, userId: string, body: any, json: (body: any, status?: number) => Response) {
-  const { room_id } = body;
-
-  if (!room_id) {
-    return json({ error: "room_id is required" }, 400);
-  }
-
-  // Check if user is the host
-  const { data: room } = await supabase
-    .from("vibe_rooms")
-    .select("host_user_id")
-    .eq("id", room_id)
-    .single();
-
-  if (room && room.host_user_id === userId) {
-    return json({ error: "Host cannot leave room. Delete the room instead." }, 400);
-  }
-
-  const { error } = await supabase
-    .from("vibe_room_members")
-    .delete()
-    .eq("room_id", room_id)
-    .eq("user_id", userId);
-
-  if (error) {
-    console.error("Error leaving room:", error);
-    return json({ error: "Failed to leave room" }, 500);
-  }
-
-  return json({ success: true });
-}
-
-async function updateTrackState(supabase: any, userId: string, body: any, json: (body: any, status?: number) => Response) {
-  const { room_id, track_id, track_name, track_artist, track_album_art, position_ms, is_playing } = body;
-
-  if (!room_id) {
-    return json({ error: "room_id is required" }, 400);
-  }
-
-  // Verify user is the host
-  const { data: room } = await supabase
-    .from("vibe_rooms")
-    .select("host_user_id")
-    .eq("id", room_id)
-    .single();
-
-  if (!room || room.host_user_id !== userId) {
-    return json({ error: "Only the host can update track state" }, 403);
-  }
-
-  const { error } = await supabase
-    .from("vibe_room_track_state")
-    .upsert({
-      room_id,
-      track_id: track_id || null,
-      track_name: track_name || null,
-      track_artist: track_artist || null,
-      track_album_art: track_album_art || null,
-      position_ms: position_ms || 0,
-      is_playing: is_playing ?? false,
-      updated_at: new Date().toISOString(),
-    }, {
-      onConflict: "room_id",
-    });
-
-  if (error) {
-    console.error("Error updating track state:", error);
-    return json({ error: "Failed to update track state" }, 500);
-  }
-
-  return json({ success: true });
-}
-
-async function listPublicRooms(supabase: any, json: (body: any, status?: number) => Response) {
-  const { data: rooms, error } = await supabase
-    .from("vibe_rooms")
-    .select(`
-      *,
-      vibe_room_members(count),
-      vibe_room_track_state(*)
-    `)
-    .eq("privacy", "public")
-    .order("created_at", { ascending: false })
-    .limit(50);
-
-  if (error) {
-    console.error("Error listing rooms:", error);
-    return json({ error: "Failed to list rooms" }, 500);
-  }
-
-  return json({ success: true, rooms: rooms || [] });
-}
-
-async function getRoomDetails(supabase: any, roomId: string, json: (body: any, status?: number) => Response) {
-  const { data: room, error } = await supabase
-    .from("vibe_rooms")
-    .select(`
-      *,
-      vibe_room_members(
-        id,
-        user_id,
-        joined_at
-      ),
-      vibe_room_track_state(*)
-    `)
-    .eq("id", roomId)
-    .single();
-
-  // Fetch profiles for members separately (profiles table uses user_id, not id)
-  if (room && room.vibe_room_members) {
-    const userIds = room.vibe_room_members.map((m: any) => m.user_id);
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("user_id, display_name, avatar_url")
-      .in("user_id", userIds);
-
-    if (profiles) {
-      const profileMap = new Map(profiles.map((p: any) => [p.user_id, p]));
-      room.vibe_room_members = room.vibe_room_members.map((m: any) => ({
-        ...m,
-        profiles: profileMap.get(m.user_id),
-      }));
-    }
-  }
-
-  if (error || !room) {
-    return json({ error: "Room not found" }, 404);
-  }
-
-  return json({ success: true, room });
-}

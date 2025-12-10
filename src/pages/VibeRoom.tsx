@@ -7,6 +7,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useVibeRoom } from "@/hooks/useVibeRoom";
+import { getRoom, joinRoom } from "@/lib/vibeRoomApi";
 import { SpotifyVibeRoomPlayer } from "@/lib/spotifyVibeRoom";
 import { VibeRoomVisualizer } from "@/components/VibeRoomVisualizer";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,11 @@ export default function VibeRoom() {
     loading,
     error,
     sendMessage,
+    setRoom,
+    setMessages,
+    setTrackState,
+    setLoading,
+    setError,
   } = useVibeRoom({
     roomId: roomId || "",
     onTrackStateUpdate: useCallback((state: VibeRoomTrackState) => {
@@ -67,6 +73,32 @@ export default function VibeRoom() {
     };
     checkUser();
   }, [room]);
+
+  useEffect(() => {
+    async function fetchRoom() {
+      try {
+        setLoading(true);
+        console.log("Fetching room via POST action=get:", roomId);
+
+      const result = await getRoom(roomId);
+
+      if (result?.success) {
+        setRoom(result.room);
+        if (result.track_state) setTrackState(result.track_state);
+        if (result.messages) setMessages(result.messages);
+        } else {
+          throw new Error(result?.error || "Failed to load room");
+        }
+      } catch (err) {
+        console.error("Fetch room error:", err);
+        setError("Failed to load room");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchRoom();
+  }, [roomId, setError, setLoading, setMessages, setRoom, setTrackState]);
 
   // Initialize Spotify player
   useEffect(() => {
@@ -155,6 +187,21 @@ export default function VibeRoom() {
       });
     }
   };
+
+  async function handleJoin() {
+    try {
+      const result = await joinRoom(roomId, currentUser?.id);
+
+      if (result?.success) {
+        if (result.room) setRoom(result.room);
+      } else {
+        throw new Error(result?.error || "Failed to join room");
+      }
+    } catch (err) {
+      console.error("Join error:", err);
+      setError("Failed to join room");
+    }
+  }
 
   const handlePlayTrack = async (trackUri: string) => {
     if (!isHost || !spotifyPlayer) {

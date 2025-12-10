@@ -2,10 +2,10 @@
  * Vibe Rooms List Page - Browse and create rooms
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { listVibeRooms, createVibeRoom, joinVibeRoom } from "@/lib/vibeRoomApi";
+import { listRooms, createRoom, joinRoom, VibeRoom } from "@/lib/vibeRoomApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -15,7 +15,6 @@ import { useToast } from "@/hooks/use-toast";
 import BottomNavigation from "@/components/BottomNavigation";
 import { Music, Plus, Users, Crown, Lock, Unlock } from "lucide-react";
 import { getSpotifyLoginUrlWithPKCE, isSpotifyConnected } from "@/lib/spotifyAuth";
-import type { VibeRoom } from "@/types/vibeRooms";
 
 export default function VibeRoomsList() {
   const navigate = useNavigate();
@@ -23,6 +22,7 @@ export default function VibeRoomsList() {
   const { toast } = useToast();
   const [rooms, setRooms] = useState<VibeRoom[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [roomName, setRoomName] = useState("");
   const [privacy, setPrivacy] = useState<"public" | "private">("public");
@@ -30,6 +30,7 @@ export default function VibeRoomsList() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [spotifyConnected, setSpotifyConnected] = useState<boolean>(isSpotifyConnected());
   const [spotifyError, setSpotifyError] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
 
   const searchParams = new URLSearchParams(location.search);
   const spotifyParam = searchParams.get("spotify");
@@ -55,45 +56,35 @@ export default function VibeRoomsList() {
   }, [spotifyParam, errorParam, toast]);
 
   useEffect(() => {
-    loadRooms();
-
-    // Subscribe to room updates
-    const channel = supabase
-      .channel("vibe-rooms-list")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "vibe_rooms",
-        },
-        () => {
-          loadRooms();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+    });
   }, []);
 
-  const loadRooms = async () => {
+  const loadRooms = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const publicRooms = await listVibeRooms();
-      setRooms(publicRooms);
-    } catch (error) {
-      console.error("Failed to load rooms:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load rooms",
-        variant: "destructive",
-      });
+      console.log("Loading rooms… via POST action=list");
+      const result = await listRooms();
+
+      console.log("Rooms result:", result);
+
+      if (result?.success) {
+        setRooms(result.rooms);
+      } else {
+        throw new Error(result?.error || "Failed to list rooms");
+      }
+    } catch (err) {
+      console.error("Failed to load rooms:", err);
+      setError("Failed to load rooms");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadRooms();
+  }, [loadRooms]);
 
   const handleCreateRoom = async () => {
     if (!roomName.trim()) {
@@ -107,26 +98,21 @@ export default function VibeRoomsList() {
 
     try {
       setCreating(true);
-      const room = await createVibeRoom({
-        name: roomName.trim(),
-        privacy,
-      });
+      const room = await createRoom(roomName.trim(), user.id);
 
-      toast({
-        title: "Room created!",
-        description: "Redirecting to your room...",
-      });
-
-      setCreateDialogOpen(false);
-      setRoomName("");
-      navigate(`/music/vibe-room/${room.id}`);
-    } catch (error) {
-      console.error("Failed to create room:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create room",
-        variant: "destructive",
-      });
+      if (room?.success && room.room?.id) {
+        setCreateDialogOpen(false);
+        setRoomName("");
+        setPrivacy("public");
+        navigate(`/music/vibe-room/${room.room.id}`);
+      } else {
+        const message = room?.error || "Failed to create room";
+        setError(message);
+        console.error("Create room error:", message);
+      }
+    } catch (err) {
+      console.error("Create room error:", err);
+      setError("Could not create room");
     } finally {
       setCreating(false);
     }
@@ -134,8 +120,12 @@ export default function VibeRoomsList() {
 
   const handleJoinRoom = async (roomId: string) => {
     try {
-      await joinVibeRoom(roomId);
-      navigate(`/music/vibe-room/${roomId}`);
+      const result = await joinRoom(roomId, user?.id);
+      if (result?.success) {
+        navigate(`/music/vibe-room/${roomId}`);
+      } else {
+        throw new Error(result?.error || "Failed to join room");
+      }
     } catch (error) {
       console.error("Failed to join room:", error);
       toast({
@@ -257,6 +247,11 @@ export default function VibeRoomsList() {
               </Card>
             ))}
           </div>
+        ) : error ? (
+          <Card className="p-12 text-center">
+            <p className="text-destructive mb-4">{error}</p>
+            <Button onClick={loadRooms}>Retry</Button>
+          </Card>
         ) : rooms.length === 0 ? (
           <Card className="p-12 text-center">
             <Music className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
@@ -272,8 +267,8 @@ export default function VibeRoomsList() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {rooms.map((room) => {
-              const memberCount = room.vibe_room_members?.length || 0;
-              const isPlaying = room.vibe_room_track_state?.is_playing || false;
+              const memberCount = room.members?.length || 0;
+              const isPlaying = false; // Track state not in current response
 
               return (
                 <Card
@@ -284,38 +279,11 @@ export default function VibeRoomsList() {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold mb-1">{room.name}</h3>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        {room.privacy === "public" ? (
-                          <Unlock className="w-3 h-3" />
-                        ) : (
-                          <Lock className="w-3 h-3" />
-                        )}
-                        <span>{room.privacy}</span>
-                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Created {new Date(room.created_at).toLocaleDateString()}
+                      </p>
                     </div>
-                    {room.vibe_room_track_state && (
-                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-secondary">
-                        {room.vibe_room_track_state.track_album_art && (
-                          <img
-                            src={room.vibe_room_track_state.track_album_art}
-                            alt="Album art"
-                            className="w-full h-full object-cover"
-                          />
-                        )}
-                      </div>
-                    )}
                   </div>
-
-                  {room.vibe_room_track_state?.track_name && (
-                    <div className="mb-4">
-                      <p className="text-sm font-medium truncate">
-                        {room.vibe_room_track_state.track_name}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {room.vibe_room_track_state.track_artist}
-                      </p>
-                    </div>
-                  )}
 
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">

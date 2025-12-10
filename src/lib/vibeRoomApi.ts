@@ -1,86 +1,34 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "../integrations/supabase/client";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+// Base URL for the edge function
+const BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/vibe-room`;
 
-async function getAccessTokenOrThrow(): Promise<string> {
-  const { data, error } = await supabase.auth.getSession();
-  if (error) {
-    console.error("Failed to get session", error);
-  }
-  const token = data?.session?.access_token;
-  if (!token) {
-    throw new Error("User not authenticated");
-  }
-  return token;
-}
-
-async function handleResponse<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    if (res.status === 401) {
-      throw new Error("User not authenticated");
-    }
-    throw new Error(text || `Request failed with status ${res.status}`);
-  }
-  return (await res.json()) as T;
-}
-
-export async function listVibeRooms(): Promise<any[]> {
-  const token = await getAccessTokenOrThrow();
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/vibe-room/list`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
-  return handleResponse<any[]>(res);
-}
-
-export interface CreateVibeRoomPayload {
-  name: string;
-  privacy?: "public" | "private";
-}
-
-export async function createVibeRoom(
-  payload: CreateVibeRoomPayload
-): Promise<any> {
-  const token = await getAccessTokenOrThrow();
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/vibe-room/create`, {
+async function makeRequest(action: string, body: any = {}) {
+  const token = (await supabase.auth.getSession()).data.session?.access_token;
+  const res = await fetch(BASE_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
+      Authorization: `Bearer ${token || ""}`,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ action, ...body }),
   });
-  return handleResponse<any>(res).then((data) => data.room ?? data);
+  return res.json();
 }
 
-export async function joinVibeRoom(roomId: string): Promise<any> {
-  const token = await getAccessTokenOrThrow();
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/vibe-room/join`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ room_id: roomId }),
-  });
-  return handleResponse<any>(res);
+// ✔ Exported API functions (must match imports across the app)
+export async function listRooms() {
+  return makeRequest("list-rooms");
 }
 
-export async function getVibeRoom(roomId: string): Promise<any> {
-  const token = await getAccessTokenOrThrow();
-  const res = await fetch(
-    `${SUPABASE_URL}/functions/v1/vibe-room/room/${encodeURIComponent(roomId)}`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    }
-  );
-  return handleResponse<any>(res).then((data) => data.room ?? data);
+export async function createRoom(name: string, host_user_id: string) {
+  return makeRequest("create-room", { name, host_user_id });
+}
+
+export async function getRoom(room_id: string) {
+  return makeRequest("get-room", { room_id });
+}
+
+export async function joinRoom(room_id: string, user_id: string) {
+  return makeRequest("join-room", { room_id, user_id });
 }

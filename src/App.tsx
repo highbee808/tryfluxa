@@ -35,8 +35,11 @@ import NotFound from "./pages/NotFound";
 import VoiceHistory from "./pages/VoiceHistory";
 import VibeRoom from "./pages/VibeRoom";
 import VibeRoomsList from "./pages/VibeRoomsList";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 import SpotifyCallback from "./pages/SpotifyCallback";
 import { PushNotificationPrompt } from "./components/PushNotificationPrompt";
+import { ProtectedRoute } from "./auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +51,8 @@ const App = () => (
       <PushNotificationPrompt />
       <BrowserRouter>
         <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
           <Route path="/" element={<Index />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/team-selection" element={<TeamSelection />} />
@@ -63,9 +68,30 @@ const App = () => (
           <Route path="/room/:roomId" element={<Room />} />
           <Route path="/sports-hub" element={<SportsHub />} />
           <Route path="/sports/team/:teamId" element={<TeamPage />} />
-          <Route path="/music" element={<Music />} />
-          <Route path="/music/vibe-rooms" element={<VibeRoomsList />} />
-          <Route path="/music/vibe-room/:roomId" element={<VibeRoom />} />
+          <Route
+            path="/music"
+            element={
+              <ProtectedRoute>
+                <Music />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/music/vibe-rooms"
+            element={
+              <ProtectedRoute>
+                <VibeRoomsList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/music/vibe-room/:roomId"
+            element={
+              <ProtectedRoute>
+                <VibeRoom />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/spotify/callback" element={<SpotifyCallback />} />
           <Route path="/music-artist-selection" element={<MusicArtistSelection />} />
           <Route path="/music/artist/:artistId" element={<ArtistPage />} />
