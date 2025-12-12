@@ -69,19 +69,14 @@ function safeStatus(status?: number | null): number {
   return status
 }
 
-function safeJsonResponse(
-  body: Record<string, any>,
-  status: number = 200
-): Response {
-  const safeStatusValue = safeStatus(status)
-  
+function jsonResponse(body: any, status = 200) {
   return new Response(JSON.stringify(body), {
-    status: safeStatusValue,
+    status: safeStatus(status),
     headers: {
       ...corsHeaders,
       "Content-Type": "application/json",
     },
-  })
+  });
 }
 
 // ============================================================================
@@ -620,29 +615,29 @@ serve(async (req) => {
   
   if (!adminSecret) {
     console.error(`[${functionName}] AUTH_FAILED: MISSING_HEADER`, { requestId })
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         success: false,
         stage: "auth",
         error: "MISSING_ADMIN_SECRET",
         details: "Missing x-admin-secret header",
         requestId,
-      }),
-      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      },
+      401
     );
   }
   
   if (!expected || adminSecret !== expected) {
     console.error(`[${functionName}] AUTH_FAILED: INVALID_SECRET`, { requestId, hasHeader: true })
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         success: false,
         stage: "auth",
         error: "INVALID_ADMIN_SECRET",
         details: "Invalid x-admin-secret",
         requestId,
-      }),
-      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      },
+      401
     );
   }
   
@@ -655,7 +650,7 @@ serve(async (req) => {
     // Stage 1: Validate input
     const validationResult = validateInput(body, requestId)
     if (!validationResult.success) {
-      return safeJsonResponse({
+      return jsonResponse({
         requestId,
         ...validationResult
       }, 400)
@@ -665,7 +660,7 @@ serve(async (req) => {
     // Stage 2: Gather sources
     const sourcesResult = await gatherSources(payload, requestId)
     if (!sourcesResult.success) {
-      return safeJsonResponse({
+      return jsonResponse({
         requestId,
         ...sourcesResult
       }, 422) // 422 Unprocessable Entity for insufficient sources
@@ -675,7 +670,7 @@ serve(async (req) => {
     // Stage 3: Select primary source
     const primaryResult = selectPrimarySource(payload, sources, requestId)
     if (!primaryResult.success) {
-      return safeJsonResponse({
+      return jsonResponse({
         requestId,
         ...primaryResult
       }, 500)
@@ -685,7 +680,7 @@ serve(async (req) => {
     // Stage 4: Generate gist
     const generateResult = await generateGist(payload, sources, primarySource, requestId)
     if (!generateResult.success) {
-      return safeJsonResponse({
+      return jsonResponse({
         requestId,
         ...generateResult
       }, 502) // 502 Bad Gateway for AI provider failures
@@ -695,7 +690,7 @@ serve(async (req) => {
     // Stage 5: Validate alignment
     const alignmentResult = validateAlignment(gistDraft, primarySource, sources, requestId)
     if (!alignmentResult.success) {
-      return safeJsonResponse({
+      return jsonResponse({
         requestId,
         ...alignmentResult
       }, 422) // 422 for misalignment
@@ -704,7 +699,7 @@ serve(async (req) => {
     // Stage 6: Insert into DB
     const insertResult = await insertGist(payload, gistDraft, sources, primarySource, requestId)
     if (!insertResult.success) {
-      return safeJsonResponse({
+      return jsonResponse({
         requestId,
         ...insertResult
       }, 500)
@@ -714,7 +709,7 @@ serve(async (req) => {
     // Success!
     console.log(`[${functionName}] SUCCESS`, { requestId, gistId: gist.id })
     
-    return safeJsonResponse({
+    return jsonResponse({
       success: true,
       requestId,
       stage: 'complete',
@@ -729,7 +724,7 @@ serve(async (req) => {
     const errorMsg = error instanceof Error ? error.message : String(error)
     console.error(`[${functionName}] FATAL_ERROR`, { requestId, error: errorMsg })
     
-    return safeJsonResponse({
+    return jsonResponse({
       success: false,
       requestId,
       stage: 'fatal',
