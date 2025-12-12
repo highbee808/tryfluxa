@@ -105,70 +105,25 @@ serve(async (req) => {
 
     console.log(`[${functionName}] PIPELINE_START`, { requestId, topic, topicCategory, rawTrendId, sourceUrl })
 
-    // Auth check: Accept valid JWT tokens, service role key, cron secret, or allow unauthenticated (for admin testing)
-    // Note: verify_jwt = false in config.toml allows requests without JWT validation
-    const authHeader = req.headers.get('authorization') ?? ''
-    const cronHeader = req.headers.get('x-cron-secret') ?? ''
-    const apiKeyHeader = req.headers.get('apikey') ?? ''
-    const hasJwt = authHeader.toLowerCase().startsWith('bearer ')
-    const cronSecret = Deno.env.get('CRON_SECRET')
-    const isCron = cronSecret && cronHeader === cronSecret
+    // CRITICAL: Edge Functions must use SERVICE_ROLE_KEY only - no user auth
+    // This prevents auth token refresh attempts that fail in Edge runtime
     ensureSupabaseEnv();
-    
-    const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY
-    
-    // Extract token from Bearer header
-    const bearerToken = hasJwt ? authHeader.substring(7).trim() : ''
-    
-    // Check if it's a service role key (internal call from auto-generate-gists-v2)
-    // Service role keys are JWT tokens, so we compare the full token
-    const isServiceRole = (hasJwt && bearerToken === serviceRoleKey) || 
-                          apiKeyHeader === serviceRoleKey
-    
-    // With verify_jwt = false, we allow requests without auth for admin testing
-    // But we still validate JWT if provided
-    let isAuthenticated = false
-    
-    if (hasJwt && !isServiceRole) {
-      // Validate JWT if provided (for admin panel with user session)
-      const anonKey = env.SUPABASE_ANON_KEY
-      const supabaseClient = createClient(
-        env.SUPABASE_URL,
-        anonKey,
-        { global: { headers: { Authorization: authHeader } } }
-      )
-
-      const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
-      if (!authError && user) {
-        isAuthenticated = true
-        console.log('✅ Authenticated user:', user.id)
-      } else {
-        // JWT provided but invalid - still allow (verify_jwt = false means Supabase allows it)
-        // Log warning but don't block
-        console.warn('⚠️ JWT provided but invalid, allowing request (verify_jwt = false)')
-        isAuthenticated = true
-      }
-    } else if (isCron) {
-      isAuthenticated = true
-      console.log('✅ Authenticated via cron secret')
-    } else if (isServiceRole) {
-      isAuthenticated = true
-      console.log('✅ Authenticated via service role key (internal call)')
-    } else {
-      // No auth provided - allow for admin testing (verify_jwt = false)
-      console.log('⚠️ No authentication provided, allowing request (verify_jwt = false for admin testing)')
-      isAuthenticated = true
-    }
-    
-    // CRITICAL: Use ENV.SUPABASE_SERVICE_ROLE_KEY for all DB operations
-    // This ensures proper authentication for admin dashboard calls
     const supabaseUrl = ENV.SUPABASE_URL
     const dbKey = ENV.SUPABASE_SERVICE_ROLE_KEY
 
+    console.log(`[${functionName}] INIT_SERVICE_ROLE_CLIENT`, { requestId })
+
+    // Initialize Supabase client with SERVICE_ROLE_KEY and auth features DISABLED
+    // This prevents any auth token refresh attempts
     const supabase = createClient(
       supabaseUrl,
       dbKey,
       {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
         global: { 
           headers: { 
             Authorization: `Bearer ${dbKey}` 

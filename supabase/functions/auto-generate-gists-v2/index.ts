@@ -87,14 +87,24 @@ serve(async (req) => {
     console.log(`[${functionName}] PIPELINE_START`, { requestId, triggeredBy: 'cron', timestamp: new Date().toISOString() })
 
     ensureSupabaseEnv();
-    // CRITICAL: Use ENV.SUPABASE_SERVICE_ROLE_KEY for all DB operations
+    // CRITICAL: Edge Functions must use SERVICE_ROLE_KEY only - no user auth
+    // This prevents auth token refresh attempts that fail in Edge runtime
     const supabaseUrl = ENV.SUPABASE_URL
     const supabaseServiceKey = ENV.SUPABASE_SERVICE_ROLE_KEY
     
+    console.log(`[${functionName}] INIT_SERVICE_ROLE_CLIENT`, { requestId })
+    
+    // Initialize Supabase client with SERVICE_ROLE_KEY and auth features DISABLED
+    // This prevents any auth token refresh attempts
     const supabase = createClient(
       supabaseUrl,
       supabaseServiceKey,
       {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
         global: { 
           headers: { 
             Authorization: `Bearer ${supabaseServiceKey}` 
