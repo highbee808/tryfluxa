@@ -26,7 +26,7 @@ import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "content-type, x-admin-secret, apikey, x-client-info, authorization",
+  "Access-Control-Allow-Headers": "content-type, x-admin-secret, authorization, apikey, x-client-info",
 };
 
 // ============================================================================
