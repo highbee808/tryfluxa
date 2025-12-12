@@ -1,38 +1,16 @@
-console.log("ADMIN SECRET:", import.meta.env.VITE_ADMIN_SECRET);
-console.log("SUPABASE URL:", import.meta.env.VITE_SUPABASE_URL);
 export async function invokeAdminFunction(
   functionName: string,
   payload: Record<string, any> = {}
 ) {
   try {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    
-    if (!supabaseUrl) {
-      throw new Error("VITE_SUPABASE_URL is missing in frontend build.");
-    }
-    
-    const endpoint = `${supabaseUrl}/functions/v1/${functionName}`;
-
-    const adminSecret = import.meta.env.VITE_ADMIN_SECRET;
-
-    // 🚨 FAIL LOUDLY — no fallback
-    if (!adminSecret) {
-      throw new Error(
-        "VITE_ADMIN_SECRET is missing in frontend build. Admin functions cannot be called."
-      );
-    }
-
-    const headers: Record<string, string> = {
-  "Content-Type": "application/json",
-
-  // 🔥 TEMPORARY HARD TEST — REMOVE AFTER
-  "x-admin-secret": "HARDCODED_TEST_SECRET",
-};
-
+    // Use App Router API route format (matches existing structure)
+    const endpoint = `/api/admin/${functionName}`;
 
     const res = await fetch(endpoint, {
       method: "POST",
-      headers,
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(payload),
     });
 
@@ -43,7 +21,7 @@ export async function invokeAdminFunction(
       return {
         data: null,
         error: {
-          message: json.error || json.message || "Edge Function error",
+          message: json.error || json.message || "Admin API error",
           stage: json.stage,
           details: json.details,
           status: res.status,
