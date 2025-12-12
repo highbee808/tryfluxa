@@ -10,21 +10,23 @@ export async function invokeAdminFunction(functionName: string, payload: Record<
     // Debug logging
     console.log("🔗 Calling admin function:", endpoint);
 
-    // Get the user's JWT token from their session
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    const jwtToken = session?.access_token;
+    // Use admin secret instead of user JWT to avoid auth issues
+    // Admin functions use service role internally and don't need user auth
+    const adminSecret = import.meta.env.VITE_ADMIN_SECRET;
 
-    // Build headers with JWT if available, otherwise fall back to anon key
+    // Build headers - use admin secret if available, otherwise anon key
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "apikey": anonKey,
       "x-client-info": "fluxa-frontend",
     };
 
-    if (jwtToken) {
-      headers["Authorization"] = `Bearer ${jwtToken}`;
+    if (adminSecret) {
+      headers["x-admin-secret"] = adminSecret;
+      // Don't send Authorization header - functions use service role internally
     } else {
-      // Fallback to anon key if no session (shouldn't happen in admin UI, but handle gracefully)
+      // Fallback to anon key if admin secret not configured
+      console.warn("⚠️ VITE_ADMIN_SECRET not configured, using anon key (may cause auth issues)");
       headers["Authorization"] = `Bearer ${anonKey}`;
     }
 

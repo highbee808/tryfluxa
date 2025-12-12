@@ -124,25 +124,46 @@ const Admin = () => {
   };
 
   const fetchCostSettings = async () => {
-    const { data } = await supabase
-      .from("cost_alert_settings")
-      .select("*")
-      .single();
-    
-    if (data) {
-      setCostSettings(data);
-      setNewMonthlyLimit(data.monthly_limit.toString());
+    try {
+      const { data, error } = await supabase
+        .from("cost_alert_settings")
+        .select("*")
+        .single();
+      
+      if (error && error.code !== 'PGRST116') { // PGRST116 = not found, which is OK
+        console.warn('[Admin] Cost settings fetch error (non-critical):', error);
+        return;
+      }
+      
+      if (data) {
+        setCostSettings(data);
+        setNewMonthlyLimit(data.monthly_limit.toString());
+      }
+    } catch (err) {
+      // Table might not exist - that's OK, just log and continue
+      console.warn('[Admin] Cost settings table not available (non-critical)');
     }
   };
 
   const fetchApiUsage = async () => {
-    const { data } = await supabase
-      .from("api_usage_logs")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(50);
-    
-    setApiUsage(data || []);
+    try {
+      const { data, error } = await supabase
+        .from("api_usage_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      
+      if (error && error.code !== 'PGRST116') { // PGRST116 = not found, which is OK
+        console.warn('[Admin] API usage fetch error (non-critical):', error);
+        return;
+      }
+      
+      setApiUsage(data || []);
+    } catch (err) {
+      // Table might not exist - that's OK, just log and continue
+      console.warn('[Admin] API usage logs table not available (non-critical)');
+      setApiUsage([]);
+    }
   };
 
   const updateMonthlyLimit = async () => {
@@ -152,16 +173,29 @@ const Admin = () => {
       return;
     }
 
-    const { error } = await supabase
-      .from("cost_alert_settings")
-      .update({ monthly_limit: limit })
-      .eq("id", costSettings.id);
+    if (!costSettings?.id) {
+      toast.error("Cost settings not available");
+      return;
+    }
 
-    if (error) {
+    try {
+      const { error } = await supabase
+        .from("cost_alert_settings")
+        .update({ monthly_limit: limit })
+        .eq("id", costSettings.id);
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          toast.error("Cost settings table not available");
+        } else {
+          toast.error("Failed to update limit");
+        }
+      } else {
+        toast.success("Monthly limit updated");
+        fetchCostSettings();
+      }
+    } catch (err) {
       toast.error("Failed to update limit");
-    } else {
-      toast.success("Monthly limit updated");
-      fetchCostSettings();
     }
   };
 

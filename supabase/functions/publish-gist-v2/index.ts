@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1'
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 import { corsHeaders, parseBody } from '../_shared/http.ts'
+import { generateGistContent } from '../_shared/generateGist.ts'
 // Admin secret is optional - only validate if provided
 const ADMIN_SECRET = Deno.env.get("ADMIN_SECRET")
 
@@ -195,10 +196,10 @@ serve(async (req) => {
       })
     }
 
-    // Step 1: Generate gist content (call generate-gist-v2)
+    // Step 1: Generate gist content using shared module (no HTTP call = no auth issues)
     console.log(`[stage:start] ai_generate`, { requestId, topic })
 
-    type GenerateGistResponse = {
+    let generatedGistData: {
       headline: string
       summary: string
       context: string
@@ -213,114 +214,42 @@ serve(async (req) => {
       source_published_at?: string | null
       source_image_url?: string | null
       used_api_article?: boolean | null
-      // keep it loose so extra fields don't break anything
-      [key: string]: any
     }
 
-    let generateResponse:
-      | { data: GenerateGistResponse | null; error: { message: string } | null }
-      | null = null
-
     try {
-      // Use direct fetch with SERVICE_ROLE_KEY to avoid any auth issues
-      // This ensures generate-gist-v2 receives proper service role auth
-      const generateUrl = `${supabaseUrl}/functions/v1/generate-gist-v2`
+      // Use shared module directly - this eliminates HTTP calls and auth issues
+      const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+      if (!openaiApiKey) {
+        throw new Error('Missing OPENAI_API_KEY environment variable')
+      }
+
+      console.log(`[stage:info] ai_generate: calling shared generateGistContent`, { requestId })
       
-      console.log(`[stage:info] ai_generate: calling generate-gist-v2`, { requestId, url: generateUrl })
-      
-      const generateRes = await fetch(generateUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${dbKey}`,
-          'apikey': dbKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ topic }),
+      generatedGistData = await generateGistContent(topic, {
+        supabaseUrl,
+        serviceKey: dbKey,
+        openaiApiKey,
+        openaiModel: Deno.env.get('OPENAI_MODEL') || 'gpt-4o-mini',
       })
 
-      const responseText = await generateRes.text()
-      let responseData: any = null
-      
-      try {
-        responseData = JSON.parse(responseText)
-      } catch (e) {
-        console.error(`[stage:error] ai_generate: failed to parse JSON`, { requestId, text: responseText.substring(0, 200) })
-        return safeJsonResponse(
-          {
-            success: false,
-            error: `Invalid JSON response from generate-gist-v2`,
-            stage: 'ai_generate',
-            details: responseText.substring(0, 200)
-          },
-          502
-        )
-      }
-
-      if (!generateRes.ok) {
-        const errorMsg = responseData?.error || responseData?.message || `HTTP ${generateRes.status}: ${responseText.substring(0, 200)}`
-        console.error(`[stage:error] ai_generate: HTTP error`, { 
-          requestId, 
-          error: errorMsg, 
-          status: generateRes.status,
-          response: responseText.substring(0, 200)
-        });
-        return safeJsonResponse(
-          {
-            success: false,
-            error: errorMsg,
-            stage: 'ai_generate',
-            details: responseData
-          },
-          502
-        )
-      }
-
-      if (!responseData) {
-        console.error(`[stage:error] ai_generate: empty result`, { requestId });
-        return safeJsonResponse(
-          { 
-            success: false, 
-            error: 'AI content generation returned no data',
-            stage: 'ai_generate'
-          },
-          502
-        )
-      }
-
-      generateResponse = { data: responseData, error: null }
-      console.log(`[stage:ok] ai_generate: success`, { requestId, headline: responseData.headline })
-    } catch (invokeError) {
-      const errorMsg = invokeError instanceof Error ? invokeError.message : String(invokeError)
+      console.log(`[stage:ok] ai_generate: success`, { requestId, headline: generatedGistData.headline })
+    } catch (generateError) {
+      const errorMsg = generateError instanceof Error ? generateError.message : String(generateError)
       console.error(`[stage:error] ai_generate: exception`, { 
         requestId, 
         error: errorMsg,
-        errorDetails: invokeError
+        errorDetails: generateError
       });
       return safeJsonResponse(
         {
           success: false,
           error: `AI generation failed: ${errorMsg}`,
           stage: 'ai_generate',
-          details: invokeError instanceof Error ? { message: invokeError.message, stack: invokeError.stack } : String(invokeError)
+          details: generateError instanceof Error ? { message: generateError.message, stack: generateError.stack } : String(generateError)
         },
         502
       )
     }
-
-    // Response is already handled in try/catch above - this should never execute
-    if (!generateResponse?.data) {
-      console.error(`[stage:error] ai_generate: unexpected no data`, { requestId });
-      return safeJsonResponse(
-        { 
-          success: false, 
-          error: 'AI content generation returned no data',
-          stage: 'ai_generate'
-        },
-        502
-      )
-    }
-
-    const generatedGistData = generateResponse.data
     
     // GUARANTEE NON-EMPTY AI OUTPUT - validate before proceeding
     if (!generatedGistData.headline || !generatedGistData.summary || !generatedGistData.context || !generatedGistData.narration) {
