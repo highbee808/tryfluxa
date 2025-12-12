@@ -615,9 +615,9 @@ serve(async (req) => {
   const adminSecret =
     req.headers.get("x-admin-secret") ||
     req.headers.get("X-Admin-Secret");
-
+  
   const expected = Deno.env.get("ADMIN_SECRET");
-
+  
   if (!adminSecret) {
     console.error(`[${functionName}] AUTH_FAILED: MISSING_HEADER`, { requestId })
     return new Response(
@@ -628,13 +628,10 @@ serve(async (req) => {
         details: "Missing x-admin-secret header",
         requestId,
       }),
-      { 
-        status: 401, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      }
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
-
+  
   if (!expected || adminSecret !== expected) {
     console.error(`[${functionName}] AUTH_FAILED: INVALID_SECRET`, { requestId, hasHeader: true })
     return new Response(
@@ -645,10 +642,7 @@ serve(async (req) => {
         details: "Invalid x-admin-secret",
         requestId,
       }),
-      { 
-        status: 401, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      }
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
   

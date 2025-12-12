@@ -23,7 +23,6 @@ export async function invokeAdminFunction(
     }
 
     const headers: Record<string, string> = {
-<<<<<<< HEAD
   "Content-Type": "application/json",
 
   // 🔥 TEMPORARY HARD TEST — REMOVE AFTER
@@ -31,14 +30,6 @@ export async function invokeAdminFunction(
 };
 
 
-=======
-      "Content-Type": "application/json",
-    
-      // 🔥 TEMPORARY HARD TEST — REMOVE AFTER
-      "x-admin-secret": "HARDCODED_TEST_SECRET",
-    };
-    
->>>>>>> f3c5b32dde4dbeaec9e24844e40121df50e07eed
     const res = await fetch(endpoint, {
       method: "POST",
       headers,
