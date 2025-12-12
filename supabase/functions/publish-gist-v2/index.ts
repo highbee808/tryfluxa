@@ -1,8 +1,26 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1'
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
-import { corsHeaders, createResponse, createErrorResponse, parseBody } from '../_shared/http.ts'
+import { corsHeaders, parseBody } from '../_shared/http.ts'
 import { env, ensureSupabaseEnv, ENV } from '../_shared/env.ts'
+
+// Safe status code validation - prevents RangeError from invalid status codes
+function safeStatus(status?: number | null): number {
+  if (!status || status === 0) return 500
+  if (status < 200 || status > 599) return 500
+  return status
+}
+
+// Standardized JSON response with safe status and CORS headers
+function jsonResponse(payload: unknown, status: number = 200): Response {
+  return new Response(
+    JSON.stringify(payload),
+    {
+      status: safeStatus(status),
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }
+  )
+}
 
 /**
  * DATA FLOW DOCUMENTATION:
@@ -36,12 +54,15 @@ const publishSchema = z.object({
 })
 
 serve(async (req) => {
+  const requestId = crypto.randomUUID()
+  const functionName = 'publish-gist-v2'
+  
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response("OK", { headers: corsHeaders })
+    return new Response("ok", { headers: corsHeaders })
   }
 
-  console.log('🚀 publish-gist-v2 started - method:', req.method)
+  console.log(`[${functionName}] START`, { method: req.method, requestId })
 
   // Admin secret validation (for admin dashboard calls)
   try {
@@ -49,14 +70,14 @@ serve(async (req) => {
     if (adminSecret) {
       // Only validate if header is provided (allows backward compatibility)
       if (adminSecret !== ENV.ADMIN_SECRET) {
-        console.error('[ADMIN_AUTH_ERROR] Invalid admin secret provided');
-        return createErrorResponse('Unauthorized - Invalid admin secret', 401);
+        console.error(`[${functionName}] ADMIN_AUTH_ERROR Invalid admin secret`, { requestId });
+        return jsonResponse({ success: false, error: 'Unauthorized - Invalid admin secret' }, 401);
       }
-      console.log('[ADMIN_AUTH] Valid admin secret provided');
+      console.log(`[${functionName}] ADMIN_AUTH Valid admin secret`, { requestId });
     }
   } catch (err) {
     // ADMIN_SECRET might not be set, allow request to continue (for backward compatibility)
-    console.warn('[AUTH WARN] ADMIN_SECRET not configured, skipping admin validation');
+    console.warn(`[${functionName}] AUTH_WARN ADMIN_SECRET not configured, skipping admin validation`, { requestId });
   }
 
   try {
@@ -67,18 +88,22 @@ serve(async (req) => {
     let validated
     try {
       validated = publishSchema.parse(body)
+      console.log(`[${functionName}] VALIDATION_SUCCESS`, { requestId, topic: validated.topic })
     } catch (zodError: any) {
-      console.error('[PUBLISH GIST ERROR] Validation error:', zodError)
-      return createErrorResponse(
-        `Invalid request: ${zodError.errors?.[0]?.message || zodError.message || 'Validation failed'}`,
-        400,
-        { validationErrors: zodError.errors }
+      console.error(`[${functionName}] VALIDATION_ERROR`, { requestId, error: zodError });
+      return jsonResponse(
+        {
+          success: false,
+          error: `Invalid request: ${zodError.errors?.[0]?.message || zodError.message || 'Validation failed'}`,
+          validationErrors: zodError.errors
+        },
+        400
       )
     }
     
     const { topic, imageUrl, topicCategory, sourceUrl, newsPublishedAt, rawTrendId } = validated
 
-    console.log('[PIPELINE START]', { topic, topicCategory, rawTrendId, sourceUrl })
+    console.log(`[${functionName}] PIPELINE_START`, { requestId, topic, topicCategory, rawTrendId, sourceUrl })
 
     // Auth check: Accept valid JWT tokens, service role key, cron secret, or allow unauthenticated (for admin testing)
     // Note: verify_jwt = false in config.toml allows requests without JWT validation
@@ -168,19 +193,27 @@ serve(async (req) => {
         .single()
       
       if (rawTrendError || !rawTrend) {
-        console.error('❌ Error fetching raw_trend:', rawTrendError)
-        return createErrorResponse(`Invalid rawTrendId: ${rawTrendId}. Raw trend not found.`, 400)
+        console.error(`[${functionName}] RAW_TREND_FETCH_ERROR`, { requestId, rawTrendId, error: rawTrendError });
+        return jsonResponse(
+          { success: false, error: `Invalid rawTrendId: ${rawTrendId}. Raw trend not found.` },
+          400
+        )
       }
       
       // STRICT VALIDATION: Ensure we have valid data
       if (!rawTrend.id) {
-        return createErrorResponse(`Invalid rawTrendId: ${rawTrendId}. Raw trend has no ID.`, 400)
+        console.error(`[${functionName}] RAW_TREND_INVALID_ID`, { requestId, rawTrendId });
+        return jsonResponse(
+          { success: false, error: `Invalid rawTrendId: ${rawTrendId}. Raw trend has no ID.` },
+          400
+        )
       }
       
       rawTrendIdValid = rawTrend.id
       rawTrendImageUrl = rawTrend.image_url || null
       
-      console.log('[GIST GEN]', {
+      console.log(`[${functionName}] RAW_TREND_FETCHED`, {
+        requestId,
         raw_trend_id: rawTrend.id,
         raw_image: rawTrend.image_url,
         topic: topic,
@@ -188,7 +221,7 @@ serve(async (req) => {
     }
 
     // Step 1: Generate gist content (call generate-gist-v2)
-    console.log('📝 Step 1/3: Generating gist content...')
+    console.log(`[${functionName}] STEP_1_GENERATE_GIST`, { requestId, topic })
 
     type GenerateGistResponse = {
       headline: string
@@ -222,16 +255,21 @@ serve(async (req) => {
       )
 
       if (error) {
-        console.error('[PIPELINE] generate-gist-v2 returned error:', error)
+        console.error(`[${functionName}] GENERATE_GIST_ERROR`, { requestId, error: error.message });
         generateResponse = { data: null, error: { message: error.message ?? 'Unknown error from generate-gist-v2' } }
       } else if (!data) {
-        console.error('[PIPELINE] generate-gist-v2 returned no data')
+        console.error(`[${functionName}] GENERATE_GIST_NO_DATA`, { requestId });
         generateResponse = { data: null, error: { message: 'No data returned from generate-gist-v2' } }
       } else {
         generateResponse = { data, error: null }
+        console.log(`[${functionName}] GENERATE_GIST_SUCCESS`, { requestId, headline: data.headline })
       }
     } catch (invokeError) {
-      console.error('[PIPELINE] Exception calling generate-gist-v2 via supabase.functions.invoke:', invokeError)
+      console.error(`[${functionName}] GENERATE_GIST_EXCEPTION`, { 
+        requestId, 
+        error: invokeError instanceof Error ? invokeError.message : 'Unknown error',
+        stack: invokeError instanceof Error ? invokeError.stack : undefined
+      });
       generateResponse = {
         data: null,
         error: {
@@ -242,23 +280,29 @@ serve(async (req) => {
     }
 
     if (generateResponse?.error) {
-      console.error('[PIPELINE] Error in generate-gist-v2:', generateResponse.error)
-      return createErrorResponse(
-        'Content generation failed',
+      console.error(`[${functionName}] GENERATE_GIST_FAILED`, { requestId, error: generateResponse.error });
+      return jsonResponse(
         {
+          success: false,
+          error: 'Content generation failed',
           stage: 'generate-gist-v2',
-          error: generateResponse.error,
+          details: generateResponse.error,
         },
-        500,
+        500
       )
     }
 
     if (!generateResponse?.data) {
-      return createErrorResponse('Content generation returned no data', 500)
+      console.error(`[${functionName}] GENERATE_GIST_NO_DATA_FINAL`, { requestId });
+      return jsonResponse(
+        { success: false, error: 'Content generation returned no data' },
+        500
+      )
     }
 
     const generatedGistData = generateResponse.data
-    console.log('✅ generate-gist-v2 succeeded:', {
+    console.log(`[${functionName}] GENERATE_GIST_COMPLETE`, {
+      requestId,
       headline: generatedGistData.headline,
       hasImage: !!generatedGistData.source_image_url || !!generatedGistData.ai_generated_image,
     })
@@ -280,12 +324,11 @@ serve(async (req) => {
       used_api_article,
     } = generatedGistData
 
-    console.log('✅ Gist content generated')
+    console.log(`[${functionName}] STEP_2_PREPARE_IMAGE`, { requestId })
 
     // Step 2: Prepare image URL
     // CRITICAL: Priority order ensures we use the correct image from raw_trends
     // Strategy: raw_trend.image_url → Source image from API → Provided imageUrl → AI-generated → null (frontend fallback)
-    console.log('🖼️ Step 2/3: Preparing image URL...')
     let finalImageUrl: string | null = null
 
     // Helper function to validate image URL
@@ -362,7 +405,7 @@ serve(async (req) => {
     }
 
     // Step 3: Save to database
-    console.log('💾 Step 3/3: Saving to database...')
+    console.log(`[${functionName}] STEP_3_SAVE_DB`, { requestId })
     
     const metaPayload: Record<string, unknown> = {}
     if (summary) metaPayload.summary = summary
@@ -380,7 +423,11 @@ serve(async (req) => {
     
     // STRICT VALIDATION: Ensure raw_trend_id is set when rawTrendId provided
     if (rawTrendId && !rawTrendIdValid) {
-      return createErrorResponse(`Invalid rawTrendId: ${rawTrendId}. Cannot proceed without valid raw_trend row.`, 400)
+      console.error(`[${functionName}] RAW_TREND_ID_VALIDATION_FAILED`, { requestId, rawTrendId });
+      return jsonResponse(
+        { success: false, error: `Invalid rawTrendId: ${rawTrendId}. Cannot proceed without valid raw_trend row.` },
+        400
+      )
     }
     
     // Strictly match the schema
@@ -406,17 +453,26 @@ serve(async (req) => {
     // STRONG VALIDATION: Before writing to DB, verify critical fields
     if (rawTrendIdValid) {
       if (!gistData.raw_trend_id) {
-        return createErrorResponse('CRITICAL: raw_trend_id must be set when rawTrendId provided', 500)
+        console.error(`[${functionName}] CRITICAL_VALIDATION_FAILED`, { requestId, rawTrendId });
+        return jsonResponse(
+          { success: false, error: 'CRITICAL: raw_trend_id must be set when rawTrendId provided' },
+          500
+        )
       }
       if (gistData.image_url !== rawTrendImageUrl) {
-        console.warn(`⚠️ WARNING: image_url mismatch! Expected ${rawTrendImageUrl}, got ${gistData.image_url}`)
+        console.warn(`[${functionName}] IMAGE_URL_MISMATCH`, { 
+          requestId, 
+          expected: rawTrendImageUrl, 
+          got: gistData.image_url 
+        });
         // Force correct image_url
         gistData.image_url = rawTrendImageUrl
       }
     }
     
     // Debug log before insert
-    console.log('[FEED MAP]', {
+    console.log(`[${functionName}] DB_INSERT_PREPARE`, {
+      requestId,
       raw_trend_id: gistData.raw_trend_id || 'none',
       headline: headline,
       image_url: gistData.image_url,
@@ -425,59 +481,72 @@ serve(async (req) => {
       raw_trend_image: rawTrendImageUrl || 'none',
     })
 
-    const { data: gist, error: dbError } = await supabase
+    const { data: gist, error: dbError, status: dbStatus } = await supabase
       .from('gists')
       .insert(gistData)
       .select()
       .single()
 
     if (dbError) {
-      console.error('❌ Database error:', dbError)
-      return createErrorResponse('Failed to save content: ' + dbError.message + ' (' + dbError.code + ')', 500)
+      console.error(`[${functionName}] DB_INSERT_ERROR`, { 
+        requestId, 
+        error: dbError.message, 
+        code: dbError.code,
+        details: dbError 
+      });
+      return jsonResponse(
+        { 
+          success: false, 
+          error: 'Failed to save content: ' + dbError.message + ' (' + dbError.code + ')',
+          details: dbError
+        },
+        safeStatus(dbStatus || 500)
+      )
     }
 
     if (!gist) {
-      return createErrorResponse('Failed to retrieve saved content', 500)
+      console.error(`[${functionName}] DB_INSERT_NO_DATA`, { requestId });
+      return jsonResponse(
+        { success: false, error: 'Failed to retrieve saved content' },
+        500
+      )
     }
 
-    console.log('✅ Gist saved to DB with ID:', gist.id)
+    console.log(`[${functionName}] DB_INSERT_SUCCESS`, { requestId, gistId: gist.id })
     
     // Debug log for pipeline success
-    console.log('[PIPELINE SUCCESS]', {
+    console.log(`[${functionName}] PIPELINE_SUCCESS`, {
+      requestId,
       gistId: gist.id,
       rawTrendId: gistData.raw_trend_id || 'none',
       headline: gist.headline,
     })
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: "Gist generated successfully",
-        gistData: gist
-      }),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
+    return jsonResponse({
+      success: true,
+      message: "Gist generated successfully",
+      gistData: gist
+    }, 200)
 
   } catch (error) {
     // Improved error logging with prefix for easy filtering
-    console.error('[PIPELINE FAILURE]', error)
-    console.error('[PUBLISH GIST ERROR]', error)
-    
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
+    const errorStack = error instanceof Error ? error.stack : undefined
+    
+    console.error(`[${functionName}] PIPELINE_FAILURE`, { 
+      requestId, 
+      error: errorMessage,
+      stack: errorStack,
+      errorDetails: error
+    })
     
     // ALWAYS return error with CORS headers - never throw
-    return new Response(
-      JSON.stringify({ 
+    return jsonResponse(
+      { 
         success: false, 
         error: errorMessage 
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      },
+      500
     )
   }
 })

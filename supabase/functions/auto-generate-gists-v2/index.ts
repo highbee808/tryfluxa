@@ -1,7 +1,25 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { corsHeaders, createResponse, createErrorResponse } from '../_shared/http.ts'
+import { corsHeaders } from '../_shared/http.ts'
 import { env, ensureSupabaseEnv, ENV } from '../_shared/env.ts'
+
+// Safe status code validation - prevents RangeError from invalid status codes
+function safeStatus(status?: number | null): number {
+  if (!status || status === 0) return 500
+  if (status < 200 || status > 599) return 500
+  return status
+}
+
+// Standardized JSON response with safe status and CORS headers
+function jsonResponse(payload: unknown, status: number = 200): Response {
+  return new Response(
+    JSON.stringify(payload),
+    {
+      status: safeStatus(status),
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    }
+  )
+}
 
 // HMAC signature validation for scheduled functions
 async function validateCronSignature(req: Request): Promise<boolean> {
@@ -47,22 +65,26 @@ async function validateCronSignature(req: Request): Promise<boolean> {
 }
 
 serve(async (req) => {
+  const requestId = crypto.randomUUID()
+  const functionName = 'auto-generate-gists-v2'
+  
   if (req.method === 'OPTIONS') {
-    return new Response("OK", { headers: corsHeaders })
+    return new Response("ok", { headers: corsHeaders })
   }
+
+  console.log(`[${functionName}] START`, { method: req.method, requestId })
 
   // Validate HMAC signature for scheduled functions
   const isValid = await validateCronSignature(req)
   if (!isValid) {
-    console.error('❌ Invalid or missing HMAC signature')
-    return createErrorResponse('Unauthorized - Invalid signature', 401)
+    console.error(`[${functionName}] AUTH_ERROR Invalid or missing HMAC signature`, { requestId })
+    return jsonResponse({ success: false, error: 'Unauthorized - Invalid signature' }, 401)
   }
 
-  console.log('🤖 Auto-gist generation v2 triggered with valid HMAC signature')
+  console.log(`[${functionName}] AUTH_SUCCESS Valid HMAC signature`, { requestId })
 
   try {
-    console.log('[AUTO-GEN START]', { triggeredBy: 'cron' })
-    console.log('🤖 Auto-gist generation v2 started at', new Date().toISOString())
+    console.log(`[${functionName}] PIPELINE_START`, { requestId, triggeredBy: 'cron', timestamp: new Date().toISOString() })
 
     ensureSupabaseEnv();
     // CRITICAL: Use ENV.SUPABASE_SERVICE_ROLE_KEY for all DB operations
@@ -82,7 +104,7 @@ serve(async (req) => {
     )
 
     // Step 1: Scrape trending topics
-    console.log('📡 Fetching trending topics...')
+    console.log(`[${functionName}] STEP_1_SCRAPE_TRENDS`, { requestId })
     let trends: any[] = []
     try {
       const trendsResponse = await fetch(`${supabaseUrl}/functions/v1/scrape-trends`, {
@@ -96,13 +118,16 @@ serve(async (req) => {
       if (trendsResponse.ok) {
         const trendsData = await trendsResponse.json()
         trends = trendsData.trends || []
-        console.log(`✅ Found ${trends.length} trending topics`)
+        console.log(`[${functionName}] SCRAPE_TRENDS_SUCCESS`, { requestId, count: trends.length })
       } else {
         const errorText = await trendsResponse.text().catch(() => '')
-        console.warn('⚠️ scrape-trends failed, using fallback topics only:', errorText)
+        console.warn(`[${functionName}] SCRAPE_TRENDS_FAILED`, { requestId, error: errorText })
       }
     } catch (trendError) {
-      console.warn('⚠️ scrape-trends unreachable, using fallback topics only:', trendError)
+      console.warn(`[${functionName}] SCRAPE_TRENDS_EXCEPTION`, { 
+        requestId, 
+        error: trendError instanceof Error ? trendError.message : 'Unknown error' 
+      })
     }
 
     // Step 2: Get diverse topics to generate gists about
@@ -117,7 +142,7 @@ serve(async (req) => {
     // Step 3: Get raw_trends that don't have gists yet (using raw_trend_id foreign key)
     // CRITICAL: This ensures strict 1:1 mapping - only process trends without existing gists
     // SQL equivalent: SELECT * FROM raw_trends WHERE id NOT IN (SELECT raw_trend_id FROM gists WHERE raw_trend_id IS NOT NULL)
-    console.log('🔍 Checking for raw_trends without existing gists (by raw_trend_id)...')
+    console.log(`[${functionName}] STEP_3_FETCH_RAW_TRENDS`, { requestId })
     
     // First, get all existing raw_trend_ids from gists
     const { data: existingGistTrendIds, error: existingError } = await supabase
@@ -126,28 +151,39 @@ serve(async (req) => {
       .not('raw_trend_id', 'is', null)
     
     if (existingError) {
-      console.error('❌ Error fetching existing gist raw_trend_ids:', existingError)
+      console.error(`[${functionName}] FETCH_EXISTING_GISTS_ERROR`, { requestId, error: existingError })
     }
     
     const existingTrendIds = new Set(
       (existingGistTrendIds || []).map(g => g.raw_trend_id).filter(Boolean)
     )
     
-    console.log(`📊 Found ${existingTrendIds.size} raw_trends that already have gists`)
+    console.log(`[${functionName}] EXISTING_GISTS_COUNT`, { requestId, count: existingTrendIds.size })
     
     // Fetch ALL raw_trends (not just unprocessed) to ensure we catch everything
     // We'll filter by raw_trend_id NOT IN existingTrendIds
     // NOTE: raw_trends only contains: id, image_url
-    const { data: allRawTrends, error: trendsError } = await supabase
+    const { data: allRawTrends, error: trendsError, status: trendsStatus } = await supabase
       .from('raw_trends')
       .select('id, image_url')
       .order('id', { ascending: false })
       .limit(10)
     
     if (trendsError) {
-      console.error('[AUTO-GEN ERROR] Error fetching raw_trends:', trendsError)
-      console.error('❌ Error fetching raw_trends:', trendsError)
-      return createErrorResponse(`Failed to fetch raw_trends: ${trendsError.message}`, 500)
+      console.error(`[${functionName}] FETCH_RAW_TRENDS_ERROR`, { 
+        requestId, 
+        error: trendsError.message,
+        code: trendsError.code,
+        details: trendsError
+      })
+      return jsonResponse(
+        { 
+          success: false, 
+          error: `Failed to fetch raw_trends: ${trendsError.message}`,
+          details: trendsError
+        },
+        safeStatus(trendsStatus || 500)
+      )
     }
     
     // CRITICAL: Filter out trends that already have gists (by raw_trend_id)
@@ -162,8 +198,7 @@ serve(async (req) => {
       })
       .slice(0, 10) // Process max 10 at a time
     
-    console.log('[AUTO-GEN INFO]', `Found ${trendsToProcess.length} raw_trends without gists`)
-    console.log(`📊 Found ${trendsToProcess.length} raw_trends without gists (ready to process)`)
+    console.log(`[${functionName}] RAW_TRENDS_TO_PROCESS`, { requestId, count: trendsToProcess.length })
     
     // CRITICAL: Process only raw_trends rows (prioritize these for strict 1:1 mapping)
     // NOTE: raw_trends only contains id and image_url, so topic must come from elsewhere
@@ -173,11 +208,11 @@ serve(async (req) => {
       try {
         // CRITICAL: Each trend must have raw_trend_id for proper linking
         if (!trend.id) {
-          console.warn(`⚠️ Skipping trend without ID`)
+          console.warn(`[${functionName}] SKIP_NO_ID`, { requestId })
           continue
         }
         
-        console.log(`🎨 Generating gist for raw_trend_id: ${trend.id}`)
+        console.log(`[${functionName}] PROCESSING_TREND`, { requestId, raw_trend_id: trend.id })
         
         // Double-check: Ensure no gist exists for this raw_trend_id
         const { data: existingGist } = await supabase
@@ -188,7 +223,7 @@ serve(async (req) => {
           .single()
         
         if (existingGist) {
-          console.log(`⏭️  Skipping - gist already exists for raw_trend_id: ${trend.id}`)
+          console.log(`[${functionName}] SKIP_EXISTING_GIST`, { requestId, raw_trend_id: trend.id })
           // Mark as processed
           await supabase
             .from('raw_trends')
@@ -198,7 +233,8 @@ serve(async (req) => {
         }
         
         // Debug log before generation
-        console.log('[AUTO-GEN]', {
+        console.log(`[${functionName}] GENERATE_GIST_START`, {
+          requestId,
           raw_trend_id: trend.id,
           raw_image: trend.image_url,
         })
@@ -228,12 +264,10 @@ serve(async (req) => {
 
         if (publishResponse.ok && publishData.success) {
           generatedGists.push(publishData.gist)
-          console.log(`✅ Published gist for raw_trend_id: ${trend.id}, headline: ${publishData.gist?.headline || 'unknown'}`)
-          
-          // Debug log for pipeline success
-          console.log('[PIPELINE SUCCESS]', {
+          console.log(`[${functionName}] PUBLISH_GIST_SUCCESS`, {
+            requestId,
+            raw_trend_id: trend.id,
             gistId: publishData.gist?.id || 'unknown',
-            rawTrendId: trend.id,
             headline: publishData.gist?.headline || 'unknown',
           })
           
@@ -244,50 +278,62 @@ serve(async (req) => {
             .eq('id', trend.id)
           
           if (updateError) {
-            console.error(`❌ Error marking raw_trend ${trend.id} as processed:`, updateError)
+            console.error(`[${functionName}] MARK_PROCESSED_ERROR`, { 
+              requestId, 
+              raw_trend_id: trend.id, 
+              error: updateError 
+            })
           } else {
-            console.log(`✅ Marked raw_trend ${trend.id} as processed`)
+            console.log(`[${functionName}] MARK_PROCESSED_SUCCESS`, { requestId, raw_trend_id: trend.id })
           }
         } else {
-          console.error('[AUTO-GEN ERROR] Failed to publish gist for raw_trend', { rawTrendId: trend.id, error: publishData.error })
-          console.log(`⚠️ Failed to publish gist for raw_trend_id ${trend.id}:`, publishData.error)
+          console.error(`[${functionName}] PUBLISH_GIST_FAILED`, { 
+            requestId, 
+            rawTrendId: trend.id, 
+            error: publishData.error,
+            status: publishResponse.status
+          })
         }
       } catch (error) {
-        console.error('[AUTO-GEN ERROR] Error processing raw_trend', { rawTrendId: trend.id, error: error instanceof Error ? error.message : 'Unknown error' })
-        console.log(`❌ Error processing raw_trend_id ${trend.id}:`, error instanceof Error ? error.message : 'Unknown error')
+        console.error(`[${functionName}] PROCESS_TREND_EXCEPTION`, { 
+          requestId,
+          rawTrendId: trend.id, 
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined
+        })
       }
     }
 
-    console.log(`🎉 Auto-generation v2 complete! Generated ${generatedGists.length} gists`)
-    
-    // Debug log for overall success
-    console.log('[PIPELINE SUCCESS]', {
+    console.log(`[${functionName}] PIPELINE_COMPLETE`, {
+      requestId,
       generated: generatedGists.length,
       total_trends: trends.length,
     })
 
-    return createResponse({
+    return jsonResponse({
       success: true,
       generated: generatedGists.length,
       total_trends: trends.length,
       gists: generatedGists,
-    })
+    }, 200)
   } catch (error) {
-    console.error('[PIPELINE FAILURE]', error)
-    console.error('[AUTO-GEN ERROR]', error)
-    
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorStack = error instanceof Error ? error.stack : undefined
+    
+    console.error(`[${functionName}] PIPELINE_FAILURE`, { 
+      requestId,
+      error: errorMessage,
+      stack: errorStack,
+      errorDetails: error
+    })
     
     // ALWAYS return error with CORS headers - never throw
-    return new Response(
-      JSON.stringify({ 
+    return jsonResponse(
+      { 
         success: false, 
         error: errorMessage 
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      },
+      500
     )
   }
 })
