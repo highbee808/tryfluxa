@@ -63,6 +63,7 @@ const publishSchema = z.object({
   sourceUrl: z.string().url('Invalid source URL format').optional(),
   newsPublishedAt: z.string().optional(),
   rawTrendId: z.string().uuid('Invalid raw_trend_id format').optional(), // Link to raw_trends row
+  debug: z.boolean().optional(), // Enable debug mode for source stats
 })
 
 serve(async (req) => {
@@ -230,6 +231,7 @@ serve(async (req) => {
         serviceKey: dbKey,
         openaiApiKey,
         openaiModel: Deno.env.get('OPENAI_MODEL') || 'gpt-4o-mini',
+        debug,
       })
 
       console.log(`[stage:ok] ai_generate: success`, { requestId, headline: generatedGistData.headline })
@@ -512,11 +514,27 @@ serve(async (req) => {
     })
 
     // FINAL RESPONSE MUST BE 2XX ON SUCCESS - use 201 for created resource
-    return safeJsonResponse({
+    const responseBody: any = {
       success: true,
       gist: gist,
       data: gist, // Adding 'data' field to match requirements
-    }, 201)
+    }
+
+    // Add debug info if requested
+    if (debug) {
+      responseBody.debug = {
+        envVars: {
+          hasNewsApiKey: !!Deno.env.get('NEWSAPI_KEY'),
+          hasGuardianKey: !!Deno.env.get('GUARDIAN_API_KEY'),
+          hasMediastackKey: !!Deno.env.get('MEDIASTACK_KEY'),
+          hasOpenAiKey: !!Deno.env.get('OPENAI_API_KEY'),
+        },
+        rawTrendId: rawTrendIdValid || null,
+        topic: finalTopic,
+      }
+    }
+
+    return safeJsonResponse(responseBody, 201)
 
   } catch (error) {
     // REMOVE GENERIC ERROR SWALLOWING - surface the real error

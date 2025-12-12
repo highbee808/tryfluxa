@@ -50,9 +50,10 @@ export async function generateGistContent(
     openaiApiKey: string
     openaiModel?: string
     skipCache?: boolean
+    debug?: boolean
   }
 ): Promise<GenerateGistResult> {
-  const { supabaseUrl, serviceKey, openaiApiKey, openaiModel = 'gpt-4o-mini', skipCache = false } = options
+  const { supabaseUrl, serviceKey, openaiApiKey, openaiModel = 'gpt-4o-mini', skipCache = false, debug = false } = options
 
   // Step 1: Gather sources (call gather-sources-v2)
   console.log('[generateGist] Gathering sources...', { topic })
@@ -63,15 +64,29 @@ export async function generateGistContent(
       'Authorization': `Bearer ${serviceKey}`,
       'apikey': serviceKey,
     },
-    body: JSON.stringify({ topic }),
+    body: JSON.stringify({ topic, debug }),
   })
 
-  if (!sourcesResponse.ok) {
-    const errorText = await sourcesResponse.text()
-    throw new Error(`Failed to gather sources: ${sourcesResponse.status} - ${errorText}`)
+  const responseText = await sourcesResponse.text()
+  let sourcesData: any = null
+
+  try {
+    sourcesData = JSON.parse(responseText)
+  } catch (e) {
+    throw new Error(`Failed to parse gather-sources response: ${responseText.substring(0, 200)}`)
   }
 
-  const sourcesData = await sourcesResponse.json()
+  if (!sourcesResponse.ok) {
+    // gather-sources-v2 returns structured error with failures
+    const errorMsg = sourcesData.error || `HTTP ${sourcesResponse.status}`
+    const failures = sourcesData.failures || []
+    throw new Error(`Failed to gather sources: ${errorMsg}${failures.length > 0 ? ` (${failures.length} sources failed)` : ''}`)
+  }
+
+  if (!sourcesData.success) {
+    throw new Error(`Gather sources returned failure: ${sourcesData.error || 'Unknown error'}`)
+  }
+
   const selectedArticle = sourcesData.selected as Article | null
   const usingApiContent = Boolean(selectedArticle)
 
