@@ -23,10 +23,12 @@ export async function invokeAdminFunction(
     }
 
     const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "x-admin-secret": adminSecret,
-      "x-client-info": "fluxa-frontend",
-    };
+  "Content-Type": "application/json",
+
+  // 🔥 TEMPORARY HARD TEST — REMOVE AFTER
+  "x-admin-secret": "HARDCODED_TEST_SECRET",
+};
+
 
     const res = await fetch(endpoint, {
       method: "POST",

@@ -20,6 +20,16 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1'
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 
 // ============================================================================
+// CORS Headers (shared for all responses)
+// ============================================================================
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "content-type, x-admin-secret, apikey, x-client-info, authorization",
+};
+
+// ============================================================================
 // Types & Interfaces
 // ============================================================================
 
@@ -68,10 +78,8 @@ function safeJsonResponse(
   return new Response(JSON.stringify(body), {
     status: safeStatusValue,
     headers: {
+      ...corsHeaders,
       "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "content-type, x-admin-secret, *",
-      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     },
   })
 }
@@ -596,42 +604,50 @@ serve(async (req) => {
   const requestId = crypto.randomUUID()
   const functionName = 'publish-gist-v3'
   
-  // Handle OPTIONS
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "content-type, x-admin-secret, *",
-        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-      },
-    })
+  // Handle OPTIONS preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
   
   console.log(`[${functionName}] START`, { requestId, method: req.method })
   
-  // Auth: Check admin secret (case-insensitive header check)
+  // Auth: Read admin secret from x-admin-secret only (case-insensitive)
   const adminSecret =
     req.headers.get("x-admin-secret") ||
     req.headers.get("X-Admin-Secret");
-  
-  if (!adminSecret || adminSecret !== Deno.env.get("ADMIN_SECRET")) {
-    console.error(`[${functionName}] AUTH_FAILED`, { requestId, hasHeader: !!adminSecret })
+
+  const expected = Deno.env.get("ADMIN_SECRET");
+
+  if (!adminSecret) {
+    console.error(`[${functionName}] AUTH_FAILED: MISSING_HEADER`, { requestId })
     return new Response(
       JSON.stringify({
         success: false,
         stage: "auth",
-        error: "UNAUTHORIZED",
-        details: "Missing or invalid admin secret",
+        error: "MISSING_ADMIN_SECRET",
+        details: "Missing x-admin-secret header",
         requestId,
       }),
-      {
-        status: 401,
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Headers": "content-type, x-admin-secret, *",
-        },
+      { 
+        status: 401, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      }
+    );
+  }
+
+  if (!expected || adminSecret !== expected) {
+    console.error(`[${functionName}] AUTH_FAILED: INVALID_SECRET`, { requestId, hasHeader: true })
+    return new Response(
+      JSON.stringify({
+        success: false,
+        stage: "auth",
+        error: "INVALID_ADMIN_SECRET",
+        details: "Invalid x-admin-secret",
+        requestId,
+      }),
+      { 
+        status: 401, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
       }
     );
   }
