@@ -60,7 +60,16 @@ export async function invokeAdminFunction(functionName: string, payload: Record<
     }
 
     if (!res.ok) {
-      return { data: null, error: json.error || { message: `Edge Function failed (${res.status}): ${responseText}` } };
+      // v3 returns structured errors with stage and details
+      return { 
+        data: null, 
+        error: {
+          message: json.error || `Edge Function failed (${res.status}): ${responseText}`,
+          stage: json.stage,
+          details: json.details,
+          ...json // Include all error fields
+        }
+      };
     }
     return { data: json, error: null };
   } catch (e: any) {

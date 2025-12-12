@@ -207,17 +207,19 @@ const Admin = () => {
 
     setIsGenerating(true);
     try {
-      const { data, error } = await invokeAdminFunction("publish-gist-v2", {
+      const { data, error } = await invokeAdminFunction("publish-gist-v3", {
         topic: topic.trim(),
-        imageUrl: imageUrl.trim() || undefined,
         topicCategory: selectedCategory || undefined,
+        // v3 doesn't use imageUrl directly - it gets from sources or raw_trends
       });
 
       if (error) {
-        throw new Error(error instanceof Error ? error.message : String(error));
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        const stage = (error as any)?.stage || 'unknown';
+        throw new Error(`[${stage}] ${errorMsg}`);
       }
 
-      // Handle different response formats
+      // Handle v3 response format
       const gist = data?.gist || data;
       
       if (!gist || !gist.id) {
@@ -316,23 +318,27 @@ const Admin = () => {
       const testTopic = "Drake drops a surprise song with a twist";
       addLog(`Test topic: "${testTopic}"`);
 
-      // Step 1: Call publish-gist-v2
-      const endpoint = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/publish-gist-v2`;
-      addLog(`Calling publish-gist-v2 function at: ${endpoint}`);
+      // Step 1: Call publish-gist-v3 (clean pipeline with source-grounding)
+      const endpoint = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/publish-gist-v3`;
+      addLog(`Calling publish-gist-v3 function at: ${endpoint}`);
       console.log('🔗 Endpoint:', endpoint);
       const startTime = Date.now();
       
-      const { data, error } = await invokeAdminFunction("publish-gist-v2", {
+      const { data, error } = await invokeAdminFunction("publish-gist-v3", {
         topic: testTopic,
         topicCategory: "Music"
       });
 
       if (error) {
         const errorMsg = error?.message || JSON.stringify(error) || 'Unknown error';
-        addLog(`Error in publish-gist-v2: ${errorMsg}`, false);
-        addLog(`Full error: ${JSON.stringify(error)}`, false);
+        const stage = error?.stage || 'unknown';
+        addLog(`Error in publish-gist-v3: ${errorMsg}`, false);
+        addLog(`Stage: ${stage}`, false);
+        if (error?.details) {
+          addLog(`Details: ${JSON.stringify(error.details)}`, false);
+        }
         console.error('Pipeline test error:', error);
-        toast.error(`Pipeline test failed: ${errorMsg}`);
+        toast.error(`Pipeline test failed (${stage}): ${errorMsg}`);
         return;
       }
 
@@ -341,17 +347,33 @@ const Admin = () => {
 
       // Debug: Log the actual response
       console.log('Full response data:', data);
-      addLog(`Response keys: ${data ? Object.keys(data).join(', ') : 'no data'}`);
+      
+      // v3 returns structured response
+      if (data?.success) {
+        addLog(`✅ Pipeline test successful!`, true);
+        addLog(`Request ID: ${data.requestId || 'N/A'}`, true);
+        
+        if (data.source_count !== undefined) {
+          addLog(`Sources gathered: ${data.source_count}`, true);
+        }
+        if (data.primary_source_url) {
+          addLog(`Primary source: ${data.primary_source_url}`, true);
+        }
+        if (data.confidence !== undefined) {
+          addLog(`Confidence: ${data.confidence}%`, true);
+        }
+        if (data.citations_count !== undefined) {
+          addLog(`Citations: ${data.citations_count}`, true);
+        }
+      }
 
-      // Step 2: Verify response - handle different response formats
+      // Step 2: Verify response - handle v3 format
       let gist = null;
       if (data?.gist) {
         gist = data.gist;
       } else if (data && !data.gist && data.headline) {
-        // Response might be the gist directly
+        // Fallback: response might be the gist directly
         gist = data;
-      } else if (data && data.success && data.gist) {
-        gist = data.gist;
       }
 
       if (!gist) {
