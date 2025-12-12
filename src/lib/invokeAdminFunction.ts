@@ -3,8 +3,13 @@ export async function invokeAdminFunction(
   payload: Record<string, any> = {}
 ) {
   try {
-    const apiBase = getApiBaseUrl();
-    const endpoint = `${apiBase}/${functionName}`;
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    
+    if (!supabaseUrl) {
+      throw new Error("VITE_SUPABASE_URL is missing in frontend build.");
+    }
+    
+    const endpoint = `${supabaseUrl}/functions/v1/${functionName}`;
 
     const adminSecret = import.meta.env.VITE_ADMIN_SECRET;
 
