@@ -70,7 +70,7 @@ function safeJsonResponse(
     headers: {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Allow-Headers": "content-type, x-admin-secret, *",
       "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     },
   })
@@ -602,7 +602,7 @@ serve(async (req) => {
       status: 200,
       headers: {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "*",
+        "Access-Control-Allow-Headers": "content-type, x-admin-secret, *",
         "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
       },
     })
@@ -610,26 +610,30 @@ serve(async (req) => {
   
   console.log(`[${functionName}] START`, { requestId, method: req.method })
   
-  // Auth: Check admin secret
-  const adminSecret = req.headers.get('x-admin-secret')
-  const expectedSecret = Deno.env.get('ADMIN_SECRET')
+  // Auth: Check admin secret (case-insensitive header check)
+  const adminSecret =
+    req.headers.get("x-admin-secret") ||
+    req.headers.get("X-Admin-Secret");
   
-  if (!expectedSecret) {
-    console.error(`[${functionName}] MISSING_ADMIN_SECRET`, { requestId })
-    return safeJsonResponse({
-      success: false,
-      stage: 'auth',
-      error: 'Server configuration error: ADMIN_SECRET not set'
-    }, 500)
-  }
-  
-  if (!adminSecret || adminSecret !== expectedSecret) {
-    console.error(`[${functionName}] AUTH_FAILED`, { requestId })
-    return safeJsonResponse({
-      success: false,
-      stage: 'auth',
-      error: 'Unauthorized: Invalid or missing admin secret'
-    }, 401)
+  if (!adminSecret || adminSecret !== Deno.env.get("ADMIN_SECRET")) {
+    console.error(`[${functionName}] AUTH_FAILED`, { requestId, hasHeader: !!adminSecret })
+    return new Response(
+      JSON.stringify({
+        success: false,
+        stage: "auth",
+        error: "UNAUTHORIZED",
+        details: "Missing or invalid admin secret",
+        requestId,
+      }),
+      {
+        status: 401,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Headers": "content-type, x-admin-secret, *",
+        },
+      }
+    );
   }
   
   console.log(`[${functionName}] AUTH_OK`, { requestId })
@@ -642,7 +646,6 @@ serve(async (req) => {
     const validationResult = validateInput(body, requestId)
     if (!validationResult.success) {
       return safeJsonResponse({
-        success: false,
         requestId,
         ...validationResult
       }, 400)
@@ -653,7 +656,6 @@ serve(async (req) => {
     const sourcesResult = await gatherSources(payload, requestId)
     if (!sourcesResult.success) {
       return safeJsonResponse({
-        success: false,
         requestId,
         ...sourcesResult
       }, 422) // 422 Unprocessable Entity for insufficient sources
@@ -664,7 +666,6 @@ serve(async (req) => {
     const primaryResult = selectPrimarySource(payload, sources, requestId)
     if (!primaryResult.success) {
       return safeJsonResponse({
-        success: false,
         requestId,
         ...primaryResult
       }, 500)
@@ -675,7 +676,6 @@ serve(async (req) => {
     const generateResult = await generateGist(payload, sources, primarySource, requestId)
     if (!generateResult.success) {
       return safeJsonResponse({
-        success: false,
         requestId,
         ...generateResult
       }, 502) // 502 Bad Gateway for AI provider failures
@@ -686,7 +686,6 @@ serve(async (req) => {
     const alignmentResult = validateAlignment(gistDraft, primarySource, sources, requestId)
     if (!alignmentResult.success) {
       return safeJsonResponse({
-        success: false,
         requestId,
         ...alignmentResult
       }, 422) // 422 for misalignment
@@ -696,7 +695,6 @@ serve(async (req) => {
     const insertResult = await insertGist(payload, gistDraft, sources, primarySource, requestId)
     if (!insertResult.success) {
       return safeJsonResponse({
-        success: false,
         requestId,
         ...insertResult
       }, 500)
