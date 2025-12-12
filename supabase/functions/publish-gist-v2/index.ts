@@ -176,7 +176,7 @@ serve(async (req) => {
     }
 
     // Step 1: Generate gist content (call generate-gist-v2)
-    console.log(`[${functionName}] STEP_1_GENERATE_GIST`, { requestId, topic })
+    console.log(`[stage:start] ai_generate`, { requestId, topic })
 
     type GenerateGistResponse = {
       headline: string
@@ -210,37 +210,41 @@ serve(async (req) => {
       )
 
       if (error) {
-        console.error(`[${functionName}] GENERATE_GIST_ERROR`, { requestId, error: error.message });
-        generateResponse = { data: null, error: { message: error.message ?? 'Unknown error from generate-gist-v2' } }
+        const errorMsg = error.message ?? 'Unknown error from generate-gist-v2'
+        console.error(`[stage:error] ai_generate`, { requestId, error: errorMsg, details: error });
+        generateResponse = { data: null, error: { message: errorMsg } }
       } else if (!data) {
-        console.error(`[${functionName}] GENERATE_GIST_NO_DATA`, { requestId });
+        console.error(`[stage:error] ai_generate: empty result`, { requestId, data });
         generateResponse = { data: null, error: { message: 'No data returned from generate-gist-v2' } }
       } else {
         generateResponse = { data, error: null }
-        console.log(`[${functionName}] GENERATE_GIST_SUCCESS`, { requestId, headline: data.headline })
+        console.log(`[stage:ok] ai_generate`, { requestId, headline: data.headline })
       }
     } catch (invokeError) {
-      console.error(`[${functionName}] GENERATE_GIST_EXCEPTION`, { 
+      const errorMsg = invokeError instanceof Error ? invokeError.message : String(invokeError)
+      const errorStack = invokeError instanceof Error ? invokeError.stack : undefined
+      console.error(`[stage:error] ai_generate: exception`, { 
         requestId, 
-        error: invokeError instanceof Error ? invokeError.message : 'Unknown error',
-        stack: invokeError instanceof Error ? invokeError.stack : undefined
+        error: errorMsg,
+        stack: errorStack,
+        errorDetails: invokeError
       });
       generateResponse = {
         data: null,
         error: {
-          message:
-            invokeError instanceof Error ? invokeError.message : 'Unknown error invoking generate-gist-v2',
+          message: errorMsg,
         },
       }
     }
 
     if (generateResponse?.error) {
-      console.error(`[${functionName}] GENERATE_GIST_FAILED`, { requestId, error: generateResponse.error });
+      const errorMsg = generateResponse.error.message
+      console.error(`[stage:error] ai_generate: final failure`, { requestId, error: errorMsg });
       return jsonResponse(
         {
           success: false,
-          error: 'Content generation failed',
-          stage: 'generate-gist-v2',
+          error: errorMsg,
+          stage: 'ai_generate',
           details: generateResponse.error,
         },
         500
@@ -248,19 +252,49 @@ serve(async (req) => {
     }
 
     if (!generateResponse?.data) {
-      console.error(`[${functionName}] GENERATE_GIST_NO_DATA_FINAL`, { requestId });
+      console.error(`[stage:error] ai_generate: no data`, { requestId });
       return jsonResponse(
-        { success: false, error: 'Content generation returned no data' },
+        { 
+          success: false, 
+          error: 'AI content generation returned no data',
+          stage: 'ai_generate'
+        },
         500
       )
     }
 
     const generatedGistData = generateResponse.data
-    console.log(`[${functionName}] GENERATE_GIST_COMPLETE`, {
-      requestId,
-      headline: generatedGistData.headline,
-      hasImage: !!generatedGistData.source_image_url || !!generatedGistData.ai_generated_image,
-    })
+    
+    // GUARANTEE NON-EMPTY AI OUTPUT - validate before proceeding
+    if (!generatedGistData.headline || !generatedGistData.summary || !generatedGistData.context || !generatedGistData.narration) {
+      const missing = []
+      if (!generatedGistData.headline) missing.push('headline')
+      if (!generatedGistData.summary) missing.push('summary')
+      if (!generatedGistData.context) missing.push('context')
+      if (!generatedGistData.narration) missing.push('narration')
+      
+      console.error(`[stage:error] validation: AI output invalid`, { 
+        requestId, 
+        missing,
+        received: {
+          hasHeadline: !!generatedGistData.headline,
+          hasSummary: !!generatedGistData.summary,
+          hasContext: !!generatedGistData.context,
+          hasNarration: !!generatedGistData.narration,
+        }
+      });
+      return jsonResponse(
+        {
+          success: false,
+          error: `AI output invalid: missing required fields: ${missing.join(', ')}`,
+          stage: 'validation',
+          missing,
+        },
+        400
+      )
+    }
+
+    console.log(`[stage:ok] validation`, { requestId })
 
     const {
       headline,
@@ -279,7 +313,7 @@ serve(async (req) => {
       used_api_article,
     } = generatedGistData
 
-    console.log(`[${functionName}] STEP_2_PREPARE_IMAGE`, { requestId })
+    console.log(`[stage:start] image_handling`, { requestId })
 
     // Step 2: Prepare image URL
     // CRITICAL: Priority order ensures we use the correct image from raw_trends
@@ -359,8 +393,10 @@ serve(async (req) => {
       console.log('🖼️ No valid images found - setting to null (frontend will use /fallback/news.jpg)')
     }
 
+    console.log(`[stage:ok] image_handling`, { requestId, finalImageUrl })
+
     // Step 3: Save to database
-    console.log(`[${functionName}] STEP_3_SAVE_DB`, { requestId })
+    console.log(`[stage:start] db_insert`, { requestId })
     
     const metaPayload: Record<string, unknown> = {}
     if (summary) metaPayload.summary = summary
@@ -426,14 +462,13 @@ serve(async (req) => {
     }
     
     // Debug log before insert
-    console.log(`[${functionName}] DB_INSERT_PREPARE`, {
+    console.log(`[stage:info] db_insert: preparing payload`, {
       requestId,
       raw_trend_id: gistData.raw_trend_id || 'none',
       headline: headline,
       image_url: gistData.image_url,
       source_url: gistData.source_url,
       topic: gistData.topic,
-      raw_trend_image: rawTrendImageUrl || 'none',
     })
 
     const { data: gist, error: dbError, status: dbStatus } = await supabase
@@ -443,52 +478,64 @@ serve(async (req) => {
       .single()
 
     if (dbError) {
-      console.error(`[${functionName}] DB_INSERT_ERROR`, { 
+      const errorMsg = `DB insert failed: ${dbError.message} (${dbError.code || 'unknown'})`
+      console.error(`[stage:error] db_insert`, { 
         requestId, 
-        error: dbError.message, 
+        error: errorMsg,
         code: dbError.code,
         details: dbError 
       });
       return jsonResponse(
         { 
           success: false, 
-          error: 'Failed to save content: ' + dbError.message + ' (' + dbError.code + ')',
+          error: errorMsg,
+          stage: 'db_insert',
           details: dbError
         },
         safeStatus(dbStatus || 500)
       )
     }
 
-    if (!gist) {
-      console.error(`[${functionName}] DB_INSERT_NO_DATA`, { requestId });
+    // ENSURE DB INSERT RETURNS DATA - validate the returned record
+    if (!gist || !gist.id) {
+      const errorMsg = 'DB insert succeeded but no record returned'
+      console.error(`[stage:error] db_insert: no data returned`, { 
+        requestId,
+        gist: gist,
+        hasId: !!gist?.id
+      });
       return jsonResponse(
-        { success: false, error: 'Failed to retrieve saved content' },
+        { 
+          success: false, 
+          error: errorMsg,
+          stage: 'db_insert'
+        },
         500
       )
     }
 
-    console.log(`[${functionName}] DB_INSERT_SUCCESS`, { requestId, gistId: gist.id })
+    console.log(`[stage:ok] db_insert`, { requestId, gistId: gist.id })
     
     // Debug log for pipeline success
-    console.log(`[${functionName}] PIPELINE_SUCCESS`, {
+    console.log(`[pipeline:success]`, {
       requestId,
       gistId: gist.id,
       rawTrendId: gistData.raw_trend_id || 'none',
       headline: gist.headline,
     })
 
+    // FINAL RESPONSE MUST BE 2XX ON SUCCESS - use 201 for created resource
     return jsonResponse({
       success: true,
-      message: "Gist generated successfully",
-      gistData: gist
-    }, 200)
+      gist: gist
+    }, 201)
 
   } catch (error) {
-    // Improved error logging with prefix for easy filtering
-    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
+    // REMOVE GENERIC ERROR SWALLOWING - surface the real error
+    const errorMessage = error instanceof Error ? error.message : String(error)
     const errorStack = error instanceof Error ? error.stack : undefined
     
-    console.error(`[${functionName}] PIPELINE_FAILURE`, { 
+    console.error(`[pipeline:error]`, { 
       requestId, 
       error: errorMessage,
       stack: errorStack,
@@ -496,10 +543,12 @@ serve(async (req) => {
     })
     
     // ALWAYS return error with CORS headers - never throw
+    // Return the actual error message, not a generic one
     return jsonResponse(
       { 
         success: false, 
-        error: errorMessage 
+        error: errorMessage,
+        stage: 'pipeline'
       },
       500
     )
