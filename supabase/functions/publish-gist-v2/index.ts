@@ -46,9 +46,13 @@ serve(async (req) => {
   // Admin secret validation (for admin dashboard calls)
   try {
     const adminSecret = req.headers.get("x-admin-secret");
-    if (adminSecret && adminSecret !== ENV.ADMIN_SECRET) {
-      console.error('[AUTH ERROR] Invalid admin secret');
-      return createErrorResponse('Unauthorized - Invalid admin secret', 401);
+    if (adminSecret) {
+      // Only validate if header is provided (allows backward compatibility)
+      if (adminSecret !== ENV.ADMIN_SECRET) {
+        console.error('[ADMIN_AUTH_ERROR] Invalid admin secret provided');
+        return createErrorResponse('Unauthorized - Invalid admin secret', 401);
+      }
+      console.log('[ADMIN_AUTH] Valid admin secret provided');
     }
   } catch (err) {
     // ADMIN_SECRET might not be set, allow request to continue (for backward compatibility)
@@ -74,7 +78,7 @@ serve(async (req) => {
     
     const { topic, imageUrl, topicCategory, sourceUrl, newsPublishedAt, rawTrendId } = validated
 
-    console.log('📦 Request:', { topic, topicCategory, sourceUrl, rawTrendId })
+    console.log('[PIPELINE START]', { topic, topicCategory, rawTrendId, sourceUrl })
 
     // Auth check: Accept valid JWT tokens, service role key, cron secret, or allow unauthenticated (for admin testing)
     // Note: verify_jwt = false in config.toml allows requests without JWT validation
@@ -270,10 +274,10 @@ serve(async (req) => {
       throw new Error('Content generation returned no data')
     }
 
-    const gistData = generateResponse.data
+    const generatedGistData = generateResponse.data
     console.log('✅ generate-gist-v2 succeeded:', {
-      headline: gistData.headline,
-      hasImage: !!gistData.source_image_url || !!gistData.ai_generated_image,
+      headline: generatedGistData.headline,
+      hasImage: !!generatedGistData.source_image_url || !!generatedGistData.ai_generated_image,
     })
 
     const {
@@ -291,7 +295,7 @@ serve(async (req) => {
       source_published_at: generatedSourcePublishedAt,
       source_image_url: generatedSourceImageUrl,
       used_api_article,
-    } = gistData
+    } = generatedGistData
 
     console.log('✅ Gist content generated')
 
@@ -399,7 +403,7 @@ serve(async (req) => {
     }
     
     // Strictly match the schema
-    const gistData = {
+    const gistPayload = {
       topic: rawTrendTitle || topic, // Use raw_trend.title if available (authoritative)
       topic_category: topicCategory || 'Trending',
       headline,
@@ -419,28 +423,28 @@ serve(async (req) => {
     
     // STRONG VALIDATION: Before writing to DB, verify critical fields
     if (rawTrendIdValid) {
-      if (!gistData.raw_trend_id) {
+      if (!gistPayload.raw_trend_id) {
         throw new Error('CRITICAL: raw_trend_id must be set when rawTrendId provided')
       }
-      if (gistData.image_url !== rawTrendImageUrl) {
-        console.warn(`⚠️ WARNING: image_url mismatch! Expected ${rawTrendImageUrl}, got ${gistData.image_url}`)
+      if (gistPayload.image_url !== rawTrendImageUrl) {
+        console.warn(`⚠️ WARNING: image_url mismatch! Expected ${rawTrendImageUrl}, got ${gistPayload.image_url}`)
         // Force correct image_url
-        gistData.image_url = rawTrendImageUrl
+        gistPayload.image_url = rawTrendImageUrl
       }
-      if (gistData.source_url !== rawTrendUrl) {
-        console.warn(`⚠️ WARNING: source_url mismatch! Expected ${rawTrendUrl}, got ${gistData.source_url}`)
+      if (gistPayload.source_url !== rawTrendUrl) {
+        console.warn(`⚠️ WARNING: source_url mismatch! Expected ${rawTrendUrl}, got ${gistPayload.source_url}`)
         // Force correct source_url
-        gistData.source_url = rawTrendUrl
+        gistPayload.source_url = rawTrendUrl
       }
     }
     
     // Debug log before insert
     console.log('[FEED MAP]', {
-      raw_trend_id: gistData.raw_trend_id || 'none',
+      raw_trend_id: gistPayload.raw_trend_id || 'none',
       headline: headline,
-      image_url: gistData.image_url,
-      source_url: gistData.source_url,
-      topic: gistData.topic,
+      image_url: gistPayload.image_url,
+      source_url: gistPayload.source_url,
+      topic: gistPayload.topic,
       raw_trend_title: rawTrendTitle || 'none',
       raw_trend_url: rawTrendUrl || 'none',
       raw_trend_image: rawTrendImageUrl || 'none',
@@ -448,7 +452,7 @@ serve(async (req) => {
 
     const { data: gist, error: dbError } = await supabase
       .from('gists')
-      .insert(gistData)
+      .insert(gistPayload)
       .select()
       .single()
 
@@ -466,7 +470,7 @@ serve(async (req) => {
     // Debug log for pipeline success
     console.log('[PIPELINE SUCCESS]', {
       gistId: gist.id,
-      rawTrendId: gistData.raw_trend_id || 'none',
+      rawTrendId: gistPayload.raw_trend_id || 'none',
       headline: gist.headline,
     })
 

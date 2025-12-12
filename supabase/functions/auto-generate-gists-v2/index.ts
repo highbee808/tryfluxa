@@ -61,6 +61,7 @@ serve(async (req) => {
   console.log('🤖 Auto-gist generation v2 triggered with valid HMAC signature')
 
   try {
+    console.log('[AUTO-GEN START]', { triggeredBy: 'cron' })
     console.log('🤖 Auto-gist generation v2 started at', new Date().toISOString())
 
     ensureSupabaseEnv();
@@ -136,6 +137,8 @@ serve(async (req) => {
     
     // Fetch ALL raw_trends (not just unprocessed) to ensure we catch everything
     // We'll filter by raw_trend_id NOT IN existingTrendIds
+    // NOTE: Using 'title' column as per schema. If this fails with "column does not exist",
+    // check the actual database schema - it may have been renamed.
     const { data: allRawTrends, error: trendsError } = await supabase
       .from('raw_trends')
       .select('id, title, category, url, published_at, image_url, source, created_at')
@@ -143,7 +146,12 @@ serve(async (req) => {
       .limit(50) // Fetch more to account for filtering
     
     if (trendsError) {
+      console.error('[AUTO-GEN ERROR] Error fetching raw_trends:', trendsError)
       console.error('❌ Error fetching raw_trends:', trendsError)
+      // Provide more detailed error information
+      if (trendsError.message?.includes('does not exist')) {
+        throw new Error(`Database schema mismatch: ${trendsError.message}. Please verify the raw_trends table schema.`)
+      }
       throw new Error(`Failed to fetch raw_trends: ${trendsError.message}`)
     }
     
@@ -159,8 +167,7 @@ serve(async (req) => {
       })
       .slice(0, 10) // Process max 10 at a time
     
-    console.log(`📊 Found ${trendsToProcess.length} raw_trends without gists (ready to process)`)
-    
+    console.log('[AUTO-GEN INFO]', `Found ${trendsToProcess.length} raw_trends without gists`)
     console.log(`📊 Found ${trendsToProcess.length} raw_trends without gists (ready to process)`)
     
     // CRITICAL: Process only raw_trends rows (prioritize these for strict 1:1 mapping)
@@ -251,11 +258,11 @@ serve(async (req) => {
             console.log(`✅ Marked raw_trend ${trend.id} as processed`)
           }
         } else {
-          console.error(`[AUTO-GEN ERROR] Failed to publish gist for raw_trend_id ${trend.id}:`, publishData.error)
+          console.error('[AUTO-GEN ERROR] Failed to publish gist for raw_trend', { rawTrendId: trend.id, error: publishData.error })
           console.log(`⚠️ Failed to publish gist for raw_trend_id ${trend.id}:`, publishData.error)
         }
       } catch (error) {
-        console.error(`[AUTO-GEN ERROR] Error processing raw_trend_id ${trend.id}:`, error)
+        console.error('[AUTO-GEN ERROR] Error processing raw_trend', { rawTrendId: trend.id, error: error instanceof Error ? error.message : 'Unknown error' })
         console.log(`❌ Error processing raw_trend_id ${trend.id}:`, error instanceof Error ? error.message : 'Unknown error')
       }
     }
