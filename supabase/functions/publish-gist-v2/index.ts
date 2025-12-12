@@ -219,31 +219,45 @@ serve(async (req) => {
       | null = null
 
     try {
-      const { data, error } = await supabase.functions.invoke<GenerateGistResponse>(
-        'generate-gist-v2',
-        {
-          body: { topic },
+      // Use direct fetch instead of supabase.functions.invoke to avoid auth issues
+      // and ensure strict control over headers
+      const generateUrl = `${supabaseUrl}/functions/v1/generate-gist-v2`
+      const generateRes = await fetch(generateUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${dbKey}`,
+          'apikey': dbKey,
+          'Content-Type': 'application/json',
         },
-      )
+        body: JSON.stringify({ topic }),
+      })
 
-      if (error) {
-        const errorMsg = error.message ?? 'Unknown error from generate-gist-v2'
-        console.error(`[stage:error] ai_generate`, { requestId, error: errorMsg, details: error });
+      let responseData
+      const responseText = await generateRes.text()
+      
+      try {
+        responseData = JSON.parse(responseText)
+      } catch (e) {
+        console.warn(`[stage:warn] ai_generate: failed to parse JSON`, { text: responseText })
+        responseData = { error: `Invalid JSON response: ${responseText.substring(0, 100)}` }
+      }
+
+      if (!generateRes.ok) {
+        const errorMsg = responseData.error || responseData.message || `HTTP ${generateRes.status}`
+        console.error(`[stage:error] ai_generate`, { requestId, error: errorMsg, status: generateRes.status });
         generateResponse = { data: null, error: { message: errorMsg } }
-      } else if (!data) {
-        console.error(`[stage:error] ai_generate: empty result`, { requestId, data });
+      } else if (!responseData) {
+        console.error(`[stage:error] ai_generate: empty result`, { requestId });
         generateResponse = { data: null, error: { message: 'No data returned from generate-gist-v2' } }
       } else {
-        generateResponse = { data, error: null }
-        console.log(`[stage:ok] ai_generate`, { requestId, headline: data.headline })
+        generateResponse = { data: responseData, error: null }
+        console.log(`[stage:ok] ai_generate`, { requestId, headline: responseData.headline })
       }
     } catch (invokeError) {
       const errorMsg = invokeError instanceof Error ? invokeError.message : String(invokeError)
-      const errorStack = invokeError instanceof Error ? invokeError.stack : undefined
       console.error(`[stage:error] ai_generate: exception`, { 
         requestId, 
         error: errorMsg,
-        stack: errorStack,
         errorDetails: invokeError
       });
       generateResponse = {
@@ -256,7 +270,6 @@ serve(async (req) => {
 
     if (generateResponse?.error) {
       const errorMsg = generateResponse.error.message
-      console.error(`[stage:error] ai_generate: final failure`, { requestId, error: errorMsg });
       return safeJsonResponse(
         {
           success: false,
@@ -264,7 +277,7 @@ serve(async (req) => {
           stage: 'ai_generate',
           details: generateResponse.error,
         },
-        500
+        502 // Bad Gateway since internal call failed
       )
     }
 
@@ -276,7 +289,7 @@ serve(async (req) => {
           error: 'AI content generation returned no data',
           stage: 'ai_generate'
         },
-        500
+        502
       )
     }
 
