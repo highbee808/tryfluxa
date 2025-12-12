@@ -263,8 +263,8 @@ ${articleText}`,
       used_api_article: usingApiContent,
     }
 
-    // Cache result for 30 minutes
-    await setCache(cacheKey, result, 1800)
+    // Cache result for 1 hour
+    await setCache(cacheKey, result, 3600)
 
     return createResponse(result)
   } catch (error) {

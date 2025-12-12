@@ -79,12 +79,23 @@ export const FeedCard = ({
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
+  // Normalized image logic - tries all possible image fields
+  const normalizedImageUrl = 
+    imageUrl ||
+    imageUrls?.primary ||
+    imageUrls?.source ||
+    imageUrls?.ai ||
+    null;
+
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(
-    imageUrl || imageUrls?.primary || imageUrls?.source || imageUrls?.ai || null
+    normalizedImageUrl
   );
 
-  // Debug log for music items (check if imageUrl is from music artwork paths)
+  // Debug log for image flow - helps identify which posts need normalization
   useEffect(() => {
+    const finalImageSrc = currentImageUrl || normalizedImageUrl;
+    console.log("IMAGE FOR", headline, "→", finalImageSrc);
+    
     const isMusicArtwork = imageUrl && (
       imageUrl.includes("/img/music/") ||
       imageUrl.includes("spotify.com") ||
@@ -102,7 +113,7 @@ export const FeedCard = ({
         isMusicArtwork: isMusicArtwork,
       });
     }
-  }, [id, headline, imageUrl, currentImageUrl, category]);
+  }, [id, headline, imageUrl, currentImageUrl, category, normalizedImageUrl]);
 
   const handleImageError = () => {
     // For music items, don't fall back to generic placeholder - keep trying curated artwork
@@ -116,11 +127,11 @@ export const FeedCard = ({
 
     // For non-music items, try fallback images in order: primary -> source -> ai -> placeholder
     if (currentImageUrl === (imageUrl || imageUrls?.primary)) {
-      setCurrentImageUrl(imageUrls?.source || imageUrls?.ai || "/images/fluxa-placeholder.jpg");
+      setCurrentImageUrl(imageUrls?.source || imageUrls?.ai || "/fallback/news.jpg");
     } else if (currentImageUrl === imageUrls?.source) {
-      setCurrentImageUrl(imageUrls?.ai || "/images/fluxa-placeholder.jpg");
+      setCurrentImageUrl(imageUrls?.ai || "/fallback/news.jpg");
     } else if (currentImageUrl === imageUrls?.ai) {
-      setCurrentImageUrl("/images/fluxa-placeholder.jpg");
+      setCurrentImageUrl("/fallback/news.jpg");
     }
   };
 

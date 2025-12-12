@@ -8,6 +8,14 @@ policy = "per_worker"
 verify_jwt = true
 
 # Cron jobs are configured via Supabase Dashboard or via separate cron configuration
+# Note: Supabase cron jobs are typically configured in the Dashboard, not in config.toml
+# These are examples for reference
+
+# [[edge_runtime.cron]]
+# name = "scrape-trends-every-30-min"
+# function = "scrape-trends"
+# schedule = "*/30 * * * *"
+
 # [[edge_runtime.cron]]
 # name = "auto-generate-gists-every-minute"
 # function = "auto-generate-gists"
@@ -80,6 +88,9 @@ verify_jwt = true
 
 [functions.admin-refresh-trends]
 verify_jwt = true
+
+[functions.scrape-trends]
+verify_jwt = false
 
 [functions.fetch-sports-results]
 verify_jwt = false

@@ -26,9 +26,10 @@ export interface DbGist {
  */
 export async function fetchRecentGists(limit = 20): Promise<DbGist[]> {
   try {
+    // Explicitly select all fields including image_url to ensure it's included
     const { data, error } = await supabase
       .from("gists")
-      .select("*")
+      .select("id, headline, context, audio_url, image_url, topic, topic_category, published_at, created_at, status, source_url, meta")
       .eq("status", "published")
       .order("published_at", { ascending: false })
       .limit(limit);

@@ -13,6 +13,23 @@ interface Trend {
   url?: string
   published_at?: string
   popularity_score: number
+  image_url?: string | null
+}
+
+// Unified image normalizer - extracts image from various API response formats
+function normalizeImage(apiItem: any): string | null {
+  return (
+    apiItem.image_url ||
+    apiItem.urlToImage ||
+    apiItem.thumbnail ||
+    apiItem.thumbnail_url ||
+    apiItem.image ||
+    apiItem.media?.[0]?.url ||
+    apiItem.multimedia?.[0]?.url ||
+    apiItem.fields?.thumbnail ||
+    apiItem.preview?.images?.[0]?.source?.url ||
+    null
+  )
 }
 
 // Fetch trends from NewsAPI
@@ -41,6 +58,7 @@ async function fetchNewsAPI(): Promise<Trend[]> {
       url: article.url,
       published_at: article.publishedAt,
       popularity_score: 5,
+      image_url: normalizeImage(article),
     }))
   } catch (error) {
     console.error('NewsAPI error:', error)
@@ -74,6 +92,7 @@ async function fetchMediastack(): Promise<Trend[]> {
       url: article.url,
       published_at: article.published_at,
       popularity_score: 4,
+      image_url: normalizeImage(article),
     }))
   } catch (error) {
     console.error('Mediastack error:', error)
@@ -107,6 +126,7 @@ async function fetchGuardian(): Promise<Trend[]> {
       url: article.webUrl,
       published_at: article.webPublicationDate,
       popularity_score: 6,
+      image_url: normalizeImage(article),
     }))
   } catch (error) {
     console.error('Guardian API error:', error)
@@ -163,6 +183,7 @@ async function fetchReddit(): Promise<Trend[]> {
       url: `https://reddit.com${post.data.permalink}`,
       published_at: new Date(post.data.created_utc * 1000).toISOString(),
       popularity_score: Math.min(10, Math.floor(post.data.score / 1000)),
+      image_url: normalizeImage(post.data),
     }))
   } catch (error) {
     console.error('Reddit API error:', error)
@@ -285,29 +306,73 @@ serve(async (req) => {
     // Take top 20 trends
     const topTrends = allTrends.slice(0, 20)
 
-    // Store in raw_trends table
+    // Deduplicate against existing database entries (check title OR url)
+    let newTrends: Trend[] = []
     if (topTrends.length > 0) {
-      const { error: insertError } = await supabase
+      console.log(`🔍 Checking for duplicates in database...`)
+      
+      // Get all existing titles and URLs in one query
+      const { data: existingTrends, error: fetchError } = await supabase
         .from('raw_trends')
-        .insert(topTrends.map(trend => ({
-          title: trend.title,
-          source: trend.source,
-          category: trend.category,
-          url: trend.url,
-          published_at: trend.published_at,
-          popularity_score: trend.popularity_score,
-          processed: false,
-        })))
+        .select('title, url')
+      
+      if (fetchError) {
+        console.warn('⚠️ Error fetching existing trends for deduplication:', fetchError)
+      }
+      
+      const existingTitles = new Set(
+        (existingTrends || []).map(t => t.title?.toLowerCase().trim()).filter(Boolean)
+      )
+      const existingUrls = new Set(
+        (existingTrends || []).map(t => t.url?.toLowerCase().trim()).filter(Boolean)
+      )
+      
+      // Filter out trends that already exist (by title OR url)
+      newTrends = topTrends.filter(trend => {
+        const titleMatch = trend.title?.toLowerCase().trim()
+        const urlMatch = trend.url?.toLowerCase().trim()
+        
+        const isDuplicate = 
+          (titleMatch && existingTitles.has(titleMatch)) ||
+          (urlMatch && existingUrls.has(urlMatch))
+        
+        if (isDuplicate) {
+          console.log(`⏭️  Skipping duplicate: ${trend.title}`)
+        }
+        
+        return !isDuplicate
+      })
+      
+      console.log(`📊 Filtered: ${topTrends.length} → ${newTrends.length} new trends`)
+      
+      // Store only new trends in raw_trends table
+      if (newTrends.length > 0) {
+        const { error: insertError } = await supabase
+          .from('raw_trends')
+          .insert(newTrends.map(trend => ({
+            title: trend.title,
+            source: trend.source,
+            category: trend.category,
+            url: trend.url,
+            published_at: trend.published_at,
+            popularity_score: trend.popularity_score,
+            image_url: trend.image_url || null,
+            processed: false,
+          })))
 
-      if (insertError) {
-        console.error('❌ Error storing trends:', insertError)
+        if (insertError) {
+          console.error('❌ Error storing trends:', insertError)
+        } else {
+          console.log(`✅ Stored ${newTrends.length} new trends in database`)
+        }
       } else {
-        console.log(`✅ Stored ${topTrends.length} trends in database`)
+        console.log('ℹ️  No new trends to store (all duplicates)')
       }
     }
 
-    // Return formatted trends for immediate use (top 10)
-    const formattedTrends = topTrends.slice(0, 10).map(trend => ({
+    // Return formatted trends for immediate use (top 10) - use newTrends if available
+    const trendsToReturn = newTrends.length > 0 ? newTrends : topTrends
+    const formattedTrends = trendsToReturn.slice(0, 10).map(trend => ({
       topic: trend.title,
       category: trend.category,
       source_url: trend.url,

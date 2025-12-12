@@ -6,8 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { invokeAdminFunction } from "@/lib/invokeAdminFunction";
+import { runScraper } from "@/lib/runScraper";
 import { toast } from "sonner";
-import { Loader2, Play, LogOut, Sparkles, Trash2 } from "lucide-react";
+import { Loader2, Play, LogOut, Sparkles, Trash2, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { topics } from "@/data/topics";
 
@@ -29,6 +30,7 @@ const Admin = () => {
   const [costSettings, setCostSettings] = useState<any>(null);
   const [newMonthlyLimit, setNewMonthlyLimit] = useState<string>("");
   const [apiUsage, setApiUsage] = useState<any[]>([]);
+  const [isScraping, setIsScraping] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -201,6 +203,28 @@ const Admin = () => {
       toast.error(error instanceof Error ? error.message : "Failed to generate gist");
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleRunScraper = async () => {
+    setIsScraping(true);
+    try {
+      toast.info("Running scraper to fetch fresh trends...");
+      const result = await runScraper();
+      
+      if (result.success) {
+        const trendsCount = result.data?.trends?.length || result.data?.total_fetched || 0;
+        toast.success(`✅ Scraper completed! Fetched ${trendsCount} trends`);
+        console.log("Scraper result:", result.data);
+      } else {
+        toast.error(`❌ Scraper failed: ${result.error}`);
+        console.error("Scraper error:", result.error);
+      }
+    } catch (error) {
+      console.error("Error running scraper:", error);
+      toast.error("Scraper execution failed");
+    } finally {
+      setIsScraping(false);
     }
   };
 
@@ -404,6 +428,38 @@ const Admin = () => {
           </TabsList>
 
           <TabsContent value="gists" className="space-y-8">
+
+        <Card className="p-6 space-y-4 bg-card/95 backdrop-blur border-primary/20">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold">Content Scraper</h2>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Manually trigger the scraper to fetch fresh trends from NewsAPI, Mediastack, Guardian, and Reddit
+            </p>
+            <Button
+              onClick={handleRunScraper}
+              disabled={isScraping}
+              variant="default"
+              className="w-full"
+            >
+              {isScraping ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Scraping Trends...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  🔍 Run Scraper Now
+                </>
+              )}
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">
+              The scraper runs automatically every 30 minutes via cron job
+            </p>
+          </div>
+        </Card>
 
         <Card className="p-6 space-y-4 bg-card/95 backdrop-blur border-primary/20">
           <div className="flex items-center justify-between">

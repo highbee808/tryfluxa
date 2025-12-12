@@ -85,9 +85,19 @@ export const NewsCard = ({
         {/* Image with Play Button */}
         <div className="relative group cursor-pointer" onClick={handlePlayClick}>
           <img
-            src={imageUrl || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800"}
+            src={
+              imageUrl ??
+              "/fallback/news.jpg"
+            }
             alt={title}
             className="w-full h-64 object-cover"
+            onError={(e) => {
+              // Fallback to placeholder if image fails to load
+              const target = e.target as HTMLImageElement;
+              if (target.src !== "/fallback/news.jpg") {
+                target.src = "/fallback/news.jpg";
+              }
+            }}
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
           <button

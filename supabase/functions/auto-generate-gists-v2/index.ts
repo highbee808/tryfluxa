@@ -102,19 +102,108 @@ serve(async (req) => {
       { topic: "Celebrity Fashion Trends", category: "Celebrity Gossip" }
     ]
 
-    // Step 3: Generate gists for trending topics from scraper
-    const generatedGists = []
-    const trendsToProcess = trends.slice(0, 3) // Take 3 from scraper
+    // Step 3: Get unprocessed raw_trends that don't have gists yet
+    console.log('🔍 Checking for raw_trends without existing gists...')
     
-    // Combine scraper trends with predefined topics
+    // Fetch raw_trends that are not processed and don't have associated gists
+    const { data: unprocessedTrends, error: trendsError } = await supabase
+      .from('raw_trends')
+      .select('id, title, category, url, published_at')
+      .eq('processed', false)
+      .order('created_at', { ascending: false })
+      .limit(10)
+    
+    if (trendsError) {
+      console.warn('⚠️ Error fetching raw_trends:', trendsError)
+    }
+    
+    // Check which raw_trends already have gists (by source_url matching url)
+    const trendsToProcess: any[] = []
+    if (unprocessedTrends && unprocessedTrends.length > 0) {
+      const trendUrls = unprocessedTrends.map(t => t.url).filter(Boolean)
+      
+      if (trendUrls.length > 0) {
+        const { data: existingGists } = await supabase
+          .from('gists')
+          .select('source_url')
+          .in('source_url', trendUrls)
+        
+        const existingGistUrls = new Set(
+          (existingGists || []).map(g => g.source_url?.toLowerCase().trim()).filter(Boolean)
+        )
+        
+        // Only process trends that don't have gists yet
+        for (const trend of unprocessedTrends) {
+          const trendUrl = trend.url?.toLowerCase().trim()
+          if (!trendUrl || !existingGistUrls.has(trendUrl)) {
+            trendsToProcess.push({
+              topic: trend.title,
+              category: trend.category,
+              source_url: trend.url,
+              published_at: trend.published_at,
+              raw_trend_id: trend.id,
+            })
+          } else {
+            console.log(`⏭️  Skipping ${trend.title} - gist already exists`)
+            // Mark as processed since gist exists
+            await supabase
+              .from('raw_trends')
+              .update({ processed: true })
+              .eq('id', trend.id)
+          }
+        }
+      } else {
+        // No URLs, process by title
+        trendsToProcess.push(...unprocessedTrends.map(t => ({
+          topic: t.title,
+          category: t.category,
+          source_url: t.url,
+          published_at: t.published_at,
+          raw_trend_id: t.id,
+        })))
+      }
+    }
+    
+    console.log(`📊 Found ${trendsToProcess.length} raw_trends without gists`)
+    
+    // Combine scraper trends (from API) with unprocessed raw_trends and predefined topics
+    const trendsFromScraper = trends.slice(0, Math.max(0, 3 - trendsToProcess.length)).map((t: any) => ({
+      topic: t.topic || t.title,
+      category: t.category,
+      source_url: t.url || t.source_url,
+      published_at: t.published_at,
+    }))
+    
     const allTopics = [
-      ...trendsToProcess.map((t: any) => ({ topic: t.topic || t.title, category: t.category, source_url: t.url, published_at: t.published_at })),
+      ...trendsToProcess.slice(0, 5), // Prioritize unprocessed raw_trends
+      ...trendsFromScraper,
       ...topicsToGenerate.slice(0, 2) // Add 2 predefined topics
     ]
     
+    const generatedGists = []
     for (const topicData of allTopics) {
       try {
         console.log(`🎨 Generating gist for: ${topicData.topic}`)
+        
+        // Skip if this is from raw_trends and already has a gist (double-check)
+        if (topicData.source_url && topicData.raw_trend_id) {
+          const { data: existingGist } = await supabase
+            .from('gists')
+            .select('id')
+            .eq('source_url', topicData.source_url)
+            .limit(1)
+            .single()
+          
+          if (existingGist) {
+            console.log(`⏭️  Skipping ${topicData.topic} - gist already exists`)
+            // Mark as processed
+            await supabase
+              .from('raw_trends')
+              .update({ processed: true })
+              .eq('id', topicData.raw_trend_id)
+            continue
+          }
+        }
         
         // Call publish-gist-v2 which handles the full pipeline
         const publishResponse = await fetch(`${supabaseUrl}/functions/v1/publish-gist-v2`, {
@@ -139,11 +228,17 @@ serve(async (req) => {
           console.log(`✅ Published gist: ${topicData.topic}`)
           
           // Mark trend as processed if it came from raw_trends
-          if (topicData.source_url && trendsToProcess.find((t: any) => t.topic === topicData.topic || t.title === topicData.topic)) {
+          if (topicData.raw_trend_id) {
             await supabase
               .from('raw_trends')
               .update({ processed: true })
-              .eq('title', topicData.topic)
+              .eq('id', topicData.raw_trend_id)
+          } else if (topicData.source_url) {
+            // Fallback: mark by source_url match
+            await supabase
+              .from('raw_trends')
+              .update({ processed: true })
+              .eq('url', topicData.source_url)
           }
         } else {
           console.log(`⚠️ Failed to publish gist for ${topicData.topic}:`, publishData.error)
