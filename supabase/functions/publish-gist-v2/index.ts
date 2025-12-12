@@ -155,53 +155,36 @@ serve(async (req) => {
     // CRITICAL: If rawTrendId is provided, fetch the raw_trend row to ensure we use the correct image
     // This must happen BEFORE generating content to ensure image matches headline
     // STRICT VALIDATION: If rawTrendId provided, it MUST be valid
+    // NOTE: raw_trends only contains: id, image_url
     let rawTrendImageUrl: string | null = null
-    let rawTrendUrl: string | null = null
-    let rawTrendTitle: string | null = null
     let rawTrendIdValid: string | null = null
     
     if (rawTrendId) {
       console.log(`🔗 Fetching raw_trend row for ID: ${rawTrendId}`)
       const { data: rawTrend, error: rawTrendError } = await supabase
         .from('raw_trends')
-        .select('id, title, url, image_url, category')
+        .select('id, image_url')
         .eq('id', rawTrendId)
         .single()
       
       if (rawTrendError || !rawTrend) {
         console.error('❌ Error fetching raw_trend:', rawTrendError)
-        throw new Error(`Invalid rawTrendId: ${rawTrendId}. Raw trend not found.`)
+        return createErrorResponse(`Invalid rawTrendId: ${rawTrendId}. Raw trend not found.`, 400)
       }
       
       // STRICT VALIDATION: Ensure we have valid data
       if (!rawTrend.id) {
-        throw new Error(`Invalid rawTrendId: ${rawTrendId}. Raw trend has no ID.`)
+        return createErrorResponse(`Invalid rawTrendId: ${rawTrendId}. Raw trend has no ID.`, 400)
       }
       
       rawTrendIdValid = rawTrend.id
       rawTrendImageUrl = rawTrend.image_url || null
-      rawTrendUrl = rawTrend.url || null
-      rawTrendTitle = rawTrend.title || null
       
       console.log('[GIST GEN]', {
         raw_trend_id: rawTrend.id,
-        raw_title: rawTrend.title,
-        raw_url: rawTrend.url,
         raw_image: rawTrend.image_url,
         topic: topic,
       })
-      
-      // Safety check: Ensure sourceUrl matches raw_trend.url if both exist
-      if (rawTrendUrl && sourceUrl && rawTrendUrl !== sourceUrl) {
-        console.warn(`⚠️ Source URL mismatch! raw_trend.url=${rawTrendUrl}, provided sourceUrl=${sourceUrl}. Using raw_trend.url.`)
-      }
-      
-      // Safety check: Ensure topic matches raw_trend.title if both exist
-      if (rawTrendTitle && topic && rawTrendTitle.toLowerCase().trim() !== topic.toLowerCase().trim()) {
-        console.warn(`⚠️ Topic mismatch! raw_trend.title=${rawTrendTitle}, provided topic=${topic}. Using raw_trend.title.`)
-        // Use raw_trend.title as the authoritative source
-        // topic = rawTrendTitle
-      }
     }
 
     // Step 1: Generate gist content (call generate-gist-v2)
@@ -271,7 +254,7 @@ serve(async (req) => {
     }
 
     if (!generateResponse?.data) {
-      throw new Error('Content generation returned no data')
+      return createErrorResponse('Content generation returned no data', 500)
     }
 
     const generatedGistData = generateResponse.data
@@ -391,27 +374,26 @@ serve(async (req) => {
     if (is_celebrity !== undefined) metaPayload.is_celebrity = is_celebrity
     if (ai_generated_image) metaPayload.ai_generated_image = ai_generated_image
     
-    // CRITICAL: Use sourceUrl from raw_trend if available to ensure consistency
-    // When rawTrendId is provided, raw_trend.url is the authoritative source
-    const finalSourceUrl = rawTrendIdValid && rawTrendUrl 
-      ? rawTrendUrl 
-      : (sourceUrl || generatedSourceUrl || null)
+    // Use sourceUrl from request or generated content
+    // NOTE: raw_trends does not contain url, so we use provided sourceUrl or generatedSourceUrl
+    const finalSourceUrl = sourceUrl || generatedSourceUrl || null
     
     // STRICT VALIDATION: Ensure raw_trend_id is set when rawTrendId provided
     if (rawTrendId && !rawTrendIdValid) {
-      throw new Error(`Invalid rawTrendId: ${rawTrendId}. Cannot proceed without valid raw_trend row.`)
+      return createErrorResponse(`Invalid rawTrendId: ${rawTrendId}. Cannot proceed without valid raw_trend row.`, 400)
     }
     
     // Strictly match the schema
-    const gistPayload = {
-      topic: rawTrendTitle || topic, // Use raw_trend.title if available (authoritative)
+    // NOTE: topic comes from pipeline input, not from raw_trends (which only has id, image_url)
+    const gistData = {
+      topic: topic, // Topic comes from request, not from raw_trends
       topic_category: topicCategory || 'Trending',
       headline,
       context,
       narration,
       script: narration,
       image_url: finalImageUrl, // CRITICAL: This comes from raw_trends.image_url when rawTrendId is provided
-      source_url: finalSourceUrl, // CRITICAL: This comes from raw_trends.url when rawTrendId is provided
+      source_url: finalSourceUrl,
       news_published_at: newsPublishedAt || generatedSourcePublishedAt || null,
       raw_trend_id: rawTrendIdValid || null, // CRITICAL: Link to raw_trends row for 1:1 mapping
       audio_url: '', // Default empty string
@@ -423,46 +405,39 @@ serve(async (req) => {
     
     // STRONG VALIDATION: Before writing to DB, verify critical fields
     if (rawTrendIdValid) {
-      if (!gistPayload.raw_trend_id) {
-        throw new Error('CRITICAL: raw_trend_id must be set when rawTrendId provided')
+      if (!gistData.raw_trend_id) {
+        return createErrorResponse('CRITICAL: raw_trend_id must be set when rawTrendId provided', 500)
       }
-      if (gistPayload.image_url !== rawTrendImageUrl) {
-        console.warn(`⚠️ WARNING: image_url mismatch! Expected ${rawTrendImageUrl}, got ${gistPayload.image_url}`)
+      if (gistData.image_url !== rawTrendImageUrl) {
+        console.warn(`⚠️ WARNING: image_url mismatch! Expected ${rawTrendImageUrl}, got ${gistData.image_url}`)
         // Force correct image_url
-        gistPayload.image_url = rawTrendImageUrl
-      }
-      if (gistPayload.source_url !== rawTrendUrl) {
-        console.warn(`⚠️ WARNING: source_url mismatch! Expected ${rawTrendUrl}, got ${gistPayload.source_url}`)
-        // Force correct source_url
-        gistPayload.source_url = rawTrendUrl
+        gistData.image_url = rawTrendImageUrl
       }
     }
     
     // Debug log before insert
     console.log('[FEED MAP]', {
-      raw_trend_id: gistPayload.raw_trend_id || 'none',
+      raw_trend_id: gistData.raw_trend_id || 'none',
       headline: headline,
-      image_url: gistPayload.image_url,
-      source_url: gistPayload.source_url,
-      topic: gistPayload.topic,
-      raw_trend_title: rawTrendTitle || 'none',
-      raw_trend_url: rawTrendUrl || 'none',
+      image_url: gistData.image_url,
+      source_url: gistData.source_url,
+      topic: gistData.topic,
       raw_trend_image: rawTrendImageUrl || 'none',
     })
 
     const { data: gist, error: dbError } = await supabase
       .from('gists')
-      .insert(gistPayload)
+      .insert(gistData)
       .select()
       .single()
 
     if (dbError) {
       console.error('❌ Database error:', dbError)
-      throw new Error('Failed to save content: ' + dbError.message + ' (' + dbError.code + ')')
+      return createErrorResponse('Failed to save content: ' + dbError.message + ' (' + dbError.code + ')', 500)
     }
 
     if (!gist) {
-      throw new Error('Failed to retrieve saved content')
+      return createErrorResponse('Failed to retrieve saved content', 500)
     }
 
     console.log('✅ Gist saved to DB with ID:', gist.id)
@@ -470,14 +445,21 @@ serve(async (req) => {
     // Debug log for pipeline success
     console.log('[PIPELINE SUCCESS]', {
       gistId: gist.id,
-      rawTrendId: gistPayload.raw_trend_id || 'none',
+      rawTrendId: gistData.raw_trend_id || 'none',
       headline: gist.headline,
     })
 
-    return createResponse({
-      success: true,
-      gist
-    })
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: "Gist generated successfully",
+        gistData: gist
+      }),
+      { 
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    )
 
   } catch (error) {
     // Improved error logging with prefix for easy filtering
@@ -485,19 +467,17 @@ serve(async (req) => {
     console.error('[PUBLISH GIST ERROR]', error)
     
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
-    const errorDetails = error instanceof Error 
-      ? { 
-          name: error.name, 
-          stack: error.stack,
-          message: error.message,
-        } 
-      : {}
     
-    // ALWAYS return error with CORS headers using createErrorResponse
-    return createErrorResponse(
-      errorMessage,
-      500,
-      errorDetails
+    // ALWAYS return error with CORS headers - never throw
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: errorMessage 
+      }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
     )
   }
 })
