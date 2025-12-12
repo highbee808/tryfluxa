@@ -12,14 +12,24 @@ function safeStatus(status?: number | null): number {
 }
 
 // Standardized JSON response with safe status and CORS headers
-function jsonResponse(payload: unknown, status: number = 200): Response {
-  return new Response(
-    JSON.stringify(payload),
-    {
-      status: safeStatus(status),
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    }
-  )
+function safeJsonResponse(
+  body: Record<string, any>,
+  status: number = 200
+) {
+  const safeStatus =
+    typeof status === "number" && status >= 200 && status <= 599
+      ? status
+      : 500
+
+  return new Response(JSON.stringify(body), {
+    status: safeStatus,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    },
+  })
 }
 
 /**
@@ -59,7 +69,14 @@ serve(async (req) => {
   
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response("ok", { headers: corsHeaders })
+    return new Response(null, {
+      status: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "*",
+        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+      },
+    })
   }
 
   console.log(`[${functionName}] START`, { method: req.method, requestId })
@@ -71,7 +88,7 @@ serve(async (req) => {
       // Only validate if header is provided (allows backward compatibility)
       if (adminSecret !== ENV.ADMIN_SECRET) {
         console.error(`[${functionName}] ADMIN_AUTH_ERROR Invalid admin secret`, { requestId });
-        return jsonResponse({ success: false, error: 'Unauthorized - Invalid admin secret' }, 401);
+        return safeJsonResponse({ success: false, error: 'Unauthorized - Invalid admin secret' }, 401);
       }
       console.log(`[${functionName}] ADMIN_AUTH Valid admin secret`, { requestId });
     }
@@ -91,7 +108,7 @@ serve(async (req) => {
       console.log(`[${functionName}] VALIDATION_SUCCESS`, { requestId, topic: validated.topic })
     } catch (zodError: any) {
       console.error(`[${functionName}] VALIDATION_ERROR`, { requestId, error: zodError });
-      return jsonResponse(
+      return safeJsonResponse(
         {
           success: false,
           error: `Invalid request: ${zodError.errors?.[0]?.message || zodError.message || 'Validation failed'}`,
@@ -149,7 +166,7 @@ serve(async (req) => {
       
       if (rawTrendError || !rawTrend) {
         console.error(`[${functionName}] RAW_TREND_FETCH_ERROR`, { requestId, rawTrendId, error: rawTrendError });
-        return jsonResponse(
+        return safeJsonResponse(
           { success: false, error: `Invalid rawTrendId: ${rawTrendId}. Raw trend not found.` },
           400
         )
@@ -158,7 +175,7 @@ serve(async (req) => {
       // STRICT VALIDATION: Ensure we have valid data
       if (!rawTrend.id) {
         console.error(`[${functionName}] RAW_TREND_INVALID_ID`, { requestId, rawTrendId });
-        return jsonResponse(
+        return safeJsonResponse(
           { success: false, error: `Invalid rawTrendId: ${rawTrendId}. Raw trend has no ID.` },
           400
         )
@@ -240,7 +257,7 @@ serve(async (req) => {
     if (generateResponse?.error) {
       const errorMsg = generateResponse.error.message
       console.error(`[stage:error] ai_generate: final failure`, { requestId, error: errorMsg });
-      return jsonResponse(
+      return safeJsonResponse(
         {
           success: false,
           error: errorMsg,
@@ -253,7 +270,7 @@ serve(async (req) => {
 
     if (!generateResponse?.data) {
       console.error(`[stage:error] ai_generate: no data`, { requestId });
-      return jsonResponse(
+      return safeJsonResponse(
         { 
           success: false, 
           error: 'AI content generation returned no data',
@@ -283,7 +300,7 @@ serve(async (req) => {
           hasNarration: !!generatedGistData.narration,
         }
       });
-      return jsonResponse(
+      return safeJsonResponse(
         {
           success: false,
           error: `AI output invalid: missing required fields: ${missing.join(', ')}`,
@@ -415,7 +432,7 @@ serve(async (req) => {
     // STRICT VALIDATION: Ensure raw_trend_id is set when rawTrendId provided
     if (rawTrendId && !rawTrendIdValid) {
       console.error(`[${functionName}] RAW_TREND_ID_VALIDATION_FAILED`, { requestId, rawTrendId });
-      return jsonResponse(
+      return safeJsonResponse(
         { success: false, error: `Invalid rawTrendId: ${rawTrendId}. Cannot proceed without valid raw_trend row.` },
         400
       )
@@ -445,7 +462,7 @@ serve(async (req) => {
     if (rawTrendIdValid) {
       if (!gistData.raw_trend_id) {
         console.error(`[${functionName}] CRITICAL_VALIDATION_FAILED`, { requestId, rawTrendId });
-        return jsonResponse(
+        return safeJsonResponse(
           { success: false, error: 'CRITICAL: raw_trend_id must be set when rawTrendId provided' },
           500
         )
@@ -485,14 +502,14 @@ serve(async (req) => {
         code: dbError.code,
         details: dbError 
       });
-      return jsonResponse(
+      return safeJsonResponse(
         { 
           success: false, 
           error: errorMsg,
           stage: 'db_insert',
           details: dbError
         },
-        safeStatus(dbStatus || 500)
+        dbStatus || 500
       )
     }
 
@@ -504,7 +521,7 @@ serve(async (req) => {
         gist: gist,
         hasId: !!gist?.id
       });
-      return jsonResponse(
+      return safeJsonResponse(
         { 
           success: false, 
           error: errorMsg,
@@ -525,9 +542,10 @@ serve(async (req) => {
     })
 
     // FINAL RESPONSE MUST BE 2XX ON SUCCESS - use 201 for created resource
-    return jsonResponse({
+    return safeJsonResponse({
       success: true,
-      gist: gist
+      gist: gist,
+      data: gist, // Adding 'data' field to match requirements
     }, 201)
 
   } catch (error) {
@@ -544,7 +562,7 @@ serve(async (req) => {
     
     // ALWAYS return error with CORS headers - never throw
     // Return the actual error message, not a generic one
-    return jsonResponse(
+    return safeJsonResponse(
       { 
         success: false, 
         error: errorMessage,

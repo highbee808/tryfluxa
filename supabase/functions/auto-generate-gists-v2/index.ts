@@ -11,14 +11,24 @@ function safeStatus(status?: number | null): number {
 }
 
 // Standardized JSON response with safe status and CORS headers
-function jsonResponse(payload: unknown, status: number = 200): Response {
-  return new Response(
-    JSON.stringify(payload),
-    {
-      status: safeStatus(status),
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    }
-  )
+function safeJsonResponse(
+  body: Record<string, any>,
+  status: number = 200
+) {
+  const safeStatus =
+    typeof status === "number" && status >= 200 && status <= 599
+      ? status
+      : 500
+
+  return new Response(JSON.stringify(body), {
+    status: safeStatus,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "*",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    },
+  })
 }
 
 // HMAC signature validation for scheduled functions
@@ -69,16 +79,23 @@ serve(async (req) => {
   const functionName = 'auto-generate-gists-v2'
   
   if (req.method === 'OPTIONS') {
-    return new Response("ok", { headers: corsHeaders })
+    return new Response(null, {
+      status: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "*",
+        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+      },
+    })
   }
 
   console.log(`[${functionName}] START`, { method: req.method, requestId })
 
   // Validate HMAC signature for scheduled functions
   const isValid = await validateCronSignature(req)
-  if (!isValid) {
+    if (!isValid) {
     console.error(`[${functionName}] AUTH_ERROR Invalid or missing HMAC signature`, { requestId })
-    return jsonResponse({ success: false, error: 'Unauthorized - Invalid signature' }, 401)
+    return safeJsonResponse({ success: false, error: 'Unauthorized - Invalid signature' }, 401)
   }
 
   console.log(`[${functionName}] AUTH_SUCCESS Valid HMAC signature`, { requestId })
@@ -179,20 +196,20 @@ serve(async (req) => {
       .order('id', { ascending: false })
       .limit(10)
     
-    if (trendsError) {
+      if (trendsError) {
       console.error(`[${functionName}] FETCH_RAW_TRENDS_ERROR`, { 
         requestId, 
         error: trendsError.message,
         code: trendsError.code,
         details: trendsError
       })
-      return jsonResponse(
+      return safeJsonResponse(
         { 
           success: false, 
           error: `Failed to fetch raw_trends: ${trendsError.message}`,
           details: trendsError
         },
-        safeStatus(trendsStatus || 500)
+        trendsStatus || 500
       )
     }
     
@@ -263,14 +280,28 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            topic: defaultTopic, // Topic must come from pipeline input, not raw_trends
+            topic: defaultTopic,
             topicCategory: 'Trending',
-            rawTrendId: trend.id, // CRITICAL: Pass raw_trend_id for proper linking
-            imageUrl: trend.image_url, // Pass image_url from raw_trends
+            rawTrendId: trend.id,
+            imageUrl: trend.image_url,
           })
         })
 
-        const publishData = await publishResponse.json().catch(() => ({}))
+        const publishText = await publishResponse.text()
+        let publishData: any = {}
+        try {
+          publishData = JSON.parse(publishText)
+        } catch {
+          console.warn(`[${functionName}] PUBLISH_PARSE_ERROR`, { requestId, text: publishText })
+        }
+
+        if (!publishResponse.ok) {
+          console.error(`[INTERNAL_FUNCTION_FAILED] publish-gist-v2 failed`, { 
+            status: publishResponse.status, 
+            response: publishText 
+          })
+          // Don't throw, just log failure
+        }
 
         if (publishResponse.ok && publishData.success) {
           generatedGists.push(publishData.gist)
@@ -320,11 +351,12 @@ serve(async (req) => {
       total_trends: trends.length,
     })
 
-    return jsonResponse({
+    return safeJsonResponse({
       success: true,
       generated: generatedGists.length,
       total_trends: trends.length,
       gists: generatedGists,
+      data: generatedGists // Adding data field to align with conventions
     }, 200)
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -338,7 +370,7 @@ serve(async (req) => {
     })
     
     // ALWAYS return error with CORS headers - never throw
-    return jsonResponse(
+    return safeJsonResponse(
       { 
         success: false, 
         error: errorMessage 
