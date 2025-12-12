@@ -103,16 +103,23 @@ serve(async (req) => {
   try {
     console.log(`[${functionName}] PIPELINE_START`, { requestId, triggeredBy: 'cron', timestamp: new Date().toISOString() })
 
-    ensureSupabaseEnv();
     // CRITICAL: Edge Functions must use SERVICE_ROLE_KEY only - no user auth
-    // This prevents auth token refresh attempts that fail in Edge runtime
-    const supabaseUrl = ENV.SUPABASE_URL
-    const supabaseServiceKey = ENV.SUPABASE_SERVICE_ROLE_KEY
+    // Use Deno.env.get directly to avoid any ENV wrapper that might leak auth
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error(`[${functionName}] MISSING_ENV`, { requestId, hasUrl: !!supabaseUrl, hasKey: !!supabaseServiceKey })
+      return safeJsonResponse(
+        { success: false, error: 'Server configuration error: Missing Supabase credentials' },
+        500
+      )
+    }
     
     console.log(`[${functionName}] INIT_SERVICE_ROLE_CLIENT`, { requestId })
     
     // Initialize Supabase client with SERVICE_ROLE_KEY and auth features DISABLED
-    // This prevents any auth token refresh attempts
+    // DO NOT pass any request headers or use any auth logic
     const supabase = createClient(
       supabaseUrl,
       supabaseServiceKey,
@@ -122,11 +129,6 @@ serve(async (req) => {
           autoRefreshToken: false,
           detectSessionInUrl: false,
         },
-        global: { 
-          headers: { 
-            Authorization: `Bearer ${supabaseServiceKey}` 
-          } 
-        }
       }
     )
 
@@ -189,10 +191,10 @@ serve(async (req) => {
     
     // Fetch ALL raw_trends (not just unprocessed) to ensure we catch everything
     // We'll filter by raw_trend_id NOT IN existingTrendIds
-    // NOTE: raw_trends only contains: id, image_url
+    // Schema: id, image_url, title, summary, source_url, raw_trend_id, topic
     const { data: allRawTrends, error: trendsError, status: trendsStatus } = await supabase
       .from('raw_trends')
-      .select('id, image_url')
+      .select('id, image_url, title, topic, source_url')
       .order('id', { ascending: false })
       .limit(10)
     
@@ -266,12 +268,11 @@ serve(async (req) => {
           raw_image: trend.image_url,
         })
         
-        // NOTE: Since raw_trends only has id and image_url, we need a topic from the request
-        // For auto-generation, we'll use a generic topic or skip if no topic is available
-        // In a real scenario, the topic should come from the pipeline input
-        const defaultTopic = "Latest trending news" // Fallback topic
+        // Use topic from raw_trend if available, otherwise fallback
+        const trendTopic = trend.topic || trend.title || "Latest trending news"
         
         // Call publish-gist-v2 with rawTrendId to ensure proper 1:1 mapping
+        // Use SERVICE_ROLE_KEY to avoid any auth issues
         const publishResponse = await fetch(`${supabaseUrl}/functions/v1/publish-gist-v2`, {
           method: 'POST',
           headers: {
@@ -280,10 +281,11 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            topic: defaultTopic,
+            topic: trendTopic,
             topicCategory: 'Trending',
             rawTrendId: trend.id,
             imageUrl: trend.image_url,
+            sourceUrl: trend.source_url || null,
           })
         })
 

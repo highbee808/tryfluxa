@@ -2,7 +2,8 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.76.1'
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 import { corsHeaders, parseBody } from '../_shared/http.ts'
-import { env, ensureSupabaseEnv, ENV } from '../_shared/env.ts'
+// Admin secret is optional - only validate if provided
+const ADMIN_SECRET = Deno.env.get("ADMIN_SECRET")
 
 // Safe status code validation - prevents RangeError from invalid status codes
 function safeStatus(status?: number | null): number {
@@ -81,20 +82,14 @@ serve(async (req) => {
 
   console.log(`[${functionName}] START`, { method: req.method, requestId })
 
-  // Admin secret validation (for admin dashboard calls)
-  try {
-    const adminSecret = req.headers.get("x-admin-secret");
-    if (adminSecret) {
-      // Only validate if header is provided (allows backward compatibility)
-      if (adminSecret !== ENV.ADMIN_SECRET) {
-        console.error(`[${functionName}] ADMIN_AUTH_ERROR Invalid admin secret`, { requestId });
-        return safeJsonResponse({ success: false, error: 'Unauthorized - Invalid admin secret' }, 401);
-      }
-      console.log(`[${functionName}] ADMIN_AUTH Valid admin secret`, { requestId });
+  // Admin secret validation (for admin dashboard calls) - optional
+  const adminSecret = req.headers.get("x-admin-secret");
+  if (adminSecret && ADMIN_SECRET) {
+    if (adminSecret !== ADMIN_SECRET) {
+      console.error(`[${functionName}] ADMIN_AUTH_ERROR Invalid admin secret`, { requestId });
+      return safeJsonResponse({ success: false, error: 'Unauthorized - Invalid admin secret' }, 401);
     }
-  } catch (err) {
-    // ADMIN_SECRET might not be set, allow request to continue (for backward compatibility)
-    console.warn(`[${functionName}] AUTH_WARN ADMIN_SECRET not configured, skipping admin validation`, { requestId });
+    console.log(`[${functionName}] ADMIN_AUTH Valid admin secret`, { requestId });
   }
 
   try {
@@ -123,15 +118,23 @@ serve(async (req) => {
     console.log(`[${functionName}] PIPELINE_START`, { requestId, topic, topicCategory, rawTrendId, sourceUrl })
 
     // CRITICAL: Edge Functions must use SERVICE_ROLE_KEY only - no user auth
-    // This prevents auth token refresh attempts that fail in Edge runtime
-    ensureSupabaseEnv();
-    const supabaseUrl = ENV.SUPABASE_URL
-    const dbKey = ENV.SUPABASE_SERVICE_ROLE_KEY
+    // Use Deno.env.get directly to avoid any ENV wrapper that might leak auth
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!
+    const dbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+
+    if (!supabaseUrl || !dbKey) {
+      console.error(`[${functionName}] MISSING_ENV`, { requestId, hasUrl: !!supabaseUrl, hasKey: !!dbKey })
+      return safeJsonResponse(
+        { success: false, error: 'Server configuration error: Missing Supabase credentials' },
+        500
+      )
+    }
 
     console.log(`[${functionName}] INIT_SERVICE_ROLE_CLIENT`, { requestId })
 
     // Initialize Supabase client with SERVICE_ROLE_KEY and auth features DISABLED
     // This prevents any auth token refresh attempts
+    // DO NOT pass any request headers or use any auth logic
     const supabase = createClient(
       supabaseUrl,
       dbKey,
@@ -141,54 +144,54 @@ serve(async (req) => {
           autoRefreshToken: false,
           detectSessionInUrl: false,
         },
-        global: { 
-          headers: { 
-            Authorization: `Bearer ${dbKey}` 
-          } 
-        }
       }
     )
 
     // CRITICAL: If rawTrendId is provided, fetch the raw_trend row to ensure we use the correct image
     // This must happen BEFORE generating content to ensure image matches headline
     // STRICT VALIDATION: If rawTrendId provided, it MUST be valid
-    // NOTE: raw_trends only contains: id, image_url
+    // Schema: id, image_url, title, summary, source_url, raw_trend_id, topic
     let rawTrendImageUrl: string | null = null
     let rawTrendIdValid: string | null = null
+    let rawTrendSourceUrl: string | null = null
+    let rawTrendTitle: string | null = null
     
     if (rawTrendId) {
-      console.log(`🔗 Fetching raw_trend row for ID: ${rawTrendId}`)
+      console.log(`[stage:start] fetch_raw_trend`, { requestId, rawTrendId })
       const { data: rawTrend, error: rawTrendError } = await supabase
         .from('raw_trends')
-        .select('id, image_url')
+        .select('id, image_url, title, summary, source_url, topic')
         .eq('id', rawTrendId)
         .single()
       
       if (rawTrendError || !rawTrend) {
-        console.error(`[${functionName}] RAW_TREND_FETCH_ERROR`, { requestId, rawTrendId, error: rawTrendError });
+        console.error(`[stage:error] fetch_raw_trend`, { requestId, rawTrendId, error: rawTrendError });
         return safeJsonResponse(
-          { success: false, error: `Invalid rawTrendId: ${rawTrendId}. Raw trend not found.` },
+          { success: false, error: `Invalid rawTrendId: ${rawTrendId}. Raw trend not found.`, stage: 'fetch_raw_trend' },
           400
         )
       }
       
       // STRICT VALIDATION: Ensure we have valid data
       if (!rawTrend.id) {
-        console.error(`[${functionName}] RAW_TREND_INVALID_ID`, { requestId, rawTrendId });
+        console.error(`[stage:error] fetch_raw_trend: invalid_id`, { requestId, rawTrendId });
         return safeJsonResponse(
-          { success: false, error: `Invalid rawTrendId: ${rawTrendId}. Raw trend has no ID.` },
+          { success: false, error: `Invalid rawTrendId: ${rawTrendId}. Raw trend has no ID.`, stage: 'fetch_raw_trend' },
           400
         )
       }
       
       rawTrendIdValid = rawTrend.id
       rawTrendImageUrl = rawTrend.image_url || null
+      rawTrendSourceUrl = rawTrend.source_url || null
+      rawTrendTitle = rawTrend.title || null
       
-      console.log(`[${functionName}] RAW_TREND_FETCHED`, {
+      console.log(`[stage:ok] fetch_raw_trend`, {
         requestId,
         raw_trend_id: rawTrend.id,
         raw_image: rawTrend.image_url,
-        topic: topic,
+        raw_title: rawTrend.title,
+        raw_source_url: rawTrend.source_url,
       })
     }
 
@@ -219,9 +222,12 @@ serve(async (req) => {
       | null = null
 
     try {
-      // Use direct fetch instead of supabase.functions.invoke to avoid auth issues
-      // and ensure strict control over headers
+      // Use direct fetch with SERVICE_ROLE_KEY to avoid any auth issues
+      // This ensures generate-gist-v2 receives proper service role auth
       const generateUrl = `${supabaseUrl}/functions/v1/generate-gist-v2`
+      
+      console.log(`[stage:info] ai_generate: calling generate-gist-v2`, { requestId, url: generateUrl })
+      
       const generateRes = await fetch(generateUrl, {
         method: 'POST',
         headers: {
@@ -232,27 +238,57 @@ serve(async (req) => {
         body: JSON.stringify({ topic }),
       })
 
-      let responseData
       const responseText = await generateRes.text()
+      let responseData: any = null
       
       try {
         responseData = JSON.parse(responseText)
       } catch (e) {
-        console.warn(`[stage:warn] ai_generate: failed to parse JSON`, { text: responseText })
-        responseData = { error: `Invalid JSON response: ${responseText.substring(0, 100)}` }
+        console.error(`[stage:error] ai_generate: failed to parse JSON`, { requestId, text: responseText.substring(0, 200) })
+        return safeJsonResponse(
+          {
+            success: false,
+            error: `Invalid JSON response from generate-gist-v2`,
+            stage: 'ai_generate',
+            details: responseText.substring(0, 200)
+          },
+          502
+        )
       }
 
       if (!generateRes.ok) {
-        const errorMsg = responseData.error || responseData.message || `HTTP ${generateRes.status}`
-        console.error(`[stage:error] ai_generate`, { requestId, error: errorMsg, status: generateRes.status });
-        generateResponse = { data: null, error: { message: errorMsg } }
-      } else if (!responseData) {
-        console.error(`[stage:error] ai_generate: empty result`, { requestId });
-        generateResponse = { data: null, error: { message: 'No data returned from generate-gist-v2' } }
-      } else {
-        generateResponse = { data: responseData, error: null }
-        console.log(`[stage:ok] ai_generate`, { requestId, headline: responseData.headline })
+        const errorMsg = responseData?.error || responseData?.message || `HTTP ${generateRes.status}: ${responseText.substring(0, 200)}`
+        console.error(`[stage:error] ai_generate: HTTP error`, { 
+          requestId, 
+          error: errorMsg, 
+          status: generateRes.status,
+          response: responseText.substring(0, 200)
+        });
+        return safeJsonResponse(
+          {
+            success: false,
+            error: errorMsg,
+            stage: 'ai_generate',
+            details: responseData
+          },
+          502
+        )
       }
+
+      if (!responseData) {
+        console.error(`[stage:error] ai_generate: empty result`, { requestId });
+        return safeJsonResponse(
+          { 
+            success: false, 
+            error: 'AI content generation returned no data',
+            stage: 'ai_generate'
+          },
+          502
+        )
+      }
+
+      generateResponse = { data: responseData, error: null }
+      console.log(`[stage:ok] ai_generate: success`, { requestId, headline: responseData.headline })
     } catch (invokeError) {
       const errorMsg = invokeError instanceof Error ? invokeError.message : String(invokeError)
       console.error(`[stage:error] ai_generate: exception`, { 
@@ -260,29 +296,20 @@ serve(async (req) => {
         error: errorMsg,
         errorDetails: invokeError
       });
-      generateResponse = {
-        data: null,
-        error: {
-          message: errorMsg,
-        },
-      }
-    }
-
-    if (generateResponse?.error) {
-      const errorMsg = generateResponse.error.message
       return safeJsonResponse(
         {
           success: false,
-          error: errorMsg,
+          error: `AI generation failed: ${errorMsg}`,
           stage: 'ai_generate',
-          details: generateResponse.error,
+          details: invokeError instanceof Error ? { message: invokeError.message, stack: invokeError.stack } : String(invokeError)
         },
-        502 // Bad Gateway since internal call failed
+        502
       )
     }
 
+    // Response is already handled in try/catch above - this should never execute
     if (!generateResponse?.data) {
-      console.error(`[stage:error] ai_generate: no data`, { requestId });
+      console.error(`[stage:error] ai_generate: unexpected no data`, { requestId });
       return safeJsonResponse(
         { 
           success: false, 
@@ -438,9 +465,8 @@ serve(async (req) => {
     if (is_celebrity !== undefined) metaPayload.is_celebrity = is_celebrity
     if (ai_generated_image) metaPayload.ai_generated_image = ai_generated_image
     
-    // Use sourceUrl from request or generated content
-    // NOTE: raw_trends does not contain url, so we use provided sourceUrl or generatedSourceUrl
-    const finalSourceUrl = sourceUrl || generatedSourceUrl || null
+    // Use sourceUrl from raw_trend if available, otherwise from request or generated content
+    const finalSourceUrl = rawTrendSourceUrl || sourceUrl || generatedSourceUrl || null
     
     // STRICT VALIDATION: Ensure raw_trend_id is set when rawTrendId provided
     if (rawTrendId && !rawTrendIdValid) {
@@ -452,16 +478,18 @@ serve(async (req) => {
     }
     
     // Strictly match the schema
-    // NOTE: topic comes from pipeline input, not from raw_trends (which only has id, image_url)
+    // Use topic from raw_trend if available, otherwise from request
+    const finalTopic = rawTrendTitle || topic
+    
     const gistData = {
-      topic: topic, // Topic comes from request, not from raw_trends
+      topic: finalTopic,
       topic_category: topicCategory || 'Trending',
       headline,
       context,
       narration,
       script: narration,
       image_url: finalImageUrl, // CRITICAL: This comes from raw_trends.image_url when rawTrendId is provided
-      source_url: finalSourceUrl,
+      source_url: finalSourceUrl, // CRITICAL: This comes from raw_trends.source_url when rawTrendId is provided
       news_published_at: newsPublishedAt || generatedSourcePublishedAt || null,
       raw_trend_id: rawTrendIdValid || null, // CRITICAL: Link to raw_trends row for 1:1 mapping
       audio_url: '', // Default empty string
