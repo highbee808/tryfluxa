@@ -81,12 +81,21 @@ serve(async (req) => {
     }
 
     // Step 2: Generate content with OpenAI (only if no external content OR to enhance it)
-    const openaiApiKey = env.OPENAI_API_KEY
-    if (!openaiApiKey) {
-      throw new Error('OPENAI_API_KEY not configured')
+    // CRITICAL: Verify OPENAI_API_KEY is loaded correctly
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY') || env.OPENAI_API_KEY
+    if (!openaiApiKey || openaiApiKey.trim() === '') {
+      console.error('[OPENAI ERROR] Missing OPENAI_API_KEY in environment')
+      return createErrorResponse('Missing OPENAI_API_KEY - please configure the environment variable', 500)
+    }
+
+    // Validate API key format (should start with 'sk-')
+    if (!openaiApiKey.startsWith('sk-')) {
+      console.error('[OPENAI ERROR] Invalid OPENAI_API_KEY format (should start with sk-)')
+      return createErrorResponse('Invalid OPENAI_API_KEY format', 500)
     }
 
     const openaiModel = Deno.env.get('OPENAI_MODEL') || 'gpt-4o-mini'
+    console.log(`🔑 Using OpenAI model: ${openaiModel} (API key present: ${openaiApiKey.substring(0, 7)}...)`)
 
     // Detect if topic is about a celebrity
     const isCelebrity = /drake|taylor swift|messi|rihanna|beyonce|kanye|cristiano|ronaldo|lebron|kim kardashian|ariana grande|justin bieber|selena gomez|bad bunny|dua lipa/i.test(topic)
@@ -156,33 +165,98 @@ ${articleText}`,
         ]
 
     console.log('🤖 Calling OpenAI API (' + openaiModel + ')...')
-    const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: openaiModel,
-        messages,
-        response_format: { type: 'json_object' }
-      }),
-    })
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text()
-      console.error('[AI] Generation failed:', aiResponse.status, errorText)
-      throw new Error(`OpenAI API error: ${aiResponse.status}`)
-    }
-
-    const aiData = await aiResponse.json()
-    const messageContent = aiData.choices[0].message.content
     
-    let content
+    // Wrap OpenAI API call in try-catch for better error handling
+    let aiResponse: Response
+    let aiData: any
+    let messageContent: string
+    
+    try {
+      aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: openaiModel,
+          messages,
+          response_format: { type: 'json_object' }
+        }),
+      })
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text()
+        let errorDetails: any
+        try {
+          errorDetails = JSON.parse(errorText)
+        } catch {
+          errorDetails = { raw: errorText }
+        }
+        
+        console.error('[OPENAI ERROR] API call failed:', {
+          status: aiResponse.status,
+          statusText: aiResponse.statusText,
+          error: errorDetails,
+        })
+        
+        // Provide specific error messages based on status code
+        if (aiResponse.status === 401) {
+          return createErrorResponse(
+            'OpenAI API authentication failed - check OPENAI_API_KEY is valid',
+            500,
+            { status: aiResponse.status, error: errorDetails }
+          )
+        } else if (aiResponse.status === 429) {
+          return createErrorResponse(
+            'OpenAI API rate limit exceeded - please try again later',
+            500,
+            { status: aiResponse.status, error: errorDetails }
+          )
+        } else if (aiResponse.status === 500) {
+          return createErrorResponse(
+            'OpenAI API server error - please try again later',
+            500,
+            { status: aiResponse.status, error: errorDetails }
+          )
+        } else {
+          return createErrorResponse(
+            `OpenAI API error: ${aiResponse.status} - ${errorDetails.error?.message || errorText}`,
+            500,
+            { status: aiResponse.status, error: errorDetails }
+          )
+        }
+      }
+
+      aiData = await aiResponse.json()
+      
+      if (!aiData.choices || !aiData.choices[0] || !aiData.choices[0].message) {
+        console.error('[OPENAI ERROR] Invalid response structure:', aiData)
+        return createErrorResponse('OpenAI returned invalid response structure', 500)
+      }
+      
+      messageContent = aiData.choices[0].message.content
+      
+      if (!messageContent) {
+        console.error('[OPENAI ERROR] No content in response:', aiData)
+        return createErrorResponse('OpenAI returned no content', 500)
+      }
+    } catch (err) {
+      console.error('[OPENAI ERROR] Network or parsing error:', err)
+      return createErrorResponse(
+        `OpenAI API failure: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        500,
+        { error: err instanceof Error ? err.stack : String(err) }
+      )
+    }
+    
+    // Parse JSON content from OpenAI response
+    let content: any
     try {
       content = JSON.parse(messageContent)
     } catch (parseError) {
-      throw new Error('AI returned invalid JSON')
+      console.error('[OPENAI ERROR] Failed to parse JSON from OpenAI:', messageContent)
+      return createErrorResponse('AI returned invalid JSON', 500, { rawContent: messageContent })
     }
 
     // Step 3: AI Image Generation - ONLY as emergency fallback (VERY expensive, avoid!)
@@ -221,7 +295,11 @@ ${articleText}`,
           }),
         })
 
-        if (imageResponse.ok) {
+        if (!imageResponse.ok) {
+          const errorText = await imageResponse.text()
+          console.error('[OPENAI ERROR] Image generation failed:', imageResponse.status, errorText)
+          // Don't throw - image generation is optional
+        } else {
           const imageData = await imageResponse.json()
           const imageUrl = imageData.data?.[0]?.url
           if (imageUrl) {
@@ -230,7 +308,8 @@ ${articleText}`,
           }
         }
       } catch (error) {
-        console.log('⚠️ Failed to generate emergency image:', error instanceof Error ? error.message : 'Unknown error')
+        console.error('[OPENAI ERROR] Failed to generate emergency image:', error)
+        // Don't throw - image generation is optional
       }
     } else {
       if (hasSourceImage) {

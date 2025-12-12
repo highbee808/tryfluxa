@@ -86,6 +86,9 @@ verify_jwt = false
 [functions.publish-gist]
 verify_jwt = true
 
+[functions.publish-gist-v2]
+verify_jwt = false
+
 [functions.admin-refresh-trends]
 verify_jwt = true
 

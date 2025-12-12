@@ -69,6 +69,7 @@ export const env = {
   FRONTEND_URL: Deno.env.get("FRONTEND_URL") ?? "",
   OPENAI_API_KEY: Deno.env.get("OPENAI_API_KEY") ?? "",
   CRON_SECRET: Deno.env.get("CRON_SECRET") ?? "",
+  ADMIN_SECRET: Deno.env.get("ADMIN_SECRET") ?? "", // For admin dashboard calls
   NEWSAPI_KEY: Deno.env.get("NEWSAPI_KEY") ?? "",
   GUARDIAN_API_KEY: Deno.env.get("GUARDIAN_API_KEY") ?? "",
   MEDIASTACK_KEY: Deno.env.get("MEDIASTACK_KEY") ?? "",
@@ -134,26 +135,47 @@ export function ensureSpotifyEnv(): void {
   }
 }
 
+// Strict ENV object with required validation
 export const ENV = {
+  get OPENAI_API_KEY() {
+    const key = Deno.env.get("OPENAI_API_KEY");
+    if (!key) throw new Error("Missing OPENAI_API_KEY");
+    return key;
+  },
+  get SUPABASE_URL() {
+    const url = Deno.env.get("SUPABASE_URL");
+    if (!url) throw new Error("Missing SUPABASE_URL");
+    return url;
+  },
+  get SUPABASE_ANON_KEY() {
+    const key = Deno.env.get("SUPABASE_ANON_KEY");
+    if (!key) throw new Error("Missing SUPABASE_ANON_KEY");
+    return key;
+  },
+  get SUPABASE_SERVICE_ROLE_KEY() {
+    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!key) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+    return key;
+  },
+  get ADMIN_SECRET() {
+    const secret = Deno.env.get("ADMIN_SECRET");
+    if (!secret) throw new Error("Missing ADMIN_SECRET");
+    return secret;
+  },
+  // Legacy getters for compatibility
   get VITE_SUPABASE_URL() {
-    if (!env.SUPABASE_URL) throw new Error("Missing SUPABASE_URL");
-    return env.SUPABASE_URL;
+    return this.SUPABASE_URL;
   },
   get VITE_SUPABASE_ANON_KEY() {
-    if (!env.SUPABASE_ANON_KEY) throw new Error("Missing SUPABASE_ANON_KEY");
-    return env.SUPABASE_ANON_KEY;
+    return this.SUPABASE_ANON_KEY;
   },
   get VITE_SUPABASE_SERVICE_ROLE_KEY() {
-    if (!env.SUPABASE_SERVICE_ROLE_KEY) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
-    return env.SUPABASE_SERVICE_ROLE_KEY;
-  },
-  get OPENAI_API_KEY() {
-    if (!env.OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
-    return env.OPENAI_API_KEY;
+    return this.SUPABASE_SERVICE_ROLE_KEY;
   },
   get CRON_SECRET() {
-    if (!env.CRON_SECRET) throw new Error("Missing CRON_SECRET");
-    return env.CRON_SECRET;
+    const secret = Deno.env.get("CRON_SECRET");
+    if (!secret) throw new Error("Missing CRON_SECRET");
+    return secret;
   },
   get NEWSAPI_KEY() {
     return env.NEWSAPI_KEY;

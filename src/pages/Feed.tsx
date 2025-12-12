@@ -180,6 +180,24 @@ const Feed = () => {
     return `${days}d ago`;
   };
 
+  /**
+   * DATA FLOW DOCUMENTATION:
+   * 
+   * mapContentItemToGist: Maps API content items to Gist format
+   * - Uses item.image_url directly (from fetch-content API)
+   * - Uses item.title for headline
+   * - Uses item.url for source_url
+   * - All fields come from the same item (no mixing)
+   * 
+   * mapDbGistToGist: Maps database gists to Gist format
+   * - Uses gist.image_url (which should match raw_trends.image_url)
+   * - Uses gist.source_url (which should match raw_trends.url)
+   * - Uses gist.headline (generated from raw_trends.title)
+   * - All fields come from the same gist row (no mixing)
+   * 
+   * Feed query joins gists with raw_trends to verify consistency.
+   */
+
   const mapContentItemToGist = (item: FetchContentItem): Gist => ({
     id: item.id,
     source: "news",

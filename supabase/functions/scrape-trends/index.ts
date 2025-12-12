@@ -269,6 +269,36 @@ function deduplicateTrends(trends: Trend[]): Trend[] {
   return unique
 }
 
+/**
+ * DATA FLOW DOCUMENTATION:
+ * 
+ * 1. SCRAPER (this function):
+ *    - Fetches articles from NewsAPI, Mediastack, Guardian, Reddit
+ *    - Extracts: title, url, image_url (via normalizeImage), category
+ *    - Deduplicates by title OR url (case-insensitive)
+ *    - Inserts into raw_trends with: id (UUID), title, url, image_url, category, source
+ * 
+ * 2. AUTO-GENERATE-GISTS-V2:
+ *    - Queries raw_trends WHERE id NOT IN (SELECT raw_trend_id FROM gists)
+ *    - For each raw_trend, calls publish-gist-v2 with rawTrendId=raw_trend.id
+ * 
+ * 3. PUBLISH-GIST-V2:
+ *    - Fetches raw_trends WHERE id = rawTrendId
+ *    - Uses raw_trend.image_url as Priority 1 for image
+ *    - Inserts into gists with: raw_trend_id, image_url, source_url, headline
+ * 
+ * 4. FEED:
+ *    - Queries gists JOIN raw_trends ON gists.raw_trend_id = raw_trends.id
+ *    - Verifies image_url matches between gist and raw_trend
+ *    - Displays in FeedCard
+ * 
+ * KEY IDENTIFIERS:
+ * - raw_trends.id: Primary key, links to gists.raw_trend_id
+ * - raw_trends.url: Source article URL, must match gists.source_url
+ * - raw_trends.image_url: Image from source, must match gists.image_url
+ * - gists.raw_trend_id: Foreign key to raw_trends.id (enforces 1:1 mapping)
+ */
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("OK", { headers: corsHeaders })

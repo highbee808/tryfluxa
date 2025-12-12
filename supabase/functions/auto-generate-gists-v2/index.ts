@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders, createResponse, createErrorResponse } from '../_shared/http.ts'
-import { env, ensureSupabaseEnv } from '../_shared/env.ts'
+import { env, ensureSupabaseEnv, ENV } from '../_shared/env.ts'
 
 // HMAC signature validation for scheduled functions
 async function validateCronSignature(req: Request): Promise<boolean> {
@@ -64,10 +64,21 @@ serve(async (req) => {
     console.log('🤖 Auto-gist generation v2 started at', new Date().toISOString())
 
     ensureSupabaseEnv();
-    const supabaseUrl = env.SUPABASE_URL
-    const supabaseServiceKey = env.SUPABASE_SERVICE_ROLE_KEY
+    // CRITICAL: Use ENV.SUPABASE_SERVICE_ROLE_KEY for all DB operations
+    const supabaseUrl = ENV.SUPABASE_URL
+    const supabaseServiceKey = ENV.SUPABASE_SERVICE_ROLE_KEY
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = createClient(
+      supabaseUrl,
+      supabaseServiceKey,
+      {
+        global: { 
+          headers: { 
+            Authorization: `Bearer ${supabaseServiceKey}` 
+          } 
+        }
+      }
+    )
 
     // Step 1: Scrape trending topics
     console.log('📡 Fetching trending topics...')
@@ -102,110 +113,103 @@ serve(async (req) => {
       { topic: "Celebrity Fashion Trends", category: "Celebrity Gossip" }
     ]
 
-    // Step 3: Get unprocessed raw_trends that don't have gists yet
-    console.log('🔍 Checking for raw_trends without existing gists...')
+    // Step 3: Get raw_trends that don't have gists yet (using raw_trend_id foreign key)
+    // CRITICAL: This ensures strict 1:1 mapping - only process trends without existing gists
+    // SQL equivalent: SELECT * FROM raw_trends WHERE id NOT IN (SELECT raw_trend_id FROM gists WHERE raw_trend_id IS NOT NULL)
+    console.log('🔍 Checking for raw_trends without existing gists (by raw_trend_id)...')
     
-    // Fetch raw_trends that are not processed and don't have associated gists
-    const { data: unprocessedTrends, error: trendsError } = await supabase
+    // First, get all existing raw_trend_ids from gists
+    const { data: existingGistTrendIds, error: existingError } = await supabase
+      .from('gists')
+      .select('raw_trend_id')
+      .not('raw_trend_id', 'is', null)
+    
+    if (existingError) {
+      console.error('❌ Error fetching existing gist raw_trend_ids:', existingError)
+    }
+    
+    const existingTrendIds = new Set(
+      (existingGistTrendIds || []).map(g => g.raw_trend_id).filter(Boolean)
+    )
+    
+    console.log(`📊 Found ${existingTrendIds.size} raw_trends that already have gists`)
+    
+    // Fetch ALL raw_trends (not just unprocessed) to ensure we catch everything
+    // We'll filter by raw_trend_id NOT IN existingTrendIds
+    const { data: allRawTrends, error: trendsError } = await supabase
       .from('raw_trends')
-      .select('id, title, category, url, published_at')
-      .eq('processed', false)
+      .select('id, title, category, url, published_at, image_url, source, created_at')
       .order('created_at', { ascending: false })
-      .limit(10)
+      .limit(50) // Fetch more to account for filtering
     
     if (trendsError) {
-      console.warn('⚠️ Error fetching raw_trends:', trendsError)
+      console.error('❌ Error fetching raw_trends:', trendsError)
+      throw new Error(`Failed to fetch raw_trends: ${trendsError.message}`)
     }
     
-    // Check which raw_trends already have gists (by source_url matching url)
-    const trendsToProcess: any[] = []
-    if (unprocessedTrends && unprocessedTrends.length > 0) {
-      const trendUrls = unprocessedTrends.map(t => t.url).filter(Boolean)
-      
-      if (trendUrls.length > 0) {
-        const { data: existingGists } = await supabase
-          .from('gists')
-          .select('source_url')
-          .in('source_url', trendUrls)
-        
-        const existingGistUrls = new Set(
-          (existingGists || []).map(g => g.source_url?.toLowerCase().trim()).filter(Boolean)
-        )
-        
-        // Only process trends that don't have gists yet
-        for (const trend of unprocessedTrends) {
-          const trendUrl = trend.url?.toLowerCase().trim()
-          if (!trendUrl || !existingGistUrls.has(trendUrl)) {
-            trendsToProcess.push({
-              topic: trend.title,
-              category: trend.category,
-              source_url: trend.url,
-              published_at: trend.published_at,
-              raw_trend_id: trend.id,
-            })
-          } else {
-            console.log(`⏭️  Skipping ${trend.title} - gist already exists`)
-            // Mark as processed since gist exists
-            await supabase
-              .from('raw_trends')
-              .update({ processed: true })
-              .eq('id', trend.id)
-          }
+    // CRITICAL: Filter out trends that already have gists (by raw_trend_id)
+    // This implements: WHERE id NOT IN (SELECT raw_trend_id FROM gists)
+    const trendsToProcess = (allRawTrends || [])
+      .filter(trend => {
+        const hasGist = existingTrendIds.has(trend.id)
+        if (hasGist) {
+          console.log(`⏭️  Skipping raw_trend ${trend.id} (${trend.title}) - already has gist`)
         }
-      } else {
-        // No URLs, process by title
-        trendsToProcess.push(...unprocessedTrends.map(t => ({
-          topic: t.title,
-          category: t.category,
-          source_url: t.url,
-          published_at: t.published_at,
-          raw_trend_id: t.id,
-        })))
-      }
-    }
+        return !hasGist
+      })
+      .slice(0, 10) // Process max 10 at a time
     
-    console.log(`📊 Found ${trendsToProcess.length} raw_trends without gists`)
+    console.log(`📊 Found ${trendsToProcess.length} raw_trends without gists (ready to process)`)
     
-    // Combine scraper trends (from API) with unprocessed raw_trends and predefined topics
-    const trendsFromScraper = trends.slice(0, Math.max(0, 3 - trendsToProcess.length)).map((t: any) => ({
-      topic: t.topic || t.title,
-      category: t.category,
-      source_url: t.url || t.source_url,
-      published_at: t.published_at,
-    }))
+    console.log(`📊 Found ${trendsToProcess.length} raw_trends without gists (ready to process)`)
     
+    // CRITICAL: Process only raw_trends rows (prioritize these for strict 1:1 mapping)
+    // Do NOT mix with scraper trends or predefined topics - they don't have raw_trend_id
     const allTopics = [
-      ...trendsToProcess.slice(0, 5), // Prioritize unprocessed raw_trends
-      ...trendsFromScraper,
-      ...topicsToGenerate.slice(0, 2) // Add 2 predefined topics
+      ...trendsToProcess.slice(0, 5), // Only process raw_trends with proper IDs
+      // Note: Predefined topics and scraper trends are skipped to ensure 1:1 mapping
+      // They can be processed separately if needed, but without raw_trend_id linking
     ]
     
     const generatedGists = []
-    for (const topicData of allTopics) {
+    for (const trend of allTopics) {
       try {
-        console.log(`🎨 Generating gist for: ${topicData.topic}`)
-        
-        // Skip if this is from raw_trends and already has a gist (double-check)
-        if (topicData.source_url && topicData.raw_trend_id) {
-          const { data: existingGist } = await supabase
-            .from('gists')
-            .select('id')
-            .eq('source_url', topicData.source_url)
-            .limit(1)
-            .single()
-          
-          if (existingGist) {
-            console.log(`⏭️  Skipping ${topicData.topic} - gist already exists`)
-            // Mark as processed
-            await supabase
-              .from('raw_trends')
-              .update({ processed: true })
-              .eq('id', topicData.raw_trend_id)
-            continue
-          }
+        // CRITICAL: Each trend must have raw_trend_id for proper linking
+        if (!trend.id) {
+          console.warn(`⚠️ Skipping trend without ID: ${trend.title || 'unknown'}`)
+          continue
         }
         
-        // Call publish-gist-v2 which handles the full pipeline
+        console.log(`🎨 Generating gist for raw_trend_id: ${trend.id}, title: ${trend.title}`)
+        
+        // Double-check: Ensure no gist exists for this raw_trend_id
+        const { data: existingGist } = await supabase
+          .from('gists')
+          .select('id, raw_trend_id')
+          .eq('raw_trend_id', trend.id)
+          .limit(1)
+          .single()
+        
+        if (existingGist) {
+          console.log(`⏭️  Skipping ${trend.title} - gist already exists for raw_trend_id: ${trend.id}`)
+          // Mark as processed
+          await supabase
+            .from('raw_trends')
+            .update({ processed: true })
+            .eq('id', trend.id)
+          continue
+        }
+        
+        // Debug log before generation
+        console.log('[AUTO-GEN]', {
+          raw_trend_id: trend.id,
+          raw_title: trend.title,
+          raw_url: trend.url,
+          raw_image: trend.image_url,
+          raw_category: trend.category,
+        })
+        
+        // Call publish-gist-v2 with rawTrendId to ensure proper 1:1 mapping
         const publishResponse = await fetch(`${supabaseUrl}/functions/v1/publish-gist-v2`, {
           method: 'POST',
           headers: {
@@ -214,10 +218,11 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            topic: topicData.topic,
-            topicCategory: topicData.category,
-            sourceUrl: topicData.source_url,
-            newsPublishedAt: topicData.published_at,
+            topic: trend.title, // Use title from raw_trends
+            topicCategory: trend.category,
+            sourceUrl: trend.url, // Use url from raw_trends
+            newsPublishedAt: trend.published_at,
+            rawTrendId: trend.id, // CRITICAL: Pass raw_trend_id for proper linking
           })
         })
 
@@ -225,30 +230,43 @@ serve(async (req) => {
 
         if (publishResponse.ok && publishData.success) {
           generatedGists.push(publishData.gist)
-          console.log(`✅ Published gist: ${topicData.topic}`)
+          console.log(`✅ Published gist for raw_trend_id: ${trend.id}, headline: ${publishData.gist?.headline || 'unknown'}`)
           
-          // Mark trend as processed if it came from raw_trends
-          if (topicData.raw_trend_id) {
-            await supabase
-              .from('raw_trends')
-              .update({ processed: true })
-              .eq('id', topicData.raw_trend_id)
-          } else if (topicData.source_url) {
-            // Fallback: mark by source_url match
-            await supabase
-              .from('raw_trends')
-              .update({ processed: true })
-              .eq('url', topicData.source_url)
+          // Debug log for pipeline success
+          console.log('[PIPELINE SUCCESS]', {
+            gistId: publishData.gist?.id || 'unknown',
+            rawTrendId: trend.id,
+            headline: publishData.gist?.headline || 'unknown',
+          })
+          
+          // CRITICAL: Mark trend as processed using raw_trend_id
+          const { error: updateError } = await supabase
+            .from('raw_trends')
+            .update({ processed: true })
+            .eq('id', trend.id)
+          
+          if (updateError) {
+            console.error(`❌ Error marking raw_trend ${trend.id} as processed:`, updateError)
+          } else {
+            console.log(`✅ Marked raw_trend ${trend.id} as processed`)
           }
         } else {
-          console.log(`⚠️ Failed to publish gist for ${topicData.topic}:`, publishData.error)
+          console.error(`[AUTO-GEN ERROR] Failed to publish gist for raw_trend_id ${trend.id}:`, publishData.error)
+          console.log(`⚠️ Failed to publish gist for raw_trend_id ${trend.id}:`, publishData.error)
         }
       } catch (error) {
-        console.log(`❌ Error processing ${topicData.topic}:`, error instanceof Error ? error.message : 'Unknown error')
+        console.error(`[AUTO-GEN ERROR] Error processing raw_trend_id ${trend.id}:`, error)
+        console.log(`❌ Error processing raw_trend_id ${trend.id}:`, error instanceof Error ? error.message : 'Unknown error')
       }
     }
 
     console.log(`🎉 Auto-generation v2 complete! Generated ${generatedGists.length} gists`)
+    
+    // Debug log for overall success
+    console.log('[PIPELINE SUCCESS]', {
+      generated: generatedGists.length,
+      total_trends: trends.length,
+    })
 
     return createResponse({
       success: true,
@@ -257,7 +275,8 @@ serve(async (req) => {
       gists: generatedGists,
     })
   } catch (error) {
-    console.error('❌ Auto-generation v2 error:', error)
+    console.error('[PIPELINE FAILURE]', error)
+    console.error('[AUTO-GEN ERROR]', error)
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
       500
