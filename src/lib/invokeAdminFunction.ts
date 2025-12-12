@@ -1,3 +1,5 @@
+console.log("ADMIN SECRET:", import.meta.env.VITE_ADMIN_SECRET);
+console.log("SUPABASE URL:", import.meta.env.VITE_SUPABASE_URL);
 export async function invokeAdminFunction(
   functionName: string,
   payload: Record<string, any> = {}
