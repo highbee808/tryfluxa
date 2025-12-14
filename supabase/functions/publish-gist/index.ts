@@ -249,10 +249,22 @@ serve(async (req) => {
 
       //
       // STEP 2 — IMAGE PREP
+      // Priority: source_image_url > imageUrl > ai_generated_image > null
       //
-      let finalImageUrl = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800'
+      let finalImageUrl: string | null = null
 
-      if (ai_generated_image) {
+      // Priority 1: Source image from article
+      if (generatedSourceImageUrl) {
+        finalImageUrl = generatedSourceImageUrl
+        console.log('🖼️ Using source image from article')
+      }
+      // Priority 2: Provided imageUrl
+      else if (imageUrl) {
+        finalImageUrl = imageUrl
+        console.log('🖼️ Using provided imageUrl')
+      }
+      // Priority 3: AI-generated image
+      else if (ai_generated_image) {
         try {
           const imageResponse = await fetch(ai_generated_image)
           if (!imageResponse.ok) throw new Error(`Failed to download AI image: ${imageResponse.status}`)
@@ -274,15 +286,16 @@ serve(async (req) => {
               .getPublicUrl(filename)
             finalImageUrl = urlData.publicUrl
           }
+          console.log('🖼️ Using AI-generated image')
         } catch (err) {
           finalImageUrl = ai_generated_image
+          console.log('🖼️ Using AI-generated image (direct URL)')
         }
-      } 
-      else if (imageUrl) {
-        finalImageUrl = imageUrl
-      } 
-      else if (generatedSourceImageUrl) {
-        finalImageUrl = generatedSourceImageUrl
+      }
+      // Priority 4: Set to null (frontend will use fallback)
+      else {
+        finalImageUrl = null
+        console.log('🖼️ No image available - setting to null (frontend will use fallback)')
       }
 
       //

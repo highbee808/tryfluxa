@@ -127,26 +127,36 @@ serve(async (req) => {
       source_url,
       source_title,
       source_excerpt,
+      source_image_url,
       used_api_article,
       imageUrl: generatedImageUrl,
     } = generateResponse.data;
 
     console.log("✅ Gist content generated.");
 
-    // Step 2: Image handling
+    // Step 2: Image handling - prioritize source images, then AI-generated
     console.log("🖼️ Step 2/3: Resolving image...");
     let finalImageUrl: string | null = null;
 
-    if (ai_generated_image && generatedImageUrl) {
+    // Priority 1: Source image from article
+    if (source_image_url) {
+      finalImageUrl = source_image_url;
+      console.log("🖼️ Using source image from article.");
+    }
+    // Priority 2: AI-generated image
+    else if (ai_generated_image && generatedImageUrl) {
       finalImageUrl = generatedImageUrl;
       console.log("🖼️ Using AI-generated image from generator.");
-    } else if (imageUrl) {
+    }
+    // Priority 3: Provided imageUrl
+    else if (imageUrl) {
       finalImageUrl = imageUrl;
       console.log("🖼️ Using provided imageUrl.");
-    } else {
-      finalImageUrl =
-        "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?q=80&w=1400&auto=format&fit=crop";
-      console.log("🖼️ Using fallback image.");
+    }
+    // Priority 4: Set to null (frontend will handle fallback)
+    else {
+      finalImageUrl = null;
+      console.log("🖼️ No image available - setting to null (frontend will use fallback).");
     }
 
     // Step 3: Insert gist into DB (NO AUDIO FIELDS)

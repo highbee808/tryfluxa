@@ -38,6 +38,91 @@ function getTrendingTopics(): string[] {
   ];
 }
 
+/**
+ * Fetch articles from NewsAPI to get source images
+ */
+async function fetchArticleWithImage(topic: string): Promise<{ url: string | null; image_url: string | null }> {
+  const newsApiKey = process.env.NEWSAPI_KEY;
+  if (!newsApiKey) {
+    console.log("[Content Pipeline] NEWSAPI_KEY not configured, skipping article fetch");
+    return { url: null, image_url: null };
+  }
+
+  try {
+    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&language=en&sortBy=publishedAt&pageSize=1&apiKey=${newsApiKey}`;
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      console.log(`[Content Pipeline] NewsAPI error: ${response.status}`);
+      return { url: null, image_url: null };
+    }
+
+    const data = await response.json();
+    const article = data.articles?.[0];
+    
+    if (article && article.urlToImage) {
+      return {
+        url: article.url || null,
+        image_url: article.urlToImage || null,
+      };
+    }
+  } catch (error) {
+    console.error("[Content Pipeline] Error fetching article:", error);
+  }
+
+  return { url: null, image_url: null };
+}
+
+/**
+ * Generate image using OpenAI DALL-E based on content context
+ */
+async function generateOpenAIImage(headline: string, context: string, topic: string): Promise<string | null> {
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (!openaiKey) {
+    console.log("[Content Pipeline] OPENAI_API_KEY not configured, cannot generate image");
+    return null;
+  }
+
+  try {
+    // Create a descriptive image prompt from the content
+    const imagePrompt = `High-quality realistic editorial style image for news article: ${headline}. Context: ${context}. Cinematic lighting, magazine cover aesthetic, professional photography, vibrant colors.`;
+    
+    console.log("[Content Pipeline] Generating image with DALL-E...");
+    
+    const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'dall-e-3',
+        prompt: imagePrompt,
+        n: 1,
+        size: '1024x1024',
+        quality: 'standard',
+        response_format: 'url'
+      }),
+    });
+
+    if (imageResponse.ok) {
+      const imageData = await imageResponse.json();
+      const imageUrl = imageData.data?.[0]?.url;
+      if (imageUrl) {
+        console.log("[Content Pipeline] Successfully generated image with DALL-E");
+        return imageUrl;
+      }
+    } else {
+      const error = await imageResponse.text();
+      console.error(`[Content Pipeline] DALL-E image generation failed: ${imageResponse.status}`, error);
+    }
+  } catch (error) {
+    console.error("[Content Pipeline] Error generating image:", error);
+  }
+
+  return null;
+}
+
 async function generateAISummary(topic: string): Promise<{
   headline: string;
   summary: string;
@@ -189,6 +274,20 @@ async function runContentPipeline(): Promise<{
           headline: aiContent.headline?.substring(0, 50) + '...'
         });
 
+        // Fetch article to get source image
+        console.log(`[Content Pipeline] Fetching article for: ${topic}`);
+        const articleData = await fetchArticleWithImage(topic);
+        
+        // Determine image URL: prioritize source image, then generate with OpenAI
+        let finalImageUrl: string | null = articleData.image_url;
+        
+        if (!finalImageUrl) {
+          console.log(`[Content Pipeline] No source image found, generating with DALL-E...`);
+          finalImageUrl = await generateOpenAIImage(aiContent.headline, aiContent.context, topic);
+        } else {
+          console.log(`[Content Pipeline] Using source image from article`);
+        }
+
         const now = new Date().toISOString();
         const gistData: GistData = {
           topic,
@@ -197,8 +296,8 @@ async function runContentPipeline(): Promise<{
           context: aiContent.context,
           narration: aiContent.narration,
           script: aiContent.narration,
-          image_url: null,
-          source_url: null,
+          image_url: finalImageUrl,
+          source_url: articleData.url,
           audio_url: "",
           status: "published",
           published_at: now,
@@ -207,6 +306,7 @@ async function runContentPipeline(): Promise<{
             generated_by: "content_pipeline",
             generated_at: now,
             summary: aiContent.summary,
+            image_source: articleData.image_url ? "source_article" : "openai_dalle",
           },
         };
 
