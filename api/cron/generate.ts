@@ -5,7 +5,7 @@
  * {
  *   "crons": [{
  *     "path": "/api/cron/generate",
- *     "schedule": "0 */6 * * *"  // Every 6 hours
+ *     "schedule": "0 0,6,12,18 * * *"  // Every 6 hours (at 0, 6, 12, 18)
  *   }]
  * }
  */
