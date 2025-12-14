@@ -479,10 +479,10 @@ function validateAlignment(
   }
   
   // Validation: Check that all citations are from gathered sources
-  const invalidCitations = gistDraft.source_citations.filter(
-    url => !sourceUrls.has(url)
-  )
-  if (invalidCitations.length > 0) {
+    const invalidCitations = gistDraft.source_citations.filter(
+      url => !sourceUrls.has(url)
+    )
+    if (invalidCitations.length > 0) {
     // Remove invalid citations
     gistDraft.source_citations = gistDraft.source_citations.filter(
       url => sourceUrls.has(url)

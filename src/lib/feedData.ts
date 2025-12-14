@@ -35,7 +35,7 @@ export interface DbGist {
  * Fetch recent published gists from the database
  * Used as a fallback when fetch-content returns no items
  */
-export async function fetchRecentGists(limit = 20): Promise<DbGist[]> {
+export async function fetchRecentGists(limit = 20, maxAgeHours = 168): Promise<DbGist[]> {
   try {
     // Query only columns that exist in gists table
     // Note: raw_trends join removed - cron-generated gists don't have raw_trend_id
@@ -57,10 +57,15 @@ export async function fetchRecentGists(limit = 20): Promise<DbGist[]> {
       script
     `;
     
+    // Calculate cutoff time for fresh content (default: 7 days, but can be overridden)
+    const cutoffTime = new Date();
+    cutoffTime.setHours(cutoffTime.getHours() - maxAgeHours);
+    
     const { data, error } = await supabase
       .from("gists")
       .select(selectQuery)
       .eq("status", "published")
+      .gte("published_at", cutoffTime.toISOString()) // Only fetch recent content
       .order("published_at", { ascending: false })
       .limit(limit);
 

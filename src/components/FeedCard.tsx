@@ -79,13 +79,20 @@ export const FeedCard = ({
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
-  // Normalized image logic - tries all possible image fields
+  // Normalized image logic - prioritize source images first, then AI, then primary
+  // This ensures source images are always preferred over AI-generated ones
   const normalizedImageUrl = 
-    imageUrl ||
-    imageUrls?.primary ||
-    imageUrls?.source ||
-    imageUrls?.ai ||
+    imageUrls?.source ||  // Source images first (most relevant)
+    imageUrl ||           // Then primary image
+    imageUrls?.primary || // Then primary from imageUrls
+    imageUrls?.ai ||      // AI-generated images last (fallback)
     null;
+  
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FeedCard.tsx:83',message:'FeedCard image priority',data:{id,headline:headline?.substring(0,50),hasSource:!!imageUrls?.source,hasPrimary:!!imageUrl,hasAi:!!imageUrls?.ai,normalizedUrl:normalizedImageUrl?.substring(0,50)||null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  }, [id, headline, imageUrl, imageUrls, normalizedImageUrl]);
+  // #endregion
 
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(
     normalizedImageUrl
@@ -125,12 +132,16 @@ export const FeedCard = ({
       return;
     }
 
-    // For non-music items, try fallback images in order: primary -> source -> ai -> placeholder
-    if (currentImageUrl === (imageUrl || imageUrls?.primary)) {
-      setCurrentImageUrl(imageUrls?.source || imageUrls?.ai || "/fallback/news.jpg");
-    } else if (currentImageUrl === imageUrls?.source) {
+    // For non-music items, try fallback images in order: source -> primary -> ai -> placeholder
+    // This maintains source image priority even on error
+    if (currentImageUrl === imageUrls?.source) {
+      // If source image fails, try primary, then AI, then placeholder
+      setCurrentImageUrl(imageUrl || imageUrls?.primary || imageUrls?.ai || "/fallback/news.jpg");
+    } else if (currentImageUrl === (imageUrl || imageUrls?.primary)) {
+      // If primary fails, try AI, then placeholder
       setCurrentImageUrl(imageUrls?.ai || "/fallback/news.jpg");
     } else if (currentImageUrl === imageUrls?.ai) {
+      // If AI fails, use placeholder
       setCurrentImageUrl("/fallback/news.jpg");
     }
   };

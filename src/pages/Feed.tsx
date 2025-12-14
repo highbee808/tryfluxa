@@ -222,31 +222,46 @@ const Feed = () => {
     },
   });
 
-  const mapDbGistToGist = (gist: DbGist): Gist => ({
-    id: gist.id,
-    source: "gist",
-    headline: gist.headline,
-    summary: (gist.meta as any)?.summary || gist.context?.slice(0, 150) + (gist.context && gist.context.length > 150 ? "..." : ""),
-    context: gist.context,
-    audio_url: gist.audio_url || null,
-    image_url: gist.image_url || null,
-    source_image_url: (gist.meta as any)?.source_image_url || null,
-    ai_image_url: (gist.meta as any)?.ai_generated_image || null,
-    topic: gist.topic,
-    topic_category: gist.topic_category || null,
-    published_at: gist.published_at || gist.created_at || undefined,
-    url: gist.source_url || undefined,
-    analytics: {
-      views: 0,
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      plays: 0,
-    },
-  });
+  const mapDbGistToGist = (gist: DbGist): Gist => {
+    // Extract image URLs from meta
+    const meta = gist.meta as any;
+    const sourceImageUrl = meta?.source_image_url || null;
+    const aiImageUrl = meta?.ai_generated_image || null;
+    
+    // Priority: source image > AI image > fallback to image_url
+    // If image_url exists but we have source_image_url in meta, prefer source
+    const primaryImageUrl = sourceImageUrl || aiImageUrl || gist.image_url || null;
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:225',message:'mapDbGistToGist image priority',data:{gistId:gist.id,headline:gist.headline?.substring(0,50),hasSourceImage:!!sourceImageUrl,hasAiImage:!!aiImageUrl,hasImageUrl:!!gist.image_url,primaryImageUrl:primaryImageUrl?.substring(0,50)||null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
+    return {
+      id: gist.id,
+      source: "gist",
+      headline: gist.headline,
+      summary: meta?.summary || gist.context?.slice(0, 150) + (gist.context && gist.context.length > 150 ? "..." : ""),
+      context: gist.context || '',
+      audio_url: gist.audio_url || null,
+      image_url: primaryImageUrl,
+      source_image_url: sourceImageUrl,
+      ai_image_url: aiImageUrl,
+      topic: gist.topic,
+      topic_category: gist.topic_category || null,
+      published_at: gist.published_at || gist.created_at || undefined,
+      url: gist.source_url || undefined,
+      analytics: {
+        views: 0,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        plays: 0,
+      },
+    };
+  };
 
   const fetchCategoryContent = useCallback(
-    async (category: ContentCategory) => {
+    async (category: ContentCategory, forceFresh = false) => {
       const API_BASE = getApiBaseUrl();
       
       // Use URL and URLSearchParams to properly encode query parameters
@@ -258,9 +273,20 @@ const Feed = () => {
       urlObj.searchParams.set("category", category);
       urlObj.searchParams.set("query", DEFAULT_CATEGORY_QUERIES[category]);
       urlObj.searchParams.set("limit", String(DEFAULT_LIMIT));
-      urlObj.searchParams.set("ttl_minutes", String(DEFAULT_TTL_MINUTES));
+      
+      // If forcing fresh content, set TTL to 0 or add cache-busting parameter
+      if (forceFresh) {
+        urlObj.searchParams.set("ttl_minutes", "0");
+        urlObj.searchParams.set("_t", String(Date.now())); // Cache-busting timestamp
+      } else {
+        urlObj.searchParams.set("ttl_minutes", String(DEFAULT_TTL_MINUTES));
+      }
       
       const url = urlObj.toString();
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:248',message:'fetchCategoryContent called',data:{category,forceFresh,url:url.substring(0,100)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
 
       try {
         const response = await fetch(url, {
@@ -283,8 +309,16 @@ const Feed = () => {
 
         const payload = (await response.json()) as FetchContentResponse;
         if (!payload.items || !Array.isArray(payload.items)) {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:284',message:'fetchCategoryContent empty response',data:{category,hasItems:!!payload.items,isArray:Array.isArray(payload.items)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
           return [];
         }
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:289',message:'fetchCategoryContent success',data:{category,itemCount:payload.items.length,firstItemId:payload.items[0]?.id,firstItemTitle:payload.items[0]?.title?.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        
         return payload.items;
       } catch (err) {
         console.error("Fluxa API error:", err);
@@ -298,11 +332,15 @@ const Feed = () => {
   );
 
   const loadGists = useCallback(
-    async (showToast = false) => {
+    async (showToast = false, forceFresh = false) => {
       try {
         if (showToast) setIsRefreshing(true);
         setFeedError(null);
         if (!showToast) setLoading(true);
+
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:300',message:'loadGists started',data:{showToast,forceFresh,selectedCategory},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
 
         // Determine which categories to fetch based on user interests
         const hasSportsInterest = userInterests.some(i => i.toLowerCase() === "sports");
@@ -322,7 +360,7 @@ const Feed = () => {
         }
 
         const categoryResponses = await Promise.all(
-          categoriesToFetch.map((category) => fetchCategoryContent(category))
+          categoriesToFetch.map((category) => fetchCategoryContent(category, forceFresh))
         );
 
         let mergedItems = categoryResponses.flat();
@@ -662,7 +700,8 @@ const Feed = () => {
       }
 
       setIsRefreshing(true);
-      await loadGists(true);
+      // Force fresh content on pull-to-refresh
+      await loadGists(true, true);
       setIsRefreshing(false);
     }
 
@@ -675,7 +714,8 @@ const Feed = () => {
     if (isRefreshing) return;
 
     setNewGistCount(0);
-    await loadGists(true);
+    // Force fresh content by bypassing cache
+    await loadGists(true, true);
   };
 
   if (loading) {
@@ -919,8 +959,8 @@ const Feed = () => {
                       }
                       context={
                         searchQuery
-                        ? (highlightText(item.summary || item.context, searchQuery) as any)
-                        : (item.summary || item.context)
+                        ? (highlightText(item.summary || item.context || '', searchQuery) as any)
+                        : (item.summary || item.context || '').trim() || 'No description available'
                       }
                       author="Fluxa"
                     timeAgo={item.published_at ? formatTimeAgo(item.published_at) : "Just now"}

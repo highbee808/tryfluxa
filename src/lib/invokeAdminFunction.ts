@@ -20,7 +20,7 @@ export async function invokeAdminFunction(
 
     const contentType = res.headers.get("content-type") || "";
     const isJson = contentType.includes("application/json");
-    
+
     const text = await res.text();
 
     // Handle non-JSON responses (404 HTML, etc.)
