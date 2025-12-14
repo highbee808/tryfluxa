@@ -25,13 +25,43 @@ interface GistData {
  * Fetch trending topics (simplified - can be enhanced later)
  */
 function getTrendingTopics(): string[] {
-  // Mock trending topics - replace with actual API calls if needed
+  // Return 30+ diverse trending topics for fresh content generation
   return [
     "Taylor Swift releases new album",
     "NBA Finals game highlights",
     "Tech industry layoffs",
     "Climate change summit updates",
     "Hollywood award show nominees",
+    "SpaceX rocket launch",
+    "Cryptocurrency market trends",
+    "New iPhone release",
+    "Olympic Games updates",
+    "Celebrity wedding news",
+    "Movie box office records",
+    "Electric vehicle innovations",
+    "Social media platform updates",
+    "Music festival announcements",
+    "Sports championship results",
+    "Tech startup funding rounds",
+    "Climate action initiatives",
+    "Entertainment industry news",
+    "Gaming console releases",
+    "Fashion week highlights",
+    "Scientific breakthroughs",
+    "Political developments",
+    "Travel industry trends",
+    "Food and restaurant news",
+    "Health and wellness updates",
+    "Education technology innovations",
+    "Artificial intelligence advancements",
+    "Sports trade rumors",
+    "Streaming service launches",
+    "Renewable energy projects",
+    "Celebrity collaborations",
+    "Technology product reviews",
+    "Sports injury updates",
+    "Entertainment award ceremonies",
+    "Business mergers and acquisitions",
   ];
 }
 
@@ -46,8 +76,16 @@ async function fetchArticleWithImage(topic: string): Promise<{ url: string | nul
   }
 
   try {
-    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&language=en&sortBy=publishedAt&pageSize=1&apiKey=${newsApiKey}`;
-    const response = await fetch(url);
+    // Add cache-busting timestamp to ensure fresh data
+    const timestamp = Date.now();
+    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&language=en&sortBy=publishedAt&pageSize=1&apiKey=${newsApiKey}&_t=${timestamp}`;
+    const response = await fetch(url, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
     
     if (!response.ok) {
       console.log(`[Content Pipeline] NewsAPI error: ${response.status}`);
@@ -139,12 +177,18 @@ async function generateAISummary(topic: string): Promise<{
 
 Generate a concise, engaging gist about: ${topic}
 
+IMPORTANT REQUIREMENTS:
+- Headline MUST include relevant emojis (1-2 emojis max, choose wisely based on the topic)
+- Keep summaries very concise and friendly (max 150 chars)
+- Context should be brief but informative (max 250 chars)
+- Narration should be conversational and friendly (50-70 words)
+
 Return valid JSON with this structure:
 {
-  "headline": "string (max 100 chars, catchy and clear)",
-  "summary": "string (max 200 chars, brief overview)",
-  "context": "string (max 300 chars, key details)",
-  "narration": "string (60-90 words, friendly conversational style)"
+  "headline": "string with emojis (max 100 chars, catchy and clear)",
+  "summary": "string (max 150 chars, very brief and friendly overview)",
+  "context": "string (max 250 chars, key details)",
+  "narration": "string (50-70 words, friendly conversational style)"
 }`;
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -225,8 +269,8 @@ export async function runContentPipeline(): Promise<{
     const topics = getTrendingTopics();
     console.log(`[Content Pipeline] Processing ${topics.length} topics`);
 
-    // Generate content for each topic (limit to 3 to avoid rate limits)
-    const topicsToProcess = topics.slice(0, 3);
+    // Generate content for 30 topics each cycle
+    const topicsToProcess = topics.slice(0, 30);
 
     for (const topic of topicsToProcess) {
       try {
