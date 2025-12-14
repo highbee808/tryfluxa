@@ -20,13 +20,6 @@ export default async function handler(
   const adminSecret = process.env.ADMIN_SECRET;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  console.log('[Admin Publish] Handler invoked', {
-    method: req.method,
-    hasSupabaseUrl: !!supabaseUrl,
-    hasAdminSecret: !!adminSecret,
-    hasServiceKey: !!serviceKey,
-  });
-
   // Validate environment variables
   if (!supabaseUrl) {
     console.error('[Admin Publish] Missing SUPABASE_URL');
@@ -45,11 +38,6 @@ export default async function handler(
   // Validate admin secret if configured
   if (adminSecret) {
     const requestSecret = req.headers['x-admin-secret'] as string | undefined;
-    
-    console.log('[Admin Publish] Admin secret check', {
-      hasRequestSecret: !!requestSecret,
-      matches: requestSecret === adminSecret,
-    });
 
     if (!requestSecret || requestSecret !== adminSecret) {
       console.error('[Admin Publish] Unauthorized - invalid or missing admin secret');
@@ -66,10 +54,6 @@ export default async function handler(
   let body: any;
   try {
     body = req.body;
-    console.log('[Admin Publish] Request body received', {
-      hasBody: !!body,
-      bodyKeys: body ? Object.keys(body) : [],
-    });
   } catch (error: any) {
     console.error('[Admin Publish] Invalid JSON body', error);
     return res.status(400).json({
@@ -81,10 +65,6 @@ export default async function handler(
   try {
     // Forward request to Supabase Edge Function
     const edgeFunctionUrl = `${supabaseUrl}/functions/v1/publish-gist-v3`;
-    
-    console.log('[Admin Publish] Calling Supabase Edge Function', {
-      url: edgeFunctionUrl,
-    });
 
     const response = await fetch(edgeFunctionUrl, {
       method: 'POST',
@@ -98,14 +78,6 @@ export default async function handler(
     });
 
     const responseText = await response.text();
-    
-    console.log('[Admin Publish] Edge Function response', {
-      status: response.status,
-      statusText: response.statusText,
-      contentType: response.headers.get('content-type'),
-      responseLength: responseText.length,
-      responsePreview: responseText.substring(0, 200),
-    });
 
     // Check if response is JSON
     const contentType = response.headers.get('content-type') || '';

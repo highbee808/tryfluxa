@@ -180,17 +180,8 @@ Return valid JSON with this structure:
 }
 
 async function insertGist(gistData: GistData): Promise<string | null> {
-  console.log('[insertGist] Called', { topic: gistData.topic, headline: gistData.headline });
-  
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  console.log('[insertGist] Env vars check', {
-    hasSupabaseUrl: !!supabaseUrl,
-    hasServiceKey: !!serviceKey,
-    urlLength: supabaseUrl?.length || 0,
-    keyLength: serviceKey?.length || 0,
-  });
 
   if (!supabaseUrl || !serviceKey) {
     throw new Error("Missing Supabase credentials");
@@ -198,35 +189,17 @@ async function insertGist(gistData: GistData): Promise<string | null> {
 
   const { createClient } = await import("@supabase/supabase-js");
   
-  console.log('[insertGist] Creating Supabase client', { url: supabaseUrl?.substring(0, 30) + '...' });
   const supabase = createClient(supabaseUrl, serviceKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
     },
   });
-
-  console.log('[insertGist] Executing database insert', { 
-    table: 'gists',
-    dataKeys: Object.keys(gistData),
-    audioUrl: gistData.audio_url,
-  });
   
   const { error, data } = await supabase.from("gists").insert(gistData).select();
 
-  console.log('[insertGist] Database insert result', {
-    hasError: !!error,
-    errorMessage: error?.message,
-    errorCode: error?.code,
-    errorDetails: error?.details,
-    errorHint: error?.hint,
-    hasData: !!data,
-    dataCount: data?.length || 0,
-    insertedId: data?.[0]?.id,
-  });
-
   if (error) {
-    console.error('[insertGist] Insert failed with error:', {
+    console.error('[insertGist] Insert failed:', {
       message: error.message,
       code: error.code,
       details: error.details,
@@ -236,9 +209,7 @@ async function insertGist(gistData: GistData): Promise<string | null> {
   }
   
   const insertedId = data?.[0]?.id || null;
-  if (insertedId) {
-    console.log('[insertGist] Successfully inserted gist', { id: insertedId });
-  } else {
+  if (!insertedId) {
     console.error('[insertGist] Insert succeeded but no ID returned', { data });
   }
   
@@ -259,33 +230,20 @@ async function runContentPipeline(): Promise<{
 
   try {
     const topics = getTrendingTopics();
-    console.log(`[Content Pipeline] Processing ${topics.length} topics`);
-
     const topicsToProcess = topics.slice(0, 3);
 
     for (const topic of topicsToProcess) {
       try {
-        console.log(`[Content Pipeline] Generating content for: ${topic}`);
-
         const aiContent = await generateAISummary(topic);
-        console.log(`[Content Pipeline] AI content received`, { 
-          hasHeadline: !!aiContent.headline,
-          hasNarration: !!aiContent.narration,
-          headline: aiContent.headline?.substring(0, 50) + '...'
-        });
 
         // Fetch article to get source image
-        console.log(`[Content Pipeline] Fetching article for: ${topic}`);
         const articleData = await fetchArticleWithImage(topic);
         
         // Determine image URL: prioritize source image, then generate with OpenAI
         let finalImageUrl: string | null = articleData.image_url;
         
         if (!finalImageUrl) {
-          console.log(`[Content Pipeline] No source image found, generating with DALL-E...`);
           finalImageUrl = await generateOpenAIImage(aiContent.headline, aiContent.context, topic);
-        } else {
-          console.log(`[Content Pipeline] Using source image from article`);
         }
 
         const now = new Date().toISOString();
@@ -310,17 +268,11 @@ async function runContentPipeline(): Promise<{
           },
         };
 
-        console.log(`[Content Pipeline] Attempting to insert gist`, {
-          topic: gistData.topic,
-          headline: gistData.headline?.substring(0, 50),
-          hasAudioUrl: !!gistData.audio_url,
-        });
-
         const insertedId = await insertGist(gistData);
         if (insertedId) {
           insertedIds.push(insertedId);
           generated++;
-          console.log(`[Content Pipeline] Successfully generated and inserted: ${aiContent.headline} (ID: ${insertedId})`);
+          console.log(`[Content Pipeline] Successfully generated: ${aiContent.headline}`);
         } else {
           console.error(`[Content Pipeline] Insert returned no ID for: ${topic}`);
           errors.push(`${topic}: Insert completed but no ID returned`);
@@ -330,11 +282,7 @@ async function runContentPipeline(): Promise<{
         
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        const errorStack = error instanceof Error ? error.stack : undefined;
-        console.error(`[Content Pipeline] Error processing topic "${topic}":`, {
-          message: errorMsg,
-          stack: errorStack,
-        });
+        console.error(`[Content Pipeline] Error processing topic "${topic}":`, errorMsg);
         errors.push(`${topic}: ${errorMsg}`);
       }
     }
@@ -349,11 +297,7 @@ async function runContentPipeline(): Promise<{
     };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    console.error("[Content Pipeline] Fatal error:", {
-      message: errorMsg,
-      stack: errorStack,
-    });
+    console.error("[Content Pipeline] Fatal error:", errorMsg);
     return {
       success: false,
       generated,

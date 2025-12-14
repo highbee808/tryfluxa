@@ -98,11 +98,8 @@ const inputSchema = z.object({
  * Stage 1: Validate input payload
  */
 function validateInput(payload: unknown, requestId: string): PipelineResult<z.infer<typeof inputSchema>> {
-  console.log(`[${requestId}] [stage:validateInput] START`)
-  
   try {
     const validated = inputSchema.parse(payload)
-    console.log(`[${requestId}] [stage:validateInput] OK`, { topic: validated.topic })
     return { success: true, stage: 'validateInput', data: validated }
   } catch (error) {
     const errorMsg = error instanceof z.ZodError 
@@ -125,8 +122,6 @@ async function gatherSources(
   payload: z.infer<typeof inputSchema>,
   requestId: string
 ): Promise<PipelineResult<SourceItem[]>> {
-  console.log(`[${requestId}] [stage:gatherSources] START`, { topic: payload.topic })
-  
   const sources: SourceItem[] = []
   const failures: Array<{ source: string; error: string }> = []
   
@@ -137,7 +132,6 @@ async function gatherSources(
       url: payload.sourceUrl,
       sourceName: 'Provided',
     })
-    console.log(`[${requestId}] [stage:gatherSources] Added provided source`, { url: payload.sourceUrl })
   }
   
   // Gather from external APIs (parallel)
@@ -163,7 +157,6 @@ async function gatherSources(
               imageUrl: a.urlToImage,
             }))
             sources.push(...items)
-            console.log(`[${requestId}] [stage:gatherSources] NewsAPI OK`, { count: items.length })
           } else {
             failures.push({ source: 'newsapi', error: `HTTP ${res.status}` })
           }
@@ -189,7 +182,6 @@ async function gatherSources(
               sourceName: 'The Guardian',
             }))
             sources.push(...items)
-            console.log(`[${requestId}] [stage:gatherSources] Guardian OK`, { count: items.length })
           } else {
             failures.push({ source: 'guardian', error: `HTTP ${res.status}` })
           }
@@ -216,7 +208,6 @@ async function gatherSources(
               imageUrl: a.image,
             }))
             sources.push(...items)
-            console.log(`[${requestId}] [stage:gatherSources] Mediastack OK`, { count: items.length })
           } else {
             failures.push({ source: 'mediastack', error: `HTTP ${res.status}` })
           }
@@ -244,11 +235,6 @@ async function gatherSources(
     }
   }
   
-  console.log(`[${requestId}] [stage:gatherSources] OK`, { 
-    total: uniqueSources.length,
-    failures: failures.length 
-  })
-  
   return { 
     success: true, 
     stage: 'gatherSources', 
@@ -264,13 +250,10 @@ function selectPrimarySource(
   sources: SourceItem[],
   requestId: string
 ): PipelineResult<SourceItem> {
-  console.log(`[${requestId}] [stage:selectPrimarySource] START`, { sourceCount: sources.length })
-  
   // If sourceUrl provided, use it as primary
   if (payload.sourceUrl) {
     const primary = sources.find(s => s.url === payload.sourceUrl)
     if (primary) {
-      console.log(`[${requestId}] [stage:selectPrimarySource] OK (provided)`, { url: primary.url })
       return { success: true, stage: 'selectPrimarySource', data: primary }
     }
   }
@@ -294,11 +277,6 @@ function selectPrimarySource(
     }
   }
   
-  console.log(`[${requestId}] [stage:selectPrimarySource] OK (selected)`, { 
-    url: bestMatch.url,
-    score: bestScore.toFixed(2)
-  })
-  
   return { success: true, stage: 'selectPrimarySource', data: bestMatch }
 }
 
@@ -311,8 +289,6 @@ async function generateGist(
   primarySource: SourceItem,
   requestId: string
 ): Promise<PipelineResult<GistDraft>> {
-  console.log(`[${requestId}] [stage:generateGist] START`)
-  
   const openaiKey = Deno.env.get('OPENAI_API_KEY')
   if (!openaiKey) {
     return {
@@ -420,11 +396,21 @@ Generate a fact-grounded gist following the rules above.`
       }
     }
     
-    console.log(`[${requestId}] [stage:generateGist] OK`, {
-      headline: gistDraft.headline,
-      citations: gistDraft.source_citations?.length || 0,
-      confidence: gistDraft.confidence
-    })
+    // Post-process: Ensure source_citations exists and includes primary source
+    if (!gistDraft.source_citations) {
+      gistDraft.source_citations = []
+    }
+    
+    // Always ensure primary source is in citations (critical fix)
+    if (primarySource && primarySource.url && !gistDraft.source_citations.includes(primarySource.url)) {
+      gistDraft.source_citations.push(primarySource.url)
+    }
+    
+    // Post-process: Ensure key_points exists
+    if (!gistDraft.key_points || gistDraft.key_points.length === 0) {
+      // Create from summary as fallback
+      gistDraft.key_points = [gistDraft.summary].filter(p => p && p.length > 0)
+    }
     
     return { success: true, stage: 'generateGist', data: gistDraft }
   } catch (error) {
@@ -447,33 +433,30 @@ function validateAlignment(
   sources: SourceItem[],
   requestId: string
 ): PipelineResult<void> {
-  console.log(`[${requestId}] [stage:validateAlignment] START`, {
-    hasCitations: !!gistDraft.source_citations,
-    citationsCount: gistDraft.source_citations?.length || 0,
-    keyPointsCount: gistDraft.key_points?.length || 0,
-  })
-  
   const sourceUrls = new Set(sources.map(s => s.url))
   const issues: string[] = []
   
   // Auto-fix: Ensure source_citations array exists
   if (!gistDraft.source_citations) {
     gistDraft.source_citations = []
-    console.log(`[${requestId}] [stage:validateAlignment] Auto-created empty citations array`)
   }
   
-  // Auto-fix: Add primary source if missing from citations
-  if (primarySource && !gistDraft.source_citations.includes(primarySource.url)) {
-    gistDraft.source_citations.push(primarySource.url)
-    console.log(`[${requestId}] [stage:validateAlignment] Auto-added primary source to citations`, {
-      url: primarySource.url
-    })
+  // Auto-fix: Always ensure primary source is in citations (most important fix)
+  if (primarySource && primarySource.url) {
+    if (!gistDraft.source_citations.includes(primarySource.url)) {
+      gistDraft.source_citations.push(primarySource.url)
+    }
+  } else {
+    console.warn(`[${requestId}] [stage:validateAlignment] No primary source available to add`)
   }
   
-  // Auto-fix: If citations are empty but we have sources, add primary source
-  if (gistDraft.source_citations.length === 0 && primarySource) {
-    gistDraft.source_citations.push(primarySource.url)
-    console.log(`[${requestId}] [stage:validateAlignment] Auto-added primary source (citations were empty)`)
+  // Auto-fix: If citations are still empty, add primary source (redundant check)
+  if (gistDraft.source_citations.length === 0) {
+    if (primarySource && primarySource.url) {
+      gistDraft.source_citations.push(primarySource.url)
+    } else {
+      console.error(`[${requestId}] [stage:validateAlignment] Cannot auto-fix: no primary source available`)
+    }
   }
   
   // Auto-fix: If key_points is missing or empty, create from full_gist
@@ -489,11 +472,9 @@ function validateAlignment(
         ...bulletMatches.map(m => m.replace(/^[•\-\*]\s*/, '').trim()),
         ...numberedMatches.map(m => m.replace(/^\d+[\.\)]\s*/, '').trim())
       ].filter(p => p.length > 10).slice(0, 5) // Max 5 key points, min 10 chars each
-      console.log(`[${requestId}] [stage:validateAlignment] Auto-extracted ${gistDraft.key_points.length} key points from full_gist`)
     } else {
       // Fallback: create a single key point from summary
       gistDraft.key_points = [gistDraft.summary || gistDraft.headline].filter(p => p.length > 0)
-      console.log(`[${requestId}] [stage:validateAlignment] Auto-created key point from summary`)
     }
   }
   
@@ -511,36 +492,44 @@ function validateAlignment(
     // If we removed all citations, add primary source back
     if (gistDraft.source_citations.length === 0 && primarySource) {
       gistDraft.source_citations.push(primarySource.url)
-      console.log(`[${requestId}] [stage:validateAlignment] Re-added primary source after removing invalid citations`)
     }
   }
   
   // Final validation: Ensure we have at least the primary source
-  if (gistDraft.source_citations.length === 0) {
+  const finalCitationsCount = gistDraft.source_citations.length
+  const finalKeyPointsCount = gistDraft.key_points?.length || 0
+  const hasPrimaryInFinal = primarySource ? gistDraft.source_citations.includes(primarySource.url) : false
+  
+  if (finalCitationsCount === 0) {
+    // This should never happen if primarySource exists, but log it
+    console.error(`[${requestId}] [stage:validateAlignment] CRITICAL: No citations after auto-fix`, {
+      hasPrimarySource: !!primarySource,
+      primarySourceUrl: primarySource?.url,
+    })
     issues.push('No valid citations found after auto-fix')
   }
   
   if (issues.length > 0) {
-    console.error(`[${requestId}] [stage:validateAlignment] ERROR`, { issues })
+    console.error(`[${requestId}] [stage:validateAlignment] ERROR`, { 
+      issues,
+      finalCitationsCount,
+      finalKeyPointsCount,
+      hasPrimaryInFinal,
+    })
     return {
       success: false,
       stage: 'validateAlignment',
       error: 'MISALIGNED_CONTENT',
       details: {
         issues,
-        keyPointsCount: gistDraft.key_points?.length || 0,
-        citationsCount: gistDraft.source_citations?.length || 0,
-        primarySourceUrl: primarySource.url,
-        hasPrimaryInCitations: gistDraft.source_citations?.includes(primarySource.url) || false
+        keyPointsCount: finalKeyPointsCount,
+        citationsCount: finalCitationsCount,
+        primarySourceUrl: primarySource?.url || 'missing',
+        hasPrimaryInCitations: hasPrimaryInFinal
       }
     }
   }
   
-  console.log(`[${requestId}] [stage:validateAlignment] OK`, {
-    citationsCount: gistDraft.source_citations.length,
-    keyPointsCount: gistDraft.key_points?.length || 0,
-    hasPrimary: gistDraft.source_citations.includes(primarySource.url)
-  })
   return { success: true, stage: 'validateAlignment' }
 }
 
@@ -554,8 +543,6 @@ async function insertGist(
   primarySource: SourceItem,
   requestId: string
 ): Promise<PipelineResult<any>> {
-  console.log(`[${requestId}] [stage:insertGist] START`)
-  
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   
@@ -589,24 +576,30 @@ async function insertGist(
     }
   }
   
-  const gistData = {
+  // Build gist data using only columns that exist in the schema
+  // Based on types.ts: audio_url, context, headline, script, topic are required
+  // Optional: topic_category, image_url, source_url, narration, status, published_at, created_at, meta, news_published_at
+  // Note: 'summary' column doesn't exist - use 'context' instead
+  // Note: 'raw_trend_id' may not exist in all schemas - only include if provided
+  const gistData: Record<string, any> = {
+    // Required fields
     topic: payload.topic,
-    topic_category: payload.topicCategory || 'Trending',
     headline: gistDraft.headline,
-    summary: gistDraft.summary,
-    context: gistDraft.summary, // For backward compatibility
-    narration: gistDraft.full_gist,
+    context: gistDraft.summary || gistDraft.full_gist.substring(0, 300),
     script: gistDraft.full_gist,
-    image_url: rawTrendImageUrl || primarySource.imageUrl || null,
-    source_url: primarySource.url,
-    news_published_at: primarySource.publishedAt || null,
-    raw_trend_id: payload.rawTrendId || null,
     audio_url: '',
+    // Optional fields
+    topic_category: payload.topicCategory || 'Trending',
+    narration: gistDraft.full_gist,
+    image_url: rawTrendImageUrl || primarySource.imageUrl || null,
+    source_url: primarySource.url || null,
+    news_published_at: primarySource.publishedAt || null,
     status: 'published',
     published_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
     meta: {
-      // v3-specific fields
+      // v3-specific fields stored in meta JSONB
+      summary: gistDraft.summary, // Store summary in meta since column doesn't exist
       primary_source_url: primarySource.url,
       source_urls: sources.map(s => s.url),
       confidence: gistDraft.confidence,
@@ -616,6 +609,12 @@ async function insertGist(
     },
   }
   
+  // Note: raw_trend_id is not in the types.ts Insert type, so we skip it to avoid schema errors
+  // If needed, it can be added via migration, but for now we'll store it in meta instead
+  if (payload.rawTrendId) {
+    gistData.meta.raw_trend_id = payload.rawTrendId
+  }
+  
   const { data: gist, error } = await supabase
     .from('gists')
     .insert(gistData)
@@ -623,16 +622,27 @@ async function insertGist(
     .single()
   
   if (error) {
-    console.error(`[${requestId}] [stage:insertGist] ERROR`, { error: error.message })
+    console.error(`[${requestId}] [stage:insertGist] ERROR`, { 
+      error: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+      dataKeys: Object.keys(gistData),
+    })
     return {
       success: false,
       stage: 'insertGist',
       error: `DB insert failed: ${error.message}`,
-      details: error
+      details: {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        attemptedColumns: Object.keys(gistData),
+      }
     }
   }
   
-  console.log(`[${requestId}] [stage:insertGist] OK`, { gistId: gist.id })
   return { success: true, stage: 'insertGist', data: gist }
 }
 
@@ -648,8 +658,6 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
-  
-  console.log(`[${functionName}] START`, { requestId, method: req.method })
   
   // Auth: Read admin secret from x-admin-secret only (case-insensitive)
   const adminSecret =
@@ -685,8 +693,6 @@ serve(async (req) => {
       401
     );
   }
-  
-  console.log(`[${functionName}] AUTH_OK`, { requestId })
   
   try {
     // Parse body
@@ -752,8 +758,6 @@ serve(async (req) => {
     const gist = insertResult.data!
     
     // Success!
-    console.log(`[${functionName}] SUCCESS`, { requestId, gistId: gist.id })
-    
     return jsonResponse({
       success: true,
       requestId,

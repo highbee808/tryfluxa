@@ -57,8 +57,6 @@ export async function fetchRecentGists(limit = 20): Promise<DbGist[]> {
       script
     `;
     
-    console.log('[fetchRecentGists] Executing query with select:', selectQuery);
-    
     const { data, error } = await supabase
       .from("gists")
       .select(selectQuery)
@@ -75,8 +73,6 @@ export async function fetchRecentGists(limit = 20): Promise<DbGist[]> {
       });
       return [];
     }
-
-    console.log(`[fetchRecentGists] Received ${data?.length || 0} gists`);
 
     // Map gists using only available fields
     // For cron-generated gists: use topic as headline if headline is missing
@@ -104,14 +100,6 @@ export async function fetchRecentGists(limit = 20): Promise<DbGist[]> {
         raw_trend_id: null, // Cron-generated gists don't have raw_trend_id
         raw_trends: null, // No raw_trends for cron-generated gists
       };
-      
-      console.log("[FEED MAP]", {
-        gistId: gist.id,
-        headline: mappedGist.headline,
-        topic: mappedGist.topic,
-        image_url: mappedGist.image_url || 'none (will use fallback)',
-        source_url: mappedGist.source_url || 'none',
-      });
       
       mappedGists.push(mappedGist);
     }

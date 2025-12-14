@@ -6,11 +6,6 @@ export async function invokeAdminFunction(
     // Use Vercel serverless function endpoint
     const endpoint = `/api/admin/${functionName}`;
 
-    console.log(`[invokeAdminFunction] Calling ${endpoint}`, {
-      hasPayload: !!payload,
-      payloadKeys: payload ? Object.keys(payload) : [],
-    });
-
     const res = await fetch(endpoint, {
       method: "POST",
       headers: {
@@ -27,15 +22,6 @@ export async function invokeAdminFunction(
     const isJson = contentType.includes("application/json");
     
     const text = await res.text();
-    
-    console.log(`[invokeAdminFunction] Response from ${endpoint}`, {
-      status: res.status,
-      statusText: res.statusText,
-      contentType,
-      isJson,
-      textLength: text.length,
-      textPreview: text.substring(0, 200),
-    });
 
     // Handle non-JSON responses (404 HTML, etc.)
     if (!isJson) {
