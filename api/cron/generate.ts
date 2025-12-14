@@ -44,14 +44,7 @@ async function generateAISummary(topic: string): Promise<{
   context: string;
   narration: string;
 }> {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:41',message:'generateAISummary called',data:{topic},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
   const openaiKey = process.env.OPENAI_API_KEY;
-  
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:47',message:'OpenAI key check',data:{hasOpenAIKey:!!openaiKey,keyLength:openaiKey?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
   
   if (!openaiKey) {
     throw new Error("OPENAI_API_KEY not configured");
@@ -69,9 +62,6 @@ Return valid JSON with this structure:
   "narration": "string (60-90 words, friendly conversational style)"
 }`;
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:65',message:'Calling OpenAI API',data:{topic},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -89,10 +79,6 @@ Return valid JSON with this structure:
     }),
   });
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:82',message:'OpenAI response received',data:{ok:response.ok,status:response.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
-
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
@@ -100,10 +86,6 @@ Return valid JSON with this structure:
 
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content;
-  
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:90',message:'OpenAI content parsed',data:{hasContent:!!content,contentLength:content?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
   
   if (!content) {
     throw new Error("No content from OpenAI");
@@ -285,51 +267,16 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  const debugInfo: any = {
-    handlerInvoked: true,
-    timestamp: new Date().toISOString(),
-    method: req.method,
-    url: req.url,
-    envVars: {
-      hasSupabaseUrl: !!process.env.SUPABASE_URL,
-      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
-      hasCronSecret: !!process.env.CRON_SECRET,
-    },
-  };
-
-  console.log('[Cron Generate] Handler invoked', debugInfo);
-  
   // Verify cron secret if configured (Vercel adds ?secret=xxx to cron requests)
   const cronSecret = process.env.CRON_SECRET;
   const requestSecret = req.query.secret as string | undefined;
 
-  debugInfo.cronSecretCheck = {
-    hasCronSecret: !!cronSecret,
-    hasRequestSecret: !!requestSecret,
-    matches: cronSecret && requestSecret === cronSecret,
-  };
-  console.log('[Cron Generate] Secret check', debugInfo.cronSecretCheck);
-
   if (cronSecret && requestSecret !== cronSecret) {
-    debugInfo.unauthorized = true;
-    console.log('[Cron Generate] Unauthorized', debugInfo);
-    return res.status(401).json({ error: "Unauthorized", debug: debugInfo });
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
   try {
-    console.log('[Cron Generate] Calling runContentPipeline');
     const result = await runContentPipeline();
-    
-    debugInfo.pipelineResult = {
-      success: result.success,
-      generated: result.generated,
-      insertedCount: result.insertedIds?.length || 0,
-      insertedIds: result.insertedIds || [],
-      errorCount: result.errors.length,
-      errors: result.errors,
-    };
-    console.log('[Cron Generate] Pipeline completed', debugInfo.pipelineResult);
     
     return res.status(200).json({
       success: result.success,
@@ -338,20 +285,12 @@ export default async function handler(
       insertedIds: result.insertedIds || [],
       errors: result.errors,
       timestamp: new Date().toISOString(),
-      debug: debugInfo,
     });
   } catch (error: any) {
-    debugInfo.error = {
-      message: error?.message || String(error),
-      name: error?.name,
-      stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
-    };
-    console.error('[Cron Generate] Error:', debugInfo.error);
+    console.error('[Cron Generate] Error:', error);
     return res.status(500).json({
       error: "Pipeline failed",
       details: error?.message || String(error),
-      stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
-      debug: debugInfo,
     });
   }
 }
