@@ -44,7 +44,14 @@ async function generateAISummary(topic: string): Promise<{
   context: string;
   narration: string;
 }> {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:41',message:'generateAISummary called',data:{topic},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  // #endregion
   const openaiKey = process.env.OPENAI_API_KEY;
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:47',message:'OpenAI key check',data:{hasOpenAIKey:!!openaiKey,keyLength:openaiKey?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  // #endregion
   
   if (!openaiKey) {
     throw new Error("OPENAI_API_KEY not configured");
@@ -62,6 +69,9 @@ Return valid JSON with this structure:
   "narration": "string (60-90 words, friendly conversational style)"
 }`;
 
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:65',message:'Calling OpenAI API',data:{topic},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  // #endregion
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -79,6 +89,10 @@ Return valid JSON with this structure:
     }),
   });
 
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:82',message:'OpenAI response received',data:{ok:response.ok,status:response.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  // #endregion
+
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
@@ -86,6 +100,10 @@ Return valid JSON with this structure:
 
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content;
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:90',message:'OpenAI content parsed',data:{hasContent:!!content,contentLength:content?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  // #endregion
   
   if (!content) {
     throw new Error("No content from OpenAI");
@@ -95,8 +113,15 @@ Return valid JSON with this structure:
 }
 
 async function insertGist(gistData: GistData): Promise<void> {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:97',message:'insertGist called',data:{topic:gistData.topic,headline:gistData.headline},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  // #endregion
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:100',message:'Supabase env vars check',data:{hasSupabaseUrl:!!supabaseUrl,hasServiceKey:!!serviceKey,urlLength:supabaseUrl?.length||0,keyLength:serviceKey?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  // #endregion
 
   if (!supabaseUrl || !serviceKey) {
     throw new Error("Missing Supabase credentials");
@@ -104,6 +129,9 @@ async function insertGist(gistData: GistData): Promise<void> {
 
   const { createClient } = await import("@supabase/supabase-js");
   
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:107',message:'Creating Supabase client',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  // #endregion
   const supabase = createClient(supabaseUrl, serviceKey, {
     auth: {
       persistSession: false,
@@ -111,7 +139,14 @@ async function insertGist(gistData: GistData): Promise<void> {
     },
   });
 
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:114',message:'Executing database insert',data:{table:'gists'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  // #endregion
   const { error } = await supabase.from("gists").insert(gistData);
+
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:116',message:'Database insert result',data:{hasError:!!error,errorMessage:error?.message,errorCode:error?.code},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  // #endregion
 
   if (error) {
     throw new Error(`Database insert failed: ${error.message}`);
@@ -123,6 +158,9 @@ async function runContentPipeline(): Promise<{
   generated: number;
   errors: string[];
 }> {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:125',message:'runContentPipeline started',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
   console.log("[Content Pipeline] Starting generation...");
   
   const errors: string[] = [];
@@ -130,15 +168,25 @@ async function runContentPipeline(): Promise<{
 
   try {
     const topics = getTrendingTopics();
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:132',message:'Topics retrieved',data:{topicCount:topics.length,topics:topics.slice(0,3)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     console.log(`[Content Pipeline] Processing ${topics.length} topics`);
 
     const topicsToProcess = topics.slice(0, 3);
 
     for (const topic of topicsToProcess) {
       try {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:139',message:'Processing topic',data:{topic},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         console.log(`[Content Pipeline] Generating content for: ${topic}`);
 
         const aiContent = await generateAISummary(topic);
+
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:142',message:'AI summary received',data:{hasHeadline:!!aiContent.headline,hasNarration:!!aiContent.narration},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
 
         const now = new Date().toISOString();
         const gistData: GistData = {
@@ -163,6 +211,9 @@ async function runContentPipeline(): Promise<{
 
         await insertGist(gistData);
         
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:165',message:'Gist inserted successfully',data:{headline:gistData.headline},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
         generated++;
         console.log(`[Content Pipeline] Successfully generated: ${aiContent.headline}`);
         
@@ -170,11 +221,17 @@ async function runContentPipeline(): Promise<{
         
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:172',message:'Topic processing error',data:{topic,errorMessage:errorMsg},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
         console.error(`[Content Pipeline] Error processing topic "${topic}":`, errorMsg);
         errors.push(`${topic}: ${errorMsg}`);
       }
     }
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:178',message:'Pipeline complete',data:{generated,errorCount:errors.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     console.log(`[Content Pipeline] Complete. Generated: ${generated}, Errors: ${errors.length}`);
     
     return {
@@ -184,6 +241,9 @@ async function runContentPipeline(): Promise<{
     };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:186',message:'Pipeline fatal error',data:{errorMessage:errorMsg},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     console.error("[Content Pipeline] Fatal error:", errorMsg);
     return {
       success: false,
@@ -197,16 +257,33 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:196',message:'Handler invoked',data:{method:req.method,url:req.url,hasQuery:!!req.query},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
   // Verify cron secret if configured (Vercel adds ?secret=xxx to cron requests)
   const cronSecret = process.env.CRON_SECRET;
   const requestSecret = req.query.secret as string | undefined;
 
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:202',message:'Cron secret check',data:{hasCronSecret:!!cronSecret,hasRequestSecret:!!requestSecret,matches:cronSecret&&requestSecret===cronSecret},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+
   if (cronSecret && requestSecret !== cronSecret) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:205',message:'Unauthorized - returning early',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     return res.status(401).json({ error: "Unauthorized" });
   }
 
   try {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:209',message:'Calling runContentPipeline',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     const result = await runContentPipeline();
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:211',message:'Pipeline completed',data:{success:result.success,generated:result.generated,errorCount:result.errors.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     
     return res.status(200).json({
       success: result.success,
@@ -215,6 +292,9 @@ export default async function handler(
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:218',message:'Pipeline exception caught',data:{errorMessage:error?.message,errorName:error?.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     console.error('[Cron Generate] Error:', error);
     return res.status(500).json({
       error: "Pipeline failed",
