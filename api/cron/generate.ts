@@ -112,7 +112,7 @@ Return valid JSON with this structure:
   return JSON.parse(content);
 }
 
-async function insertGist(gistData: GistData): Promise<void> {
+async function insertGist(gistData: GistData): Promise<string | null> {
   console.log('[insertGist] Called', { topic: gistData.topic, headline: gistData.headline });
   
   const supabaseUrl = process.env.SUPABASE_URL;
@@ -131,7 +131,7 @@ async function insertGist(gistData: GistData): Promise<void> {
 
   const { createClient } = await import("@supabase/supabase-js");
   
-  console.log('[insertGist] Creating Supabase client');
+  console.log('[insertGist] Creating Supabase client', { url: supabaseUrl?.substring(0, 30) + '...' });
   const supabase = createClient(supabaseUrl, serviceKey, {
     auth: {
       persistSession: false,
@@ -139,58 +139,73 @@ async function insertGist(gistData: GistData): Promise<void> {
     },
   });
 
-  console.log('[insertGist] Executing database insert', { table: 'gists' });
+  console.log('[insertGist] Executing database insert', { 
+    table: 'gists',
+    dataKeys: Object.keys(gistData),
+    audioUrl: gistData.audio_url,
+  });
+  
   const { error, data } = await supabase.from("gists").insert(gistData).select();
 
   console.log('[insertGist] Database insert result', {
     hasError: !!error,
     errorMessage: error?.message,
     errorCode: error?.code,
+    errorDetails: error?.details,
+    errorHint: error?.hint,
     hasData: !!data,
     dataCount: data?.length || 0,
+    insertedId: data?.[0]?.id,
   });
 
   if (error) {
-    throw new Error(`Database insert failed: ${error.message}`);
+    console.error('[insertGist] Insert failed with error:', {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
+    throw new Error(`Database insert failed: ${error.message} (code: ${error.code})`);
   }
   
-  console.log('[insertGist] Successfully inserted gist', { id: data?.[0]?.id });
+  const insertedId = data?.[0]?.id || null;
+  if (insertedId) {
+    console.log('[insertGist] Successfully inserted gist', { id: insertedId });
+  } else {
+    console.error('[insertGist] Insert succeeded but no ID returned', { data });
+  }
+  
+  return insertedId;
 }
 
 async function runContentPipeline(): Promise<{
   success: boolean;
   generated: number;
   errors: string[];
+  insertedIds?: string[];
 }> {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:125',message:'runContentPipeline started',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-  // #endregion
   console.log("[Content Pipeline] Starting generation...");
   
   const errors: string[] = [];
+  const insertedIds: string[] = [];
   let generated = 0;
 
   try {
     const topics = getTrendingTopics();
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:132',message:'Topics retrieved',data:{topicCount:topics.length,topics:topics.slice(0,3)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     console.log(`[Content Pipeline] Processing ${topics.length} topics`);
 
     const topicsToProcess = topics.slice(0, 3);
 
     for (const topic of topicsToProcess) {
       try {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:139',message:'Processing topic',data:{topic},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         console.log(`[Content Pipeline] Generating content for: ${topic}`);
 
         const aiContent = await generateAISummary(topic);
-
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:142',message:'AI summary received',data:{hasHeadline:!!aiContent.headline,hasNarration:!!aiContent.narration},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
+        console.log(`[Content Pipeline] AI content received`, { 
+          hasHeadline: !!aiContent.headline,
+          hasNarration: !!aiContent.narration,
+          headline: aiContent.headline?.substring(0, 50) + '...'
+        });
 
         const now = new Date().toISOString();
         const gistData: GistData = {
@@ -213,46 +228,55 @@ async function runContentPipeline(): Promise<{
           },
         };
 
-        await insertGist(gistData);
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:165',message:'Gist inserted successfully',data:{headline:gistData.headline},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
-        generated++;
-        console.log(`[Content Pipeline] Successfully generated: ${aiContent.headline}`);
+        console.log(`[Content Pipeline] Attempting to insert gist`, {
+          topic: gistData.topic,
+          headline: gistData.headline?.substring(0, 50),
+          hasAudioUrl: !!gistData.audio_url,
+        });
+
+        const insertedId = await insertGist(gistData);
+        if (insertedId) {
+          insertedIds.push(insertedId);
+          generated++;
+          console.log(`[Content Pipeline] Successfully generated and inserted: ${aiContent.headline} (ID: ${insertedId})`);
+        } else {
+          console.error(`[Content Pipeline] Insert returned no ID for: ${topic}`);
+          errors.push(`${topic}: Insert completed but no ID returned`);
+        }
         
         await new Promise((resolve) => setTimeout(resolve, 1000));
         
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:172',message:'Topic processing error',data:{topic,errorMessage:errorMsg},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
-        console.error(`[Content Pipeline] Error processing topic "${topic}":`, errorMsg);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        console.error(`[Content Pipeline] Error processing topic "${topic}":`, {
+          message: errorMsg,
+          stack: errorStack,
+        });
         errors.push(`${topic}: ${errorMsg}`);
       }
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:178',message:'Pipeline complete',data:{generated,errorCount:errors.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
-    console.log(`[Content Pipeline] Complete. Generated: ${generated}, Errors: ${errors.length}`);
+    console.log(`[Content Pipeline] Complete. Generated: ${generated}, Inserted: ${insertedIds.length}, Errors: ${errors.length}`);
     
     return {
-      success: errors.length === 0,
+      success: errors.length === 0 && insertedIds.length === generated,
       generated,
       errors,
+      insertedIds,
     };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:186',message:'Pipeline fatal error',data:{errorMessage:errorMsg},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
-    console.error("[Content Pipeline] Fatal error:", errorMsg);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error("[Content Pipeline] Fatal error:", {
+      message: errorMsg,
+      stack: errorStack,
+    });
     return {
       success: false,
       generated,
       errors: [errorMsg],
+      insertedIds,
     };
   }
 }
@@ -300,6 +324,8 @@ export default async function handler(
     debugInfo.pipelineResult = {
       success: result.success,
       generated: result.generated,
+      insertedCount: result.insertedIds?.length || 0,
+      insertedIds: result.insertedIds || [],
       errorCount: result.errors.length,
       errors: result.errors,
     };
@@ -308,6 +334,8 @@ export default async function handler(
     return res.status(200).json({
       success: result.success,
       generated: result.generated,
+      inserted: result.insertedIds?.length || 0,
+      insertedIds: result.insertedIds || [],
       errors: result.errors,
       timestamp: new Date().toISOString(),
       debug: debugInfo,
