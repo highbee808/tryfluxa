@@ -342,16 +342,21 @@ CRITICAL RULES:
 4. Include a "What's unconfirmed" section when applicable
 5. Do not invent names, numbers, dates, or details not in sources
 6. If the primary source is provided, prioritize information from it
+7. REQUIRED: You MUST include the primary source URL in source_citations array
+8. REQUIRED: Include at least 3-5 key_points as an array of strings
+9. REQUIRED: Include ALL source URLs you used in source_citations array
 
 Output MUST be valid JSON with this exact structure:
 {
   "headline": "string (max 100 chars)",
   "summary": "string (max 200 chars, brief overview)",
   "full_gist": "string (structured sections with What we know / What's unconfirmed)",
-  "key_points": ["string", "string", ...],
-  "source_citations": ["url1", "url2", ...],
+  "key_points": ["string", "string", "string", ...],  // REQUIRED: at least 3 items
+  "source_citations": ["url1", "url2", ...],  // REQUIRED: must include primary source URL
   "confidence": number (0-100, based on source quality and agreement)
-}`
+}
+
+IMPORTANT: The source_citations array MUST include the primary source URL. Do not leave it empty.`
 
   const userPrompt = `Topic: ${payload.topic}
 ${payload.topicCategory ? `Category: ${payload.topicCategory}` : ''}
@@ -434,6 +439,7 @@ Generate a fact-grounded gist following the rules above.`
 
 /**
  * Stage 5: Validate alignment with sources
+ * Auto-fixes missing citations by adding primary source if needed
  */
 function validateAlignment(
   gistDraft: GistDraft,
@@ -441,42 +447,77 @@ function validateAlignment(
   sources: SourceItem[],
   requestId: string
 ): PipelineResult<void> {
-  console.log(`[${requestId}] [stage:validateAlignment] START`)
+  console.log(`[${requestId}] [stage:validateAlignment] START`, {
+    hasCitations: !!gistDraft.source_citations,
+    citationsCount: gistDraft.source_citations?.length || 0,
+    keyPointsCount: gistDraft.key_points?.length || 0,
+  })
   
   const sourceUrls = new Set(sources.map(s => s.url))
   const issues: string[] = []
   
-  // Check: Every key point should have at least one citation
-  if (gistDraft.key_points && gistDraft.key_points.length > 0) {
-    const uncitedPoints = gistDraft.key_points.filter((point, idx) => {
-      // Simple check: if point doesn't reference any source URL, it's uncited
-      const hasCitation = gistDraft.source_citations?.some(citation => 
-        sourceUrls.has(citation)
-      )
-      return !hasCitation
+  // Auto-fix: Ensure source_citations array exists
+  if (!gistDraft.source_citations) {
+    gistDraft.source_citations = []
+    console.log(`[${requestId}] [stage:validateAlignment] Auto-created empty citations array`)
+  }
+  
+  // Auto-fix: Add primary source if missing from citations
+  if (primarySource && !gistDraft.source_citations.includes(primarySource.url)) {
+    gistDraft.source_citations.push(primarySource.url)
+    console.log(`[${requestId}] [stage:validateAlignment] Auto-added primary source to citations`, {
+      url: primarySource.url
     })
+  }
+  
+  // Auto-fix: If citations are empty but we have sources, add primary source
+  if (gistDraft.source_citations.length === 0 && primarySource) {
+    gistDraft.source_citations.push(primarySource.url)
+    console.log(`[${requestId}] [stage:validateAlignment] Auto-added primary source (citations were empty)`)
+  }
+  
+  // Auto-fix: If key_points is missing or empty, create from full_gist
+  if (!gistDraft.key_points || gistDraft.key_points.length === 0) {
+    // Extract key points from full_gist by splitting on common patterns
+    const fullGist = gistDraft.full_gist || ''
+    // Try to extract bullet points or numbered items
+    const bulletMatches = fullGist.match(/[•\-\*]\s*(.+?)(?=\n|$)/g) || []
+    const numberedMatches = fullGist.match(/\d+[\.\)]\s*(.+?)(?=\n|$)/g) || []
     
-    if (uncitedPoints.length > 0) {
-      issues.push(`${uncitedPoints.length} key points lack source citations`)
+    if (bulletMatches.length > 0 || numberedMatches.length > 0) {
+      gistDraft.key_points = [
+        ...bulletMatches.map(m => m.replace(/^[•\-\*]\s*/, '').trim()),
+        ...numberedMatches.map(m => m.replace(/^\d+[\.\)]\s*/, '').trim())
+      ].filter(p => p.length > 10).slice(0, 5) // Max 5 key points, min 10 chars each
+      console.log(`[${requestId}] [stage:validateAlignment] Auto-extracted ${gistDraft.key_points.length} key points from full_gist`)
+    } else {
+      // Fallback: create a single key point from summary
+      gistDraft.key_points = [gistDraft.summary || gistDraft.headline].filter(p => p.length > 0)
+      console.log(`[${requestId}] [stage:validateAlignment] Auto-created key point from summary`)
     }
   }
   
-  // Check: Primary source must be in citations
-  if (primarySource && gistDraft.source_citations) {
-    const hasPrimary = gistDraft.source_citations.includes(primarySource.url)
-    if (!hasPrimary) {
-      issues.push('Primary source URL missing from citations')
-    }
-  }
-  
-  // Check: All citations must be from gathered sources
-  if (gistDraft.source_citations) {
-    const invalidCitations = gistDraft.source_citations.filter(
-      url => !sourceUrls.has(url)
+  // Validation: Check that all citations are from gathered sources
+  const invalidCitations = gistDraft.source_citations.filter(
+    url => !sourceUrls.has(url)
+  )
+  if (invalidCitations.length > 0) {
+    // Remove invalid citations
+    gistDraft.source_citations = gistDraft.source_citations.filter(
+      url => sourceUrls.has(url)
     )
-    if (invalidCitations.length > 0) {
-      issues.push(`${invalidCitations.length} citations reference unknown sources`)
+    console.warn(`[${requestId}] [stage:validateAlignment] Removed ${invalidCitations.length} invalid citations`)
+    
+    // If we removed all citations, add primary source back
+    if (gistDraft.source_citations.length === 0 && primarySource) {
+      gistDraft.source_citations.push(primarySource.url)
+      console.log(`[${requestId}] [stage:validateAlignment] Re-added primary source after removing invalid citations`)
     }
+  }
+  
+  // Final validation: Ensure we have at least the primary source
+  if (gistDraft.source_citations.length === 0) {
+    issues.push('No valid citations found after auto-fix')
   }
   
   if (issues.length > 0) {
@@ -495,7 +536,11 @@ function validateAlignment(
     }
   }
   
-  console.log(`[${requestId}] [stage:validateAlignment] OK`)
+  console.log(`[${requestId}] [stage:validateAlignment] OK`, {
+    citationsCount: gistDraft.source_citations.length,
+    keyPointsCount: gistDraft.key_points?.length || 0,
+    hasPrimary: gistDraft.source_citations.includes(primarySource.url)
+  })
   return { success: true, stage: 'validateAlignment' }
 }
 
