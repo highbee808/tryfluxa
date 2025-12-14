@@ -25,9 +25,9 @@ export default async function handler(
   }
 
   try {
-    // Import the runContentPipeline function using dynamic import
-    // Use relative path from api/cron/generate.ts to src/jobs/generateContent.ts
-    const { runContentPipeline } = await import('../../src/jobs/generateContent');
+    // Import the runContentPipeline function from lib folder
+    // Using relative path from api/cron/generate.ts to lib/generateContent.ts
+    const { runContentPipeline } = await import('../../lib/generateContent');
     
     const result = await runContentPipeline();
     
