@@ -190,12 +190,13 @@ const Feed = () => {
    * - All fields come from the same item (no mixing)
    * 
    * mapDbGistToGist: Maps database gists to Gist format
-   * - Uses gist.image_url (which should match raw_trends.image_url)
-   * - Uses gist.source_url (which should match raw_trends.url)
-   * - Uses gist.headline (generated from raw_trends.title)
-   * - All fields come from the same gist row (no mixing)
+   * - Uses gist.headline (or topic as fallback for cron-generated gists)
+   * - Uses gist.image_url (fallback image shown if null)
+   * - Uses gist.source_url if available
+   * - Uses gist.topic and gist.topic_category for categorization
+   * - All fields come from the same gist row
    * 
-   * Feed query joins gists with raw_trends to verify consistency.
+   * Note: Cron-generated gists don't have raw_trend_id, so no join is needed.
    */
 
   const mapContentItemToGist = (item: FetchContentItem): Gist => ({
