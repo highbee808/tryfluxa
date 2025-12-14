@@ -113,15 +113,17 @@ Return valid JSON with this structure:
 }
 
 async function insertGist(gistData: GistData): Promise<void> {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:97',message:'insertGist called',data:{topic:gistData.topic,headline:gistData.headline},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-  // #endregion
+  console.log('[insertGist] Called', { topic: gistData.topic, headline: gistData.headline });
+  
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:100',message:'Supabase env vars check',data:{hasSupabaseUrl:!!supabaseUrl,hasServiceKey:!!serviceKey,urlLength:supabaseUrl?.length||0,keyLength:serviceKey?.length||0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
+  console.log('[insertGist] Env vars check', {
+    hasSupabaseUrl: !!supabaseUrl,
+    hasServiceKey: !!serviceKey,
+    urlLength: supabaseUrl?.length || 0,
+    keyLength: serviceKey?.length || 0,
+  });
 
   if (!supabaseUrl || !serviceKey) {
     throw new Error("Missing Supabase credentials");
@@ -129,9 +131,7 @@ async function insertGist(gistData: GistData): Promise<void> {
 
   const { createClient } = await import("@supabase/supabase-js");
   
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:107',message:'Creating Supabase client',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-  // #endregion
+  console.log('[insertGist] Creating Supabase client');
   const supabase = createClient(supabaseUrl, serviceKey, {
     auth: {
       persistSession: false,
@@ -139,18 +139,22 @@ async function insertGist(gistData: GistData): Promise<void> {
     },
   });
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:114',message:'Executing database insert',data:{table:'gists'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-  // #endregion
-  const { error } = await supabase.from("gists").insert(gistData);
+  console.log('[insertGist] Executing database insert', { table: 'gists' });
+  const { error, data } = await supabase.from("gists").insert(gistData).select();
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:116',message:'Database insert result',data:{hasError:!!error,errorMessage:error?.message,errorCode:error?.code},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-  // #endregion
+  console.log('[insertGist] Database insert result', {
+    hasError: !!error,
+    errorMessage: error?.message,
+    errorCode: error?.code,
+    hasData: !!data,
+    dataCount: data?.length || 0,
+  });
 
   if (error) {
     throw new Error(`Database insert failed: ${error.message}`);
   }
+  
+  console.log('[insertGist] Successfully inserted gist', { id: data?.[0]?.id });
 }
 
 async function runContentPipeline(): Promise<{
@@ -257,49 +261,69 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:196',message:'Handler invoked',data:{method:req.method,url:req.url,hasQuery:!!req.query},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
+  const debugInfo: any = {
+    handlerInvoked: true,
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    url: req.url,
+    envVars: {
+      hasSupabaseUrl: !!process.env.SUPABASE_URL,
+      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+      hasCronSecret: !!process.env.CRON_SECRET,
+    },
+  };
+
+  console.log('[Cron Generate] Handler invoked', debugInfo);
+  
   // Verify cron secret if configured (Vercel adds ?secret=xxx to cron requests)
   const cronSecret = process.env.CRON_SECRET;
   const requestSecret = req.query.secret as string | undefined;
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:202',message:'Cron secret check',data:{hasCronSecret:!!cronSecret,hasRequestSecret:!!requestSecret,matches:cronSecret&&requestSecret===cronSecret},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
+  debugInfo.cronSecretCheck = {
+    hasCronSecret: !!cronSecret,
+    hasRequestSecret: !!requestSecret,
+    matches: cronSecret && requestSecret === cronSecret,
+  };
+  console.log('[Cron Generate] Secret check', debugInfo.cronSecretCheck);
 
   if (cronSecret && requestSecret !== cronSecret) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:205',message:'Unauthorized - returning early',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-    return res.status(401).json({ error: "Unauthorized" });
+    debugInfo.unauthorized = true;
+    console.log('[Cron Generate] Unauthorized', debugInfo);
+    return res.status(401).json({ error: "Unauthorized", debug: debugInfo });
   }
 
   try {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:209',message:'Calling runContentPipeline',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
+    console.log('[Cron Generate] Calling runContentPipeline');
     const result = await runContentPipeline();
     
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:211',message:'Pipeline completed',data:{success:result.success,generated:result.generated,errorCount:result.errors.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
+    debugInfo.pipelineResult = {
+      success: result.success,
+      generated: result.generated,
+      errorCount: result.errors.length,
+      errors: result.errors,
+    };
+    console.log('[Cron Generate] Pipeline completed', debugInfo.pipelineResult);
     
     return res.status(200).json({
       success: result.success,
       generated: result.generated,
       errors: result.errors,
       timestamp: new Date().toISOString(),
+      debug: debugInfo,
     });
   } catch (error: any) {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'generate.ts:218',message:'Pipeline exception caught',data:{errorMessage:error?.message,errorName:error?.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
-    console.error('[Cron Generate] Error:', error);
+    debugInfo.error = {
+      message: error?.message || String(error),
+      name: error?.name,
+      stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
+    };
+    console.error('[Cron Generate] Error:', debugInfo.error);
     return res.status(500).json({
       error: "Pipeline failed",
       details: error?.message || String(error),
       stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
+      debug: debugInfo,
     });
   }
 }
