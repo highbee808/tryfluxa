@@ -223,18 +223,29 @@ const Feed = () => {
   });
 
   const mapDbGistToGist = (gist: DbGist): Gist => {
-    // Extract image URLs from meta
+    // Extract image URLs from meta (for old format compatibility)
     const meta = gist.meta as any;
     const sourceImageUrl = meta?.source_image_url || null;
     const aiImageUrl = meta?.ai_generated_image || null;
     
-    // Priority: source image > AI image > fallback to image_url
-    // If image_url exists but we have source_image_url in meta, prefer source
-    const primaryImageUrl = sourceImageUrl || aiImageUrl || gist.image_url || null;
+    // Image priority logic:
+    // 1. If meta has separate source_image_url or ai_generated_image (old format), use those
+    // 2. Otherwise, use image_url directly (new API-first format stores it here)
+    // 3. Validate that image_url is not null, empty string, or "null"
+    const isValidImageUrl = (url: string | null | undefined): boolean => {
+      return !!url && url !== 'null' && url.trim() !== '' && url.trim() !== 'null';
+    };
     
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:225',message:'mapDbGistToGist image priority',data:{gistId:gist.id,headline:gist.headline?.substring(0,50),hasSourceImage:!!sourceImageUrl,hasAiImage:!!aiImageUrl,hasImageUrl:!!gist.image_url,primaryImageUrl:primaryImageUrl?.substring(0,50)||null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
+    let primaryImageUrl: string | null = null;
+    
+    if (sourceImageUrl && isValidImageUrl(sourceImageUrl)) {
+      primaryImageUrl = sourceImageUrl;
+    } else if (aiImageUrl && isValidImageUrl(aiImageUrl)) {
+      primaryImageUrl = aiImageUrl;
+    } else if (gist.image_url && isValidImageUrl(gist.image_url)) {
+      // New format: image_url contains the source or AI image directly
+      primaryImageUrl = gist.image_url;
+    }
     
     return {
       id: gist.id,
@@ -244,8 +255,8 @@ const Feed = () => {
       context: gist.context || '',
       audio_url: gist.audio_url || null,
       image_url: primaryImageUrl,
-      source_image_url: sourceImageUrl,
-      ai_image_url: aiImageUrl,
+      source_image_url: sourceImageUrl && isValidImageUrl(sourceImageUrl) ? sourceImageUrl : null,
+      ai_image_url: aiImageUrl && isValidImageUrl(aiImageUrl) ? aiImageUrl : null,
       topic: gist.topic,
       topic_category: gist.topic_category || null,
       published_at: gist.published_at || gist.created_at || undefined,
@@ -946,11 +957,11 @@ const Feed = () => {
                     <FeedCardWithSocial
                     key={`gist-${item.id}`}
                     id={item.id}
-                    imageUrl={item.image_url || undefined}
+                    imageUrl={item.image_url && item.image_url !== 'null' && item.image_url.trim() !== '' ? item.image_url : undefined}
                     imageUrls={{
-                      primary: item.image_url,
-                      source: item.source_image_url,
-                      ai: item.ai_image_url,
+                      primary: item.image_url && item.image_url !== 'null' && item.image_url.trim() !== '' ? item.image_url : null,
+                      source: item.source_image_url && item.source_image_url !== 'null' && item.source_image_url.trim() !== '' ? item.source_image_url : null,
+                      ai: item.ai_image_url && item.ai_image_url !== 'null' && item.ai_image_url.trim() !== '' ? item.ai_image_url : null,
                     }}
                       headline={
                         searchQuery

@@ -79,13 +79,19 @@ export const FeedCard = ({
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
+  // Validate image URL - reject null, empty, or "null" string
+  const isValidImageUrl = (url: string | null | undefined): boolean => {
+    return !!url && url !== 'null' && url.trim() !== '' && url.trim() !== 'null';
+  };
+
   // Normalized image logic - prioritize source images first, then AI, then primary
   // This ensures source images are always preferred over AI-generated ones
+  // Only use valid URLs
   const normalizedImageUrl = 
-    imageUrls?.source ||  // Source images first (most relevant)
-    imageUrl ||           // Then primary image
-    imageUrls?.primary || // Then primary from imageUrls
-    imageUrls?.ai ||      // AI-generated images last (fallback)
+    (imageUrls?.source && isValidImageUrl(imageUrls.source) ? imageUrls.source : null) ||
+    (imageUrl && isValidImageUrl(imageUrl) ? imageUrl : null) ||
+    (imageUrls?.primary && isValidImageUrl(imageUrls.primary) ? imageUrls.primary : null) ||
+    (imageUrls?.ai && isValidImageUrl(imageUrls.ai) ? imageUrls.ai : null) ||
     null;
   
   // #region agent log
@@ -132,16 +138,25 @@ export const FeedCard = ({
       return;
     }
 
+    // Validate URLs before using them as fallbacks
+    const validPrimary = imageUrl && isValidImageUrl(imageUrl) ? imageUrl : null;
+    const validPrimaryFromUrls = imageUrls?.primary && isValidImageUrl(imageUrls.primary) ? imageUrls.primary : null;
+    const validAi = imageUrls?.ai && isValidImageUrl(imageUrls.ai) ? imageUrls.ai : null;
+    const validSource = imageUrls?.source && isValidImageUrl(imageUrls.source) ? imageUrls.source : null;
+
     // For non-music items, try fallback images in order: source -> primary -> ai -> placeholder
     // This maintains source image priority even on error
-    if (currentImageUrl === imageUrls?.source) {
+    if (currentImageUrl === validSource) {
       // If source image fails, try primary, then AI, then placeholder
-      setCurrentImageUrl(imageUrl || imageUrls?.primary || imageUrls?.ai || "/fallback/news.jpg");
-    } else if (currentImageUrl === (imageUrl || imageUrls?.primary)) {
+      setCurrentImageUrl(validPrimary || validPrimaryFromUrls || validAi || "/fallback/news.jpg");
+    } else if (currentImageUrl === (validPrimary || validPrimaryFromUrls)) {
       // If primary fails, try AI, then placeholder
-      setCurrentImageUrl(imageUrls?.ai || "/fallback/news.jpg");
-    } else if (currentImageUrl === imageUrls?.ai) {
+      setCurrentImageUrl(validAi || "/fallback/news.jpg");
+    } else if (currentImageUrl === validAi) {
       // If AI fails, use placeholder
+      setCurrentImageUrl("/fallback/news.jpg");
+    } else {
+      // If we don't know which image failed, just use placeholder
       setCurrentImageUrl("/fallback/news.jpg");
     }
   };
@@ -258,13 +273,38 @@ export const FeedCard = ({
         </div>
 
         {/* Image */}
-        {currentImageUrl && (
+        {currentImageUrl && isValidImageUrl(currentImageUrl) ? (
           <img
             src={currentImageUrl}
             alt={headline}
             className="w-full h-48 sm:h-64 object-cover"
-            onError={handleImageError}
+            onError={(e) => {
+              console.warn("[FeedCard] Image failed to load:", {
+                id,
+                headline: headline?.substring(0, 50),
+                imageUrl: currentImageUrl,
+                src: (e.target as HTMLImageElement).src,
+              });
+              handleImageError();
+            }}
+            onLoad={() => {
+              // Log successful image loads for debugging
+              if (import.meta.env.DEV) {
+                console.log("[FeedCard] Image loaded successfully:", {
+                  id,
+                  imageUrl: currentImageUrl?.substring(0, 100),
+                });
+              }
+            }}
           />
+        ) : (
+          // Fallback placeholder when no valid image
+          <div className="w-full h-48 sm:h-64 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-gray-800 dark:to-gray-700 flex items-center justify-center">
+            <div className="text-center p-4">
+              <div className="text-4xl mb-2">📰</div>
+              <p className="text-sm text-muted-foreground">No image available</p>
+            </div>
+          </div>
         )}
 
         {/* Content */}
