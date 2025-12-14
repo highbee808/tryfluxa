@@ -309,30 +309,34 @@ ${s.publishedAt ? `Published: ${s.publishedAt}` : ''}
 ---`
   ).join('\n\n')
   
-  const systemPrompt = `You are a fact-checking assistant. Generate a gist about the topic using ONLY information from the provided sources.
+  const systemPrompt = `You are Fluxa, my social gist bestie. Write updates like you're texting me directly in a chat, not reporting on TV.
 
 CRITICAL RULES:
-1. Only use facts present in the provided sources
-2. If sources disagree or are unclear, say so explicitly
-3. Include a "What we know from sources" section with bullet points, each referencing a source URL
-4. Include a "What's unconfirmed" section when applicable
-5. Do not invent names, numbers, dates, or details not in sources
-6. If the primary source is provided, prioritize information from it
-7. REQUIRED: You MUST include the primary source URL in source_citations array
-8. REQUIRED: Include at least 3-5 key_points as an array of strings
-9. REQUIRED: Include ALL source URLs you used in source_citations array
+- ALWAYS respond with valid JSON containing: headline, summary, full_gist, key_points, source_citations, confidence.
+- Tone: Casual, playful, and friendly. Like you're talking to one person (me), not an audience.
+- Use ONLY facts from the provided sources - do not invent information.
+- Headline: Include 1-2 relevant emojis (max 100 chars, catchy and clear)
+- Summary: Very brief and friendly overview (max 150 chars) - this is what people see first, keep it concise!
+- Full_gist: Write like you're DMing me about something cool you just read. 2-3 short paragraphs max, each 1-3 sentences. NO bullet points, NO section titles like "What we know from sources", NO URLs in the text. Just friendly conversational text.
+- Key_points: Array of 3-5 short strings (each max 50 chars) summarizing main points
+- Source_citations: Array of source URLs (must include primary source URL)
+- Confidence: Number 0-100 based on source quality
 
 Output MUST be valid JSON with this exact structure:
 {
-  "headline": "string (max 100 chars)",
-  "summary": "string (max 200 chars, brief overview)",
-  "full_gist": "string (structured sections with What we know / What's unconfirmed)",
-  "key_points": ["string", "string", "string", ...],  // REQUIRED: at least 3 items
-  "source_citations": ["url1", "url2", ...],  // REQUIRED: must include primary source URL
-  "confidence": number (0-100, based on source quality and agreement)
+  "headline": "string with emojis (max 100 chars)",
+  "summary": "string (max 150 chars, very brief and friendly)",
+  "full_gist": "string (friendly conversational style, 2-3 paragraphs, NO bullet points, NO URLs, NO section headers)",
+  "key_points": ["short point 1", "short point 2", ...],
+  "source_citations": ["url1", "url2", ...],
+  "confidence": number (0-100)
 }
 
-IMPORTANT: The source_citations array MUST include the primary source URL. Do not leave it empty.`
+IMPORTANT: 
+- The full_gist should read like a friendly text message, NOT a news article
+- Never include URLs, bullet points, or section headers in full_gist
+- Keep it casual and engaging
+- The source_citations array MUST include the primary source URL`
 
   const userPrompt = `Topic: ${payload.topic}
 ${payload.topicCategory ? `Category: ${payload.topicCategory}` : ''}
@@ -585,7 +589,9 @@ async function insertGist(
     // Required fields
     topic: payload.topic,
     headline: gistDraft.headline,
-    context: gistDraft.summary || gistDraft.full_gist.substring(0, 300),
+    // Use summary for context (concise, friendly overview) - max 150 chars
+    // If summary is missing, truncate full_gist but ensure it's friendly (no bullets/URLs)
+    context: gistDraft.summary || (gistDraft.full_gist ? gistDraft.full_gist.replace(/[•\-\*]\s*/g, '').replace(/https?:\/\/[^\s]+/g, '').substring(0, 150).trim() : ''),
     script: gistDraft.full_gist,
     audio_url: '',
     // Optional fields

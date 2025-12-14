@@ -1,16 +1,31 @@
 /**
  * Vercel cron endpoint for content generation
  * 
+ * CRITICAL ARCHITECTURE:
+ * - APIs are the ONLY content source
+ * - OpenAI is for SUMMARIZATION ONLY, never content generation
+ * - Posts are rejected if no API content is found
+ * 
  * Configure in vercel.json:
  * {
  *   "crons": [{
  *     "path": "/api/cron/generate",
- *     "schedule": "0 0,6,12,18 * * *"  // Every 6 hours (at 0, 6, 12, 18)
+ *     "schedule": "0 * * * *"  // Every hour
  *   }]
  * }
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+interface Article {
+  title: string;
+  description?: string;
+  content?: string;
+  url: string;
+  image?: string | null;
+  source?: string;
+  published_at?: string | null;
+}
 
 interface GistData {
   topic: string;
@@ -70,19 +85,15 @@ function getTrendingTopics(): string[] {
 }
 
 /**
- * Fetch articles from NewsAPI to get source images
+ * Fetch articles from NewsAPI
  */
-async function fetchArticleWithImage(topic: string): Promise<{ url: string | null; image_url: string | null }> {
-  const newsApiKey = process.env.NEWSAPI_KEY;
-  if (!newsApiKey) {
-    console.log("[Content Pipeline] NEWSAPI_KEY not configured, skipping article fetch");
-    return { url: null, image_url: null };
-  }
+async function fetchNewsApiArticles(topic: string): Promise<Article[]> {
+  const apiKey = process.env.NEWSAPI_KEY;
+  if (!apiKey) return [];
 
   try {
-    // Add cache-busting timestamp to ensure fresh data
     const timestamp = Date.now();
-    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&language=en&sortBy=publishedAt&pageSize=1&apiKey=${newsApiKey}&_t=${timestamp}`;
+    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&language=en&sortBy=publishedAt&pageSize=5&apiKey=${apiKey}&_t=${timestamp}`;
     const response = await fetch(url, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -90,44 +101,260 @@ async function fetchArticleWithImage(topic: string): Promise<{ url: string | nul
         'Expires': '0'
       }
     });
-    
+
     if (!response.ok) {
-      console.log(`[Content Pipeline] NewsAPI error: ${response.status}`);
-      return { url: null, image_url: null };
+      console.log(`[API Fetch] NewsAPI error: ${response.status}`);
+      return [];
     }
 
     const data = await response.json();
-    const article = data.articles?.[0];
-    
-    if (article && article.urlToImage) {
-      return {
-        url: article.url || null,
-        image_url: article.urlToImage || null,
-      };
-    }
+    return (data.articles || []).map((article: any) => ({
+      title: article.title,
+      description: article.description,
+      content: article.content,
+      url: article.url,
+      image: article.urlToImage || null,
+      source: article.source?.name || 'NewsAPI',
+      published_at: article.publishedAt || null,
+    }));
   } catch (error) {
-    console.error("[Content Pipeline] Error fetching article:", error);
+    console.error("[API Fetch] NewsAPI error:", error);
+    return [];
   }
-
-  return { url: null, image_url: null };
 }
 
 /**
- * Generate image using OpenAI DALL-E based on content context
+ * Fetch articles from Guardian API
  */
-async function generateOpenAIImage(headline: string, context: string, topic: string): Promise<string | null> {
+async function fetchGuardianArticles(topic: string): Promise<Article[]> {
+  const apiKey = process.env.GUARDIAN_API_KEY;
+  if (!apiKey) return [];
+
+  try {
+    const url = `https://content.guardianapis.com/search?q=${encodeURIComponent(topic)}&order-by=newest&page-size=5&show-fields=trailText,bodyText,thumbnail&api-key=${apiKey}`;
+    const response = await fetch(url, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+
+    if (!response.ok) {
+      console.log(`[API Fetch] Guardian API error: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    const results = data.response?.results || [];
+    return results.map((article: any) => ({
+      title: article.webTitle,
+      description: article.fields?.trailText,
+      content: article.fields?.bodyText,
+      url: article.webUrl,
+      image: article.fields?.thumbnail || null,
+      source: 'The Guardian',
+      published_at: article.webPublicationDate || null,
+    }));
+  } catch (error) {
+    console.error("[API Fetch] Guardian API error:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch articles from Mediastack API
+ */
+async function fetchMediastackArticles(topic: string): Promise<Article[]> {
+  const apiKey = process.env.MEDIASTACK_KEY;
+  if (!apiKey) return [];
+
+  try {
+    const url = `http://api.mediastack.com/v1/news?access_key=${apiKey}&keywords=${encodeURIComponent(topic)}&languages=en&limit=5&sort=published_desc`;
+    const response = await fetch(url, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+
+    if (!response.ok) {
+      console.log(`[API Fetch] Mediastack API error: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    return (data.data || []).map((article: any) => ({
+      title: article.title,
+      description: article.description,
+      content: article.description,
+      url: article.url,
+      image: article.image || null,
+      source: article.source || 'Mediastack',
+      published_at: article.published_at || null,
+    }));
+  } catch (error) {
+    console.error("[API Fetch] Mediastack API error:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch articles from all APIs (sequential: NewsAPI → Guardian → Mediastack)
+ * MANDATORY: Must return at least one article, otherwise generation fails
+ */
+async function fetchArticlesFromApis(topic: string): Promise<Article[]> {
+  let articles: Article[] = [];
+
+  // Try NewsAPI first
+  console.log(`[API Fetch] Fetching from NewsAPI for: ${topic}`);
+  const newsapi = await fetchNewsApiArticles(topic);
+  if (newsapi.length > 0) {
+    console.log(`[API Fetch] ✅ Found ${newsapi.length} articles from NewsAPI`);
+    articles = [...articles, ...newsapi];
+    return articles;
+  }
+
+  // Try Guardian if NewsAPI returned nothing
+  console.log(`[API Fetch] ⚠️ No articles from NewsAPI, trying Guardian...`);
+  const guardian = await fetchGuardianArticles(topic);
+  if (guardian.length > 0) {
+    console.log(`[API Fetch] ✅ Found ${guardian.length} articles from Guardian`);
+    articles = [...articles, ...guardian];
+    return articles;
+  }
+
+  // Try Mediastack if Guardian returned nothing
+  console.log(`[API Fetch] ⚠️ No articles from Guardian, trying Mediastack...`);
+  const mediastack = await fetchMediastackArticles(topic);
+  if (mediastack.length > 0) {
+    console.log(`[API Fetch] ✅ Found ${mediastack.length} articles from Mediastack`);
+    articles = [...articles, ...mediastack];
+    return articles;
+  }
+
+  console.log(`[API Fetch] ❌ No articles from any external API for: ${topic}`);
+  return [];
+}
+
+/**
+ * Validate article freshness - reject articles older than 7 days
+ */
+function isValidFreshArticle(article: Article): boolean {
+  if (!article.published_at) return false;
+
+  const publishedDate = new Date(article.published_at);
+  const now = new Date();
+  const daysSincePublished = (now.getTime() - publishedDate.getTime()) / (1000 * 60 * 60 * 24);
+
+  if (daysSincePublished > 7) {
+    console.log(`[Validation] ❌ Article too old: ${daysSincePublished.toFixed(1)} days`);
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * Summarize fetched article content using OpenAI
+ * CRITICAL: OpenAI is ONLY for summarization, not content generation
+ */
+async function summarizeArticleWithAI(article: Article, topic: string): Promise<{
+  headline: string;
+  summary: string;
+  context: string;
+  narration: string;
+} | null> {
   const openaiKey = process.env.OPENAI_API_KEY;
   if (!openaiKey) {
-    console.log("[Content Pipeline] OPENAI_API_KEY not configured, cannot generate image");
+    throw new Error("OPENAI_API_KEY not configured");
+  }
+
+  // Build article text for summarization
+  const articleText = [
+    `Title: ${article.title}`,
+    article.description ? `Description: ${article.description}` : '',
+    article.content ? `Content: ${article.content.substring(0, 2000)}` : '',
+  ].filter(Boolean).join('\n\n');
+
+  const systemPrompt = `You are Fluxa, a social gist assistant. Your job is to SUMMARIZE real news articles in a casual, friendly tone.
+
+CRITICAL RULES:
+- You are SUMMARIZING existing content, NOT creating new content
+- Use ONLY information from the provided article
+- Do NOT invent facts, dates, names, or details not in the article
+- Keep the friendly, conversational tone like you're texting a friend
+- Headline MUST include relevant emojis (1-2 emojis max)
+- Summary must be very concise and friendly (max 150 chars)
+- Context should be brief but informative (max 250 chars)
+- Narration should be conversational and friendly (50-70 words)
+
+Return valid JSON with this structure:
+{
+  "headline": "string with emojis (max 100 chars, catchy and clear)",
+  "summary": "string (max 150 chars, very brief and friendly overview)",
+  "context": "string (max 250 chars, key details from article)",
+  "narration": "string (50-70 words, friendly conversational summary)"
+}`;
+
+  const userPrompt = `Summarize this real news article about: ${topic}
+
+ARTICLE TO SUMMARIZE:
+${articleText}
+
+Remember: You are SUMMARIZING this article, not creating new content. Use only facts from the article above.`;
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${openaiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error("No content from OpenAI");
+    }
+
+    return JSON.parse(content);
+  } catch (error) {
+    console.error("[AI Summary] Error summarizing article:", error);
+    return null;
+  }
+}
+
+/**
+ * Generate image using OpenAI DALL-E (LAST RESORT ONLY)
+ * Only called if source article has no image
+ */
+async function generateOpenAIImage(headline: string, context: string): Promise<string | null> {
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (!openaiKey) {
     return null;
   }
 
   try {
-    // Create a descriptive image prompt from the content
     const imagePrompt = `High-quality realistic editorial style image for news article: ${headline}. Context: ${context}. Cinematic lighting, magazine cover aesthetic, professional photography, vibrant colors.`;
-    
-    console.log("[Content Pipeline] Generating image with DALL-E...");
-    
+
     const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
@@ -148,80 +375,15 @@ async function generateOpenAIImage(headline: string, context: string, topic: str
       const imageData = await imageResponse.json();
       const imageUrl = imageData.data?.[0]?.url;
       if (imageUrl) {
-        console.log("[Content Pipeline] Successfully generated image with DALL-E");
+        console.log("[AI Image] Generated fallback image with DALL-E");
         return imageUrl;
       }
-    } else {
-      const error = await imageResponse.text();
-      console.error(`[Content Pipeline] DALL-E image generation failed: ${imageResponse.status}`, error);
     }
   } catch (error) {
-    console.error("[Content Pipeline] Error generating image:", error);
+    console.error("[AI Image] Error generating image:", error);
   }
 
   return null;
-}
-
-async function generateAISummary(topic: string): Promise<{
-  headline: string;
-  summary: string;
-  context: string;
-  narration: string;
-}> {
-  const openaiKey = process.env.OPENAI_API_KEY;
-  
-  if (!openaiKey) {
-    throw new Error("OPENAI_API_KEY not configured");
-  }
-
-  const systemPrompt = `You are Fluxa, a social gist assistant. Write updates in a casual, friendly tone like you're texting a friend.
-
-Generate a concise, engaging gist about: ${topic}
-
-IMPORTANT REQUIREMENTS:
-- Headline MUST include relevant emojis (1-2 emojis max, choose wisely based on the topic)
-- Keep summaries very concise and friendly (max 150 chars)
-- Context should be brief but informative (max 250 chars)
-- Narration should be conversational and friendly (50-70 words)
-
-Return valid JSON with this structure:
-{
-  "headline": "string with emojis (max 100 chars, catchy and clear)",
-  "summary": "string (max 150 chars, very brief and friendly overview)",
-  "context": "string (max 250 chars, key details)",
-  "narration": "string (50-70 words, friendly conversational style)"
-}`;
-
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${openaiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Create a gist about: ${topic}` },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.7,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
-  }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
-  
-  if (!content) {
-    throw new Error("No content from OpenAI");
-  }
-
-  return JSON.parse(content);
 }
 
 async function insertGist(gistData: GistData): Promise<string | null> {
@@ -233,14 +395,14 @@ async function insertGist(gistData: GistData): Promise<string | null> {
   }
 
   const { createClient } = await import("@supabase/supabase-js");
-  
+
   const supabase = createClient(supabaseUrl, serviceKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
     },
   });
-  
+
   const { error, data } = await supabase.from("gists").insert(gistData).select();
 
   if (error) {
@@ -252,12 +414,12 @@ async function insertGist(gistData: GistData): Promise<string | null> {
     });
     throw new Error(`Database insert failed: ${error.message} (code: ${error.code})`);
   }
-  
+
   const insertedId = data?.[0]?.id || null;
   if (!insertedId) {
     console.error('[insertGist] Insert succeeded but no ID returned', { data });
   }
-  
+
   return insertedId;
 }
 
@@ -267,67 +429,111 @@ async function runContentPipeline(): Promise<{
   errors: string[];
   insertedIds?: string[];
 }> {
-  console.log("[Content Pipeline] Starting generation...");
-  
+  console.log("[Content Pipeline] Starting generation with API-first approach...");
+
   const errors: string[] = [];
   const insertedIds: string[] = [];
   let generated = 0;
+  let skipped = 0;
 
   try {
     const topics = getTrendingTopics();
     console.log(`[Content Pipeline] Processing ${topics.length} topics`);
-    
-    // Generate content for 30 topics each cycle
+
     const topicsToProcess = topics.slice(0, 30);
 
     for (const topic of topicsToProcess) {
       try {
-        const aiContent = await generateAISummary(topic);
+        console.log(`\n[Content Pipeline] Processing: ${topic}`);
 
-        // Fetch article to get source image
-        const articleData = await fetchArticleWithImage(topic);
-        
-        // Determine image URL: prioritize source image, then generate with OpenAI
-        let finalImageUrl: string | null = articleData.image_url;
-        
-        if (!finalImageUrl) {
-          finalImageUrl = await generateOpenAIImage(aiContent.headline, aiContent.context, topic);
+        // STEP 1: Fetch from APIs (MANDATORY)
+        const articles = await fetchArticlesFromApis(topic);
+
+        // GUARD: Reject if no API content found
+        if (articles.length === 0) {
+          const errorMsg = `No API content found for topic: ${topic}`;
+          console.log(`[Content Pipeline] ❌ ${errorMsg} - SKIPPING`);
+          errors.push(errorMsg);
+          skipped++;
+          continue;
         }
 
+        // STEP 2: Select and validate the freshest article
+        const validArticles = articles.filter(isValidFreshArticle);
+        if (validArticles.length === 0) {
+          const errorMsg = `No fresh articles (< 7 days) found for topic: ${topic}`;
+          console.log(`[Content Pipeline] ❌ ${errorMsg} - SKIPPING`);
+          errors.push(errorMsg);
+          skipped++;
+          continue;
+        }
+
+        // Use the freshest article
+        const selectedArticle = validArticles[0];
+        console.log(`[Content Pipeline] ✅ Selected article: "${selectedArticle.title}" from ${selectedArticle.source}`);
+
+        // STEP 3: Summarize with OpenAI (ONLY if we have API content)
+        console.log(`[Content Pipeline] Summarizing article with OpenAI...`);
+        const aiSummary = await summarizeArticleWithAI(selectedArticle, topic);
+
+        if (!aiSummary) {
+          const errorMsg = `Failed to summarize article for topic: ${topic}`;
+          console.log(`[Content Pipeline] ❌ ${errorMsg} - SKIPPING`);
+          errors.push(errorMsg);
+          skipped++;
+          continue;
+        }
+
+        // STEP 4: Determine image (source FIRST, AI as fallback)
+        let finalImageUrl: string | null = selectedArticle.image || null;
+
+        if (!finalImageUrl) {
+          console.log(`[Content Pipeline] ⚠️ No source image, using AI image as last resort...`);
+          finalImageUrl = await generateOpenAIImage(aiSummary.headline, aiSummary.context);
+        } else {
+          console.log(`[Content Pipeline] ✅ Using source image from article`);
+        }
+
+        // STEP 5: Prepare gist data with source metadata
         const now = new Date().toISOString();
+        const articlePublishedAt = selectedArticle.published_at || now;
+
         const gistData: GistData = {
           topic,
           topic_category: "Trending",
-          headline: aiContent.headline,
-          context: aiContent.context,
-          narration: aiContent.narration,
-          script: aiContent.narration,
+          headline: aiSummary.headline,
+          context: aiSummary.summary,
+          narration: aiSummary.narration,
+          script: aiSummary.narration,
           image_url: finalImageUrl,
-          source_url: articleData.url,
+          source_url: selectedArticle.url,
           audio_url: "",
           status: "published",
-          published_at: now,
+          published_at: articlePublishedAt,
           created_at: now,
           meta: {
             generated_by: "content_pipeline",
             generated_at: now,
-            summary: aiContent.summary,
-            image_source: articleData.image_url ? "source_article" : "openai_dalle",
+            source_name: selectedArticle.source || 'Unknown',
+            source_title: selectedArticle.title,
+            image_source: selectedArticle.image ? "source_article" : "openai_dalle",
+            summary: aiSummary.summary,
           },
         };
 
+        // STEP 6: Insert into database
         const insertedId = await insertGist(gistData);
         if (insertedId) {
           insertedIds.push(insertedId);
           generated++;
-          console.log(`[Content Pipeline] Successfully generated: ${aiContent.headline}`);
+          console.log(`[Content Pipeline] ✅ Successfully generated: ${aiSummary.headline}`);
         } else {
           console.error(`[Content Pipeline] Insert returned no ID for: ${topic}`);
           errors.push(`${topic}: Insert completed but no ID returned`);
         }
-        
+
         await new Promise((resolve) => setTimeout(resolve, 1000));
-        
+
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         console.error(`[Content Pipeline] Error processing topic "${topic}":`, errorMsg);
@@ -335,10 +541,10 @@ async function runContentPipeline(): Promise<{
       }
     }
 
-    console.log(`[Content Pipeline] Complete. Generated: ${generated}, Inserted: ${insertedIds.length}, Errors: ${errors.length}`);
-    
+    console.log(`\n[Content Pipeline] Complete. Generated: ${generated}, Skipped: ${skipped}, Errors: ${errors.length}`);
+
     return {
-      success: errors.length === 0 && insertedIds.length === generated,
+      success: errors.length === 0 || generated > 0,
       generated,
       errors,
       insertedIds,
@@ -369,7 +575,7 @@ export default async function handler(
 
   try {
     const result = await runContentPipeline();
-    
+
     return res.status(200).json({
       success: result.success,
       generated: result.generated,
