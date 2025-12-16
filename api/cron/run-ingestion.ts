@@ -13,6 +13,8 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 
 // Module-level cached imports
 let runIngestion: any = null;
@@ -24,16 +26,28 @@ async function initializeImports() {
   if (importInitPromise) return importInitPromise;
   
   importInitPromise = (async () => {
+    // Get current file directory for path resolution
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const projectRoot = resolve(__dirname, '../..');
+    
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:26',message:'Initializing imports',data:{cwd:process.cwd(),__dirname:typeof __dirname !== 'undefined' ? __dirname : 'undefined'},timestamp:Date.now(),sessionId:'debug-session',runId:'run6',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:31',message:'Initializing imports',data:{cwd:process.cwd(),__dirname,projectRoot},timestamp:Date.now(),sessionId:'debug-session',runId:'run7',hypothesisId:'A'})}).catch(()=>{});
     // #endregion
     
     // Try multiple import path strategies
+    // Note: includeFiles copies files but doesn't bundle them for import
+    // These paths attempt various resolution strategies including absolute paths
     const importPaths = [
+      // Relative paths from api/cron/
       '../../src/lib/ingestion/runner.js',
       '../src/lib/ingestion/runner.js',
-      './src/lib/ingestion/runner.js',
-      'src/lib/ingestion/runner.js',
+      // Absolute path constructed at runtime
+      `file://${resolve(projectRoot, 'src/lib/ingestion/runner.js')}`,
+      // Try without .js extension
+      '../../src/lib/ingestion/runner',
+      // Try with @ alias (won't work but worth trying)
+      '@/lib/ingestion/runner',
     ];
     
     let runnerModule: any = null;
@@ -64,10 +78,15 @@ async function initializeImports() {
     
     // Try multiple import path strategies for db
     const dbPaths = [
+      // Relative paths from api/cron/
       '../../src/lib/ingestion/db.js',
       '../src/lib/ingestion/db.js',
-      './src/lib/ingestion/db.js',
-      'src/lib/ingestion/db.js',
+      // Absolute path constructed at runtime
+      `file://${resolve(projectRoot, 'src/lib/ingestion/db.js')}`,
+      // Try without .js extension
+      '../../src/lib/ingestion/db',
+      // Try with @ alias (won't work but worth trying)
+      '@/lib/ingestion/db',
     ];
     
     let dbModule: any = null;
