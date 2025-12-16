@@ -1,16 +1,21 @@
 /**
- * DEPRECATED: This Next.js App Router route does NOT work in production on Vercel with Vite.
+ * Vercel serverless function for content ingestion
  * 
- * Use the Vercel serverless function instead: api/cron/run-ingestion.ts
+ * Orchestrates Phase 3 ingestion engine for all enabled content sources.
  * 
- * This file is kept for reference only and will not be executed in production.
- * 
- * @deprecated Use api/cron/run-ingestion.ts instead
+ * Configure in vercel.json (optional - can run on same schedule as /api/cron/generate):
+ * {
+ *   "crons": [{
+ *     "path": "/api/cron/run-ingestion",
+ *     "schedule": "0 * * * *"  // Every hour
+ *   }]
+ * }
  */
 
-import { runIngestion } from "@/lib/ingestion/runner";
-import { getSupabaseClient } from "@/lib/ingestion/db";
-import type { ContentSourceRecord, IngestionResult } from "@/lib/ingestion/types";
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { runIngestion } from '../../src/lib/ingestion/runner';
+import { getSupabaseClient } from '../../src/lib/ingestion/db';
+import type { ContentSourceRecord } from '../../src/lib/ingestion/types';
 
 interface OrchestrationResult {
   success: boolean;
@@ -38,7 +43,7 @@ interface OrchestrationResult {
 /**
  * Validate cron secret from query params
  */
-function validateCronSecret(req: Request): boolean {
+function validateCronSecret(req: VercelRequest): boolean {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     // Allow in dev mode if secret not configured
@@ -49,8 +54,7 @@ function validateCronSecret(req: Request): boolean {
     return true; // Allow in dev
   }
 
-  const url = new URL(req.url);
-  const requestSecret = url.searchParams.get("secret");
+  const requestSecret = req.query.secret as string | undefined;
   
   if (!requestSecret) {
     return false;
@@ -199,55 +203,35 @@ async function orchestrateIngestion(
 }
 
 /**
- * GET handler - main cron entrypoint
+ * Main handler - supports both GET and POST
  */
-export async function GET(req: Request): Promise<Response> {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
   // Validate cron secret
   if (!validateCronSecret(req)) {
-    return new Response(
-      JSON.stringify({
-        error: "Unauthorized",
-        message: "Invalid or missing cron secret",
-      }),
-      {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    return res.status(401).json({
+      error: "Unauthorized",
+      message: "Invalid or missing cron secret",
+    });
   }
 
   // Parse query params
-  const url = new URL(req.url);
-  const force = url.searchParams.get("force") === "true";
-  const sourceFilter = url.searchParams.get("source") || undefined;
+  const force = req.query.force === "true" || req.query.force === true;
+  const sourceFilter = req.query.source as string | undefined;
 
   try {
     const result = await orchestrateIngestion(force, sourceFilter);
 
-    return new Response(JSON.stringify(result), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return res.status(200).json(result);
   } catch (error: any) {
     console.error("[Cron] Orchestration failed:", error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: "Orchestration failed",
-        message: error?.message || String(error),
-        timestamp: new Date().toISOString(),
-      }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    return res.status(500).json({
+      success: false,
+      error: "Orchestration failed",
+      message: error?.message || String(error),
+      timestamp: new Date().toISOString(),
+    });
   }
-}
-
-/**
- * POST handler - manual trigger support
- */
-export async function POST(req: Request): Promise<Response> {
-  return GET(req);
 }
