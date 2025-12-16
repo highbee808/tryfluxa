@@ -22,6 +22,7 @@ interface FeedCardWithSocialProps {
   views?: number;
   plays?: number;
   shares?: number;
+  sourceType?: "gist" | "content_item" | "category_content";
   onPlay: () => void;
   onComment?: () => void;
   onShare?: () => void;
@@ -46,6 +47,7 @@ export const FeedCardWithSocial = (props: FeedCardWithSocialProps) => {
       plays={props.plays || 0}
       shares={props.shares || 0}
       comments={props.comments || 0}
+      sourceType={props.sourceType}
       onLike={toggleLike}
       onBookmark={toggleSave}
       onCardClick={props.onCardClick}

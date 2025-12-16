@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { FeedCardWithSocial } from "@/components/FeedCardWithSocial";
+import { SkeletonFeedCard } from "@/components/SkeletonFeedCard";
 import BottomNavigation from "@/components/BottomNavigation"; // ✅ FIXED
 import { ShareDialog } from "@/components/ShareDialog";
 import { sharePost } from "@/lib/shareUtils";
@@ -74,6 +75,7 @@ interface Gist {
   topic_category: string | null;
   published_at?: string;
   url?: string;
+  sourceType?: "gist" | "content_item" | "category_content";
   analytics?: {
     views: number;
     likes: number;
@@ -93,6 +95,66 @@ const DEFAULT_CATEGORY_QUERIES: Record<ContentCategory, string> = {
 
 const DEFAULT_LIMIT = 20;
 const DEFAULT_TTL_MINUTES = 60;
+const CACHE_TTL_MINUTES = 15;
+const CACHE_FRESH_THRESHOLD_MINUTES = 5;
+
+// Cache utility functions
+const getFeedCacheKey = (category: string, userInterests: string[]): string => {
+  const interestsKey = userInterests.sort().join(",");
+  return `fluxa_feed_cache_${category}_${interestsKey}`;
+};
+
+interface CacheEntry {
+  gists: Gist[];
+  timestamp: number;
+  order: string[]; // Array of IDs to preserve order
+}
+
+const getFeedCache = (category: string, userInterests: string[]): Gist[] | null => {
+  try {
+    const key = getFeedCacheKey(category, userInterests);
+    const cached = localStorage.getItem(key);
+    if (!cached) return null;
+    
+    const entry: CacheEntry = JSON.parse(cached);
+    const ageMinutes = (Date.now() - entry.timestamp) / (1000 * 60);
+    
+    if (ageMinutes > CACHE_TTL_MINUTES) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    
+    // Restore order if cache is fresh
+    if (ageMinutes < CACHE_FRESH_THRESHOLD_MINUTES && entry.order) {
+      const orderMap = new Map(entry.order.map((id, idx) => [id, idx]));
+      return entry.gists.sort((a, b) => {
+        const aIdx = orderMap.get(a.id) ?? Infinity;
+        const bIdx = orderMap.get(b.id) ?? Infinity;
+        return aIdx - bIdx;
+      });
+    }
+    
+    return entry.gists;
+  } catch (error) {
+    console.warn("[Feed] Error reading cache:", error);
+    return null;
+  }
+};
+
+const setFeedCache = (category: string, userInterests: string[], gists: Gist[], ttlMinutes: number = CACHE_TTL_MINUTES): void => {
+  try {
+    const key = getFeedCacheKey(category, userInterests);
+    const order = gists.map(g => g.id);
+    const entry: CacheEntry = {
+      gists,
+      timestamp: Date.now(),
+      order,
+    };
+    localStorage.setItem(key, JSON.stringify(entry));
+  } catch (error) {
+    console.warn("[Feed] Error writing cache:", error);
+  }
+};
 
 const Feed = () => {
   const navigate = useNavigate();
@@ -102,8 +164,18 @@ const Feed = () => {
   const [currentPlayingId, setCurrentPlayingId] = useState<string | null>(null);
   const [gists, setGists] = useState<Gist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLoadingPartial, setIsLoadingPartial] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
+  const [sourceErrors, setSourceErrors] = useState<{ categoryContent?: string; contentItems?: string }>({});
   const currentAudio = useRef<HTMLAudioElement | null>(null);
+  
+  // Cache and fetch tracking
+  const memoryCache = useRef<Map<string, { gists: Gist[]; timestamp: number }>>(new Map());
+  const lastFetchTime = useRef<number>(0);
+  const sourcesCompleted = useRef<{ categoryContent: boolean; contentItems: boolean }>({
+    categoryContent: false,
+    contentItems: false,
+  });
 
   const [chatContext, setChatContext] = useState<
     | {
@@ -213,6 +285,7 @@ const Feed = () => {
     topic_category: item.query,
     published_at: item.published_at || undefined,
     url: item.url,
+    sourceType: "category_content",
     analytics: {
       views: item.views_count ?? 0,
       likes: 0,
@@ -261,6 +334,7 @@ const Feed = () => {
       topic_category: gist.topic_category || null,
       published_at: gist.published_at || gist.created_at || undefined,
       url: gist.source_url || undefined,
+      sourceType: "gist",
       analytics: {
         views: 0,
         likes: 0,
@@ -342,16 +416,129 @@ const Feed = () => {
     []
   );
 
+  // Helper function to merge, sort, and deduplicate gists
+  const mergeAndSortGists = (newGists: Gist[], existingGists: Gist[] = []): Gist[] => {
+    // Validate inputs
+    if (!Array.isArray(newGists)) {
+      console.warn("[Feed] mergeAndSortGists: newGists is not an array");
+      return existingGists;
+    }
+    if (!Array.isArray(existingGists)) {
+      console.warn("[Feed] mergeAndSortGists: existingGists is not an array");
+      return newGists;
+    }
+
+    // Merge existing and new gists
+    const allGists = [...existingGists, ...newGists];
+
+    // Validate IDs before deduplication
+    const validGists = allGists.filter(gist => {
+      if (!gist || !gist.id) {
+        console.warn("[Feed] Invalid gist found (missing id):", gist);
+        return false;
+      }
+      return true;
+    });
+
+    // Deduplicate by ID
+    const seenIds = new Set<string>();
+    const uniqueGists = validGists.filter(gist => {
+      if (seenIds.has(gist.id)) return false;
+      seenIds.add(gist.id);
+      return true;
+    });
+
+    // Sort: primary by published_at (descending, nulls last), secondary by id (ascending)
+    uniqueGists.sort((a, b) => {
+      // Validate dates before sorting
+      let dateA = 0;
+      let dateB = 0;
+      
+      if (a.published_at) {
+        const parsedA = new Date(a.published_at).getTime();
+        dateA = Number.isNaN(parsedA) ? 0 : parsedA;
+      }
+      
+      if (b.published_at) {
+        const parsedB = new Date(b.published_at).getTime();
+        dateB = Number.isNaN(parsedB) ? 0 : parsedB;
+      }
+      
+      // Primary sort: published_at (descending)
+      if (dateA !== dateB) {
+        return dateB - dateA;
+      }
+      
+      // Secondary sort: id (ascending) for stability
+      return a.id.localeCompare(b.id);
+    });
+
+    if (import.meta.env.DEV) {
+      const duplicateCount = allGists.length - uniqueGists.length;
+      if (duplicateCount > 0) {
+        console.log(`[Feed] Deduplicated ${duplicateCount} duplicates`);
+      }
+    }
+
+    return uniqueGists;
+  };
+
+  // Helper to update gists state progressively
+  const updateGistsProgressively = (newGists: Gist[], source: "categoryContent" | "contentItems") => {
+    try {
+      setGists(prev => {
+        const merged = mergeAndSortGists(newGists, prev);
+        return merged;
+      });
+      
+      sourcesCompleted.current[source] = true;
+      
+      if (import.meta.env.DEV) {
+        console.log(`[Feed] ${source} loaded: ${newGists.length} items`);
+      }
+    } catch (error) {
+      console.error(`[Feed] Error updating gists from ${source}:`, error);
+    }
+  };
+
   const loadGists = useCallback(
     async (showToast = false, forceFresh = false) => {
       try {
         if (showToast) setIsRefreshing(true);
         setFeedError(null);
-        if (!showToast) setLoading(true);
+        setSourceErrors({});
+        sourcesCompleted.current = { categoryContent: false, contentItems: false };
 
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:300',message:'loadGists started',data:{showToast,forceFresh,selectedCategory},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
+        // Check if we should skip fetch (not forceFresh, recent fetch, cache exists)
+        const now = Date.now();
+        const timeSinceLastFetch = now - lastFetchTime.current;
+        const shouldSkipFetch = !forceFresh && 
+                                 timeSinceLastFetch < 2 * 60 * 1000 && // 2 minutes
+                                 gists.length > 0;
+        
+        if (shouldSkipFetch) {
+          if (import.meta.env.DEV) {
+            console.log("[Feed] Skipping fetch - recent fetch and cache available");
+          }
+          if (!showToast) setLoading(false);
+          return;
+        }
+
+        // Check cache first
+        const cachedGists = !forceFresh ? getFeedCache(selectedCategory, userInterests) : null;
+        if (cachedGists && cachedGists.length > 0) {
+          if (import.meta.env.DEV) {
+            console.log(`[Feed] Cache hit for category: ${selectedCategory} (${cachedGists.length} items)`);
+          }
+          setGists(cachedGists);
+          setLoading(false);
+          setIsLoadingPartial(true); // Still loading fresh data in background
+        } else {
+          if (import.meta.env.DEV) {
+            console.log(`[Feed] Cache miss for category: ${selectedCategory}`);
+          }
+          if (!showToast) setLoading(true);
+        }
 
         // Determine which categories to fetch based on user interests
         const hasSportsInterest = userInterests.some(i => i.toLowerCase() === "sports");
@@ -366,7 +553,6 @@ const Feed = () => {
         } else {
           // For specific category tabs, always show that category
           const category = resolveCategoryKey(selectedCategory);
-          // But if it's sports/music and user doesn't have that interest, still show it (they clicked the tab)
           categoriesToFetch = [category];
         }
 
@@ -377,174 +563,182 @@ const Feed = () => {
         // Determine content_items category filter based on selectedCategory
         let contentItemsCategory: string | undefined;
         if (selectedCategory !== "All") {
-          // Map feed category to content_item category
-          // For "Sports" -> "Sports", "Music" -> "Entertainment", "News" -> any news category
           const feedCategory = resolveCategoryKey(selectedCategory);
           if (feedCategory === "sports") {
             contentItemsCategory = "Sports";
           } else if (feedCategory === "music") {
             contentItemsCategory = "Entertainment";
           }
-          // For "news", don't filter by category (show all news categories)
         }
 
-        const [categoryResponses, contentItemsData] = await Promise.all([
-          Promise.all(categoriesToFetch.map((category) => fetchCategoryContent(category, forceFresh))),
+        // Fetch both sources, but handle them progressively
+        const fetchPromises = [
+          Promise.all(categoriesToFetch.map((category) => fetchCategoryContent(category, forceFresh)))
+            .then((responses) => {
+              let mergedItems = responses.flat();
+              
+              // Filter out sports content if user doesn't have Sports interest (only for "All" tab)
+              if (selectedCategory === "All" && !hasSportsInterest) {
+                mergedItems = mergedItems.filter(item => item.category !== "sports");
+              }
+
+              const categoryGists = mergedItems.map(mapContentItemToGist);
+              updateGistsProgressively(categoryGists, "categoryContent");
+              
+              if (import.meta.env.DEV) {
+                console.log(`[Feed] Merged ${mergedItems.length} category items`);
+              }
+              
+              return mergedItems;
+            })
+            .catch((error) => {
+              console.error("[Feed] Error fetching category content:", error);
+              const errorMsg = error instanceof Error ? error.message : "Failed to load trending content";
+              setSourceErrors(prev => ({ ...prev, categoryContent: errorMsg }));
+              toast.warning("Some content couldn't load. Showing available items.");
+              sourcesCompleted.current.categoryContent = true;
+              return [];
+            }),
+          
           fetchContentItems({
             limit: 50,
             maxAgeHours: 168,
             category: contentItemsCategory,
             userId: userId,
-          }),
-        ]);
+          })
+            .then((contentItemsData) => {
+              // Map content_items to Gist format
+              const contentItemsGists = contentItemsData.map(item => mapContentItemResponseToGist(item));
 
-        let mergedItems = categoryResponses.flat();
-        
-        // Filter out sports content if user doesn't have Sports interest (only for "All" tab)
-        if (selectedCategory === "All" && !hasSportsInterest) {
-          mergedItems = mergedItems.filter(item => item.category !== "sports");
-        }
+              // Filter content_items by selectedCategory (if not "All")
+              const filteredContentItemsGists = selectedCategory === "All"
+                ? contentItemsGists
+                : contentItemsGists.filter(gist => {
+                    const feedCategory = mapContentCategoryToFeedCategory(gist.topic_category || "");
+                    const selectedFeedCategory = resolveCategoryKey(selectedCategory);
+                    return feedCategory === selectedFeedCategory;
+                  });
 
-        // Map content_items to Gist format
-        const contentItemsGists = contentItemsData.map(item => mapContentItemResponseToGist(item));
+              // Apply sports interest filter for "All" tab
+              const finalContentItemsGists = selectedCategory === "All" && !hasSportsInterest
+                ? filteredContentItemsGists.filter(gist => {
+                    const feedCategory = mapContentCategoryToFeedCategory(gist.topic_category || "");
+                    return feedCategory !== "sports";
+                  })
+                : filteredContentItemsGists;
 
-        // Filter content_items by selectedCategory (if not "All")
-        const filteredContentItemsGists = selectedCategory === "All"
-          ? contentItemsGists
-          : contentItemsGists.filter(gist => {
-              // Map content_item's topic_category to feed category and compare
-              const feedCategory = mapContentCategoryToFeedCategory(gist.topic_category || "");
-              const selectedFeedCategory = resolveCategoryKey(selectedCategory);
-              return feedCategory === selectedFeedCategory;
-            });
-
-        // Apply sports interest filter for "All" tab
-        const finalContentItemsGists = selectedCategory === "All" && !hasSportsInterest
-          ? filteredContentItemsGists.filter(gist => {
-              const feedCategory = mapContentCategoryToFeedCategory(gist.topic_category || "");
-              return feedCategory !== "sports";
+              updateGistsProgressively(finalContentItemsGists, "contentItems");
+              
+              if (import.meta.env.DEV) {
+                console.log(`[Feed] Merged ${finalContentItemsGists.length} content_items`);
+              }
+              
+              return finalContentItemsGists;
             })
-          : filteredContentItemsGists;
-
-        // Merge category content items (mapped to Gist) with content_items (already mapped)
-        let allGists: Gist[] = [
-          ...mergedItems.map(mapContentItemToGist),
-          ...finalContentItemsGists,
+            .catch((error) => {
+              console.error("[Feed] Error fetching content items:", error);
+              const errorMsg = error instanceof Error ? error.message : "Failed to load news content";
+              setSourceErrors(prev => ({ ...prev, contentItems: errorMsg }));
+              toast.warning("Some content couldn't load. Showing available items.");
+              sourcesCompleted.current.contentItems = true;
+              return [];
+            }),
         ];
 
-        // Sort by published_at (descending, nulls last)
-        allGists.sort((a, b) => {
-          const dateA = a.published_at ? new Date(a.published_at).getTime() : 0;
-          const dateB = b.published_at ? new Date(b.published_at).getTime() : 0;
-          return dateB - dateA;
+        // Wait for all sources with timeout
+        const timeoutPromise = new Promise<void>((resolve) => {
+          setTimeout(() => {
+            resolve();
+          }, 5000); // 5 second timeout
         });
 
-        // Deduplicate by ID to prevent showing same item twice
-        const seenIds = new Set<string>();
-        const uniqueGists = allGists.filter(gist => {
-          if (seenIds.has(gist.id)) return false;
-          seenIds.add(gist.id);
-          return true;
-        });
+        await Promise.race([
+          Promise.all(fetchPromises),
+          timeoutPromise,
+        ]);
 
-        // If we have items, use them
-        if (uniqueGists.length > 0) {
-          setGists(uniqueGists);
-          setFeedError(null); // Clear error if we have content
-        } else {
-          // Fallback: fetch recent gists from database when fetch-content returns empty
-          console.log("fetch-content returned no items, falling back to database gists");
-          const dbGists = await fetchRecentGists(50); // Increased limit
-          if (dbGists.length > 0) {
-            // Deduplicate by ID and headline to show unique content
-            const seenHeadlines = new Set<string>();
-            const hasSportsInterest = userInterests.some(i => i.toLowerCase() === "sports");
-            
-            const uniqueGists = dbGists.filter(gist => {
-              const key = `${gist.id}-${gist.headline?.toLowerCase().trim()}`;
-              if (seenHeadlines.has(key)) return false;
-              // Also check if we've seen this headline before (different ID but same content)
-              const headlineKey = gist.headline?.toLowerCase().trim() || '';
-              if (seenHeadlines.has(headlineKey)) return false;
+        // Wait a bit for progressive updates to complete, then check if we need fallback
+        setTimeout(() => {
+          setGists(current => {
+            // Update cache and log stats
+            if (current.length > 0) {
+              setFeedCache(selectedCategory, userInterests, current);
+              lastFetchTime.current = Date.now();
               
-              // Filter sports content if user doesn't have Sports interest (only for "All" tab)
-              if (selectedCategory === "All" && !hasSportsInterest) {
-                const isSports = gist.topic?.toLowerCase().includes('sport') || 
-                                 gist.topic_category?.toLowerCase().includes('sport') ||
-                                 gist.topic?.toLowerCase() === 'sports';
-                if (isSports) return false;
+              if (import.meta.env.DEV) {
+                const categoryCount = current.filter(g => g.sourceType === "category_content").length;
+                const contentItemsCount = current.filter(g => g.sourceType === "content_item").length;
+                const gistCount = current.filter(g => g.sourceType === "gist").length;
+                console.log(`[Feed] Merged ${categoryCount} category items + ${contentItemsCount} content_items + ${gistCount} gists = ${current.length} total`);
               }
-              
-              seenHeadlines.add(key);
-              seenHeadlines.add(headlineKey);
-              return true;
-            });
-            setGists(uniqueGists.map(mapDbGistToGist));
-            setFeedError(null); // Clear error if fallback succeeded
-          } else {
-            setGists([]);
-            // Only set error if both fetch-content and fallback failed
-            setFeedError("No content available. Please try again later.");
-          }
-        }
-    } catch (error) {
-        console.error("Error loading feed content:", error);
-        // Try fallback before showing error
-        try {
-          const dbGists = await fetchRecentGists(50); // Increased limit
-          if (dbGists.length > 0) {
-            // Deduplicate by ID and headline to show unique content
-            const seenHeadlines = new Set<string>();
-            const hasSportsInterest = userInterests.some(i => i.toLowerCase() === "sports");
-            
-            const uniqueGists = dbGists.filter(gist => {
-              const key = `${gist.id}-${gist.headline?.toLowerCase().trim()}`;
-              if (seenHeadlines.has(key)) return false;
-              // Also check if we've seen this headline before (different ID but same content)
-              const headlineKey = gist.headline?.toLowerCase().trim() || '';
-              if (seenHeadlines.has(headlineKey)) return false;
-              
-              // Filter sports content if user doesn't have Sports interest (only for "All" tab)
-              if (selectedCategory === "All" && !hasSportsInterest) {
-                const isSports = gist.topic?.toLowerCase().includes('sport') || 
-                                 gist.topic_category?.toLowerCase().includes('sport') ||
-                                 gist.topic?.toLowerCase() === 'sports';
-                if (isSports) return false;
-              }
-              
-              seenHeadlines.add(key);
-              seenHeadlines.add(headlineKey);
-              return true;
-            });
-            setGists(uniqueGists.map(mapDbGistToGist));
-            setFeedError(null); // Fallback succeeded, no error banner
-            // Debug flag - set to false to hide cache banner from users
-            const SHOW_CACHE_DEBUG = false;
-            if (SHOW_CACHE_DEBUG) {
-              toast.info("Using cached content while live news is updating");
             }
-          } else {
-            setGists([]);
-            setFeedError(
-              error instanceof Error ? error.message : "Failed to load feed content"
-            );
-            toast.error("Failed to load feed");
-          }
-        } catch (fallbackError) {
-          // Both failed
-          setGists([]);
-          setFeedError(
-            error instanceof Error ? error.message : "Failed to load feed content"
-          );
-          toast.error("Failed to load feed");
+            
+            // Fallback: fetch recent gists from database if we still have no content
+            if (current.length === 0 && sourcesCompleted.current.categoryContent && sourcesCompleted.current.contentItems) {
+              fetchRecentGists(50)
+                .then((dbGists) => {
+                  if (dbGists.length > 0) {
+                    const seenHeadlines = new Set<string>();
+                    const uniqueGists = dbGists
+                      .filter(gist => {
+                        if (!gist.id || !gist.headline) return false;
+                        const key = `${gist.id}-${gist.headline?.toLowerCase().trim()}`;
+                        if (seenHeadlines.has(key)) return false;
+                        const headlineKey = gist.headline?.toLowerCase().trim() || '';
+                        if (seenHeadlines.has(headlineKey)) return false;
+                        
+                        if (selectedCategory === "All" && !hasSportsInterest) {
+                          const isSports = gist.topic?.toLowerCase().includes('sport') || 
+                                           gist.topic_category?.toLowerCase().includes('sport') ||
+                                           gist.topic?.toLowerCase() === 'sports';
+                          if (isSports) return false;
+                        }
+                        
+                        seenHeadlines.add(key);
+                        seenHeadlines.add(headlineKey);
+                        return true;
+                      })
+                      .map(mapDbGistToGist);
+                    
+                    setGists(uniqueGists);
+                    setFeedCache(selectedCategory, userInterests, uniqueGists);
+                    setFeedError(null);
+                  } else {
+                    // Only show error if ALL sources failed
+                    if (Object.keys(sourceErrors).length === 2) {
+                      setFeedError("Failed to load feed content. Please try again later.");
+                    } else {
+                      setFeedError("No content available. Please try again later.");
+                    }
+                  }
+                })
+                .catch((error) => {
+                  console.error("[Feed] Fallback fetch failed:", error);
+                  if (Object.keys(sourceErrors).length === 2) {
+                    setFeedError("Failed to load feed content. Please try again later.");
+                  }
+                });
+            } else if (current.length > 0) {
+              // Clear error if we have content
+              setFeedError(null);
+            }
+            
+            return current;
+          });
+        }, 100); // Small delay to allow progressive updates to complete
+
+      } catch (error) {
+        console.error("Error loading feed content:", error);
+        setFeedError(error instanceof Error ? error.message : "Failed to load feed content");
+        toast.error("Failed to load feed");
+      } finally {
+        setLoading(false);
+        setIsLoadingPartial(false);
+        if (showToast) {
+          setIsRefreshing(false);
+          toast.success("Feed refreshed!");
         }
-    } finally {
-      setLoading(false);
-      if (showToast) {
-        setIsRefreshing(false);
-        toast.success("Feed refreshed!");
       }
-    }
     },
     [fetchCategoryContent, selectedCategory, userInterests]
   );
@@ -790,16 +984,8 @@ const Feed = () => {
     await loadGists(true, true);
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
-        <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-muted-foreground animate-pulse">
-          Fluxa is loading gists...
-        </p>
-      </div>
-    );
-  }
+  // Show skeleton loaders if initial loading and no cached content
+  const showSkeletons = loading && gists.length === 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -1004,7 +1190,12 @@ const Feed = () => {
 
             {/* Combined Feed */}
             <div className="space-y-6" style={{ position: 'relative', zIndex: 100 }}>
-              {combinedFeed.length === 0 ? (
+              {showSkeletons ? (
+                // Show skeleton loaders while loading
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <SkeletonFeedCard key={`skeleton-${idx}`} />
+                ))
+              ) : combinedFeed.length === 0 ? (
                 <Card className="p-12 text-center" style={{ position: 'relative', zIndex: 100 }}>
                   <p className="text-muted-foreground mb-4">
                     No content available yet
@@ -1014,7 +1205,8 @@ const Feed = () => {
                   </Button>
                 </Card>
               ) : (
-                combinedFeed.map((item) => (
+                <>
+                  {combinedFeed.map((item) => (
                     <FeedCardWithSocial
                     key={`gist-${item.id}`}
                     id={item.id}
@@ -1042,6 +1234,7 @@ const Feed = () => {
                     views={item.analytics?.views || 0}
                     plays={item.analytics?.plays || 0}
                     shares={item.analytics?.shares || 0}
+                    sourceType={item.sourceType}
                     isPlaying={currentPlayingId === item.id && isPlaying}
                     onPlay={() => handlePlay(item.id, item.audio_url, item.url)}
                     onComment={() => handleCommentClick(item)}
@@ -1049,7 +1242,12 @@ const Feed = () => {
                     onCardClick={() => handleCardClick(item)}
                     onFluxaAnalysis={() => handleFluxaAnalysis(item)}
                   />
-                ))
+                  ))}
+                  {/* Show skeleton loaders for partial loading */}
+                  {isLoadingPartial && Array.from({ length: 2 }).map((_, idx) => (
+                    <SkeletonFeedCard key={`partial-skeleton-${idx}`} />
+                  ))}
+                </>
               )}
             </div>
           </div>

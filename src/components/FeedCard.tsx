@@ -41,6 +41,7 @@ interface FeedCardProps {
   credibilityScore?: number;
   isLiked?: boolean;
   isBookmarked?: boolean;
+  sourceType?: "gist" | "content_item" | "category_content";
   onLike?: () => void;
   onComment?: () => void;
   onBookmark?: () => void;
@@ -69,6 +70,7 @@ export const FeedCard = ({
   credibilityScore = 75,
   isLiked,
   isBookmarked,
+  sourceType,
   onLike,
   onComment,
   onBookmark,
@@ -224,9 +226,40 @@ export const FeedCard = ({
     return "text-red-500";
   };
 
+  const getSourceTypeBadge = () => {
+    if (!sourceType) return null;
+    
+    const badgeConfig = {
+      gist: { label: "Gist", className: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20" },
+      content_item: { label: "News", className: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20" },
+      category_content: { label: "Trending", className: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20" },
+    };
+    
+    const config = badgeConfig[sourceType];
+    if (!config) return null;
+    
+    return (
+      <Badge
+        variant="outline"
+        className={`text-xs ${config.className} border`}
+      >
+        {config.label}
+      </Badge>
+    );
+  };
+
+  // Apply subtle border color based on source type
+  const getBorderColor = () => {
+    if (!sourceType) return "border-border";
+    if (sourceType === "gist") return "border-blue-500/30";
+    if (sourceType === "content_item") return "border-green-500/30";
+    if (sourceType === "category_content") return "border-purple-500/30";
+    return "border-border";
+  };
+
   return (
     <Card 
-      className="w-full overflow-hidden border border-border shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer"
+      className={`w-full overflow-hidden border ${getBorderColor()} shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer`}
       style={{ 
         backgroundColor: 'hsl(var(--card))', 
         opacity: 1,
@@ -264,12 +297,15 @@ export const FeedCard = ({
             </div>
           </div>
 
-          <Badge
-            variant="secondary"
-            className={`text-xs ${getCredibilityColor(credibilityScore)}`}
-          >
-            {credibilityScore}%
-          </Badge>
+          <div className="flex items-center gap-2">
+            {getSourceTypeBadge()}
+            <Badge
+              variant="secondary"
+              className={`text-xs ${getCredibilityColor(credibilityScore)}`}
+            >
+              {credibilityScore}%
+            </Badge>
+          </div>
         </div>
 
         {/* Image */}

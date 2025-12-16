@@ -258,6 +258,7 @@ export function mapContentItemResponseToGist(item: ContentItemResponse): {
   topic_category: string | null;
   published_at: string | undefined;
   url: string | undefined;
+  sourceType: "content_item";
   analytics: {
     views: number;
     likes: number;
@@ -288,6 +289,7 @@ export function mapContentItemResponseToGist(item: ContentItemResponse): {
     topic_category: topicCategory,
     published_at: item.published_at || undefined,
     url: item.url || undefined,
+    sourceType: "content_item",
     analytics: {
       views: 0,
       likes: 0,
