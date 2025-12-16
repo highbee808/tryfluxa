@@ -13,6 +13,12 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { fileURLToPath } from 'url';
+import { dirname, join, resolve } from 'path';
+
+// Get current file directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Lazy import cache
 let runIngestionModule: any = null;
@@ -21,34 +27,42 @@ let dbModule: any = null;
 async function getRunIngestion() {
   if (!runIngestionModule) {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:21',message:'Lazy importing runIngestion',data:{cwd:process.cwd()},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:28',message:'Lazy importing runIngestion',data:{__dirname,cwd:process.cwd()},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'A'})}).catch(()=>{});
     // #endregion
     
-    // Try multiple import strategies
+    // Construct absolute path from current file location
+    // From api/cron/run-ingestion.ts, go up 2 levels to root, then into src/lib/ingestion/runner
+    const runnerPath = resolve(__dirname, '../../src/lib/ingestion/runner.js');
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:33',message:'Constructed runner path',data:{runnerPath,__dirname},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
+    // Try multiple import strategies with both relative and absolute paths
+    // Note: In Vercel, files from src/ need to be included via includeFiles config
     const importPaths = [
+      // Try relative paths first (most likely to work if files are bundled)
       '../../src/lib/ingestion/runner.js',
       '../../src/lib/ingestion/runner',
-      '../src/lib/ingestion/runner.js',
-      '../src/lib/ingestion/runner',
-      'src/lib/ingestion/runner.js',
-      'src/lib/ingestion/runner',
+      // Try file:// URL with absolute path (works if files are on filesystem)
+      new URL('../../src/lib/ingestion/runner.js', import.meta.url).href,
+      new URL('../../src/lib/ingestion/runner.js', import.meta.url).pathname,
     ];
     
     let lastError: any = null;
     for (const importPath of importPaths) {
       try {
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:35',message:'Trying import path',data:{importPath},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'A'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:45',message:'Trying import path',data:{importPath},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'A'})}).catch(()=>{});
         // #endregion
         runIngestionModule = await import(importPath);
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:38',message:'runIngestion import succeeded',data:{importPath,hasRunIngestion:!!runIngestionModule?.runIngestion},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'A'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:48',message:'runIngestion import succeeded',data:{importPath,hasRunIngestion:!!runIngestionModule?.runIngestion},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'A'})}).catch(()=>{});
         // #endregion
         break; // Success, exit loop
       } catch (error: any) {
         lastError = error;
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:42',message:'Import path failed',data:{importPath,error:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'A'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:52',message:'Import path failed',data:{importPath,error:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'A'})}).catch(()=>{});
         // #endregion
         continue; // Try next path
       }
@@ -56,9 +70,9 @@ async function getRunIngestion() {
     
     if (!runIngestionModule) {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:48',message:'All import paths failed',data:{lastError:lastError?.message,stack:lastError?.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'A'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:58',message:'All import paths failed',data:{lastError:lastError?.message,stack:lastError?.stack,runnerPath},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'A'})}).catch(()=>{});
       // #endregion
-      throw new Error(`Failed to import runIngestion after trying ${importPaths.length} paths. Last error: ${lastError?.message}`);
+      throw new Error(`Failed to import runIngestion after trying ${importPaths.length} paths. Last error: ${lastError?.message}. Runner path: ${runnerPath}`);
     }
   }
   return runIngestionModule.runIngestion;
@@ -67,34 +81,40 @@ async function getRunIngestion() {
 async function getGetSupabaseClient() {
   if (!dbModule) {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:58',message:'Lazy importing getSupabaseClient',data:{cwd:process.cwd()},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'C'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:67',message:'Lazy importing getSupabaseClient',data:{__dirname,cwd:process.cwd()},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+    
+    // Construct absolute path from current file location
+    const dbPath = resolve(__dirname, '../../src/lib/ingestion/db.js');
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:71',message:'Constructed db path',data:{dbPath,__dirname},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'C'})}).catch(()=>{});
     // #endregion
     
     // Try multiple import strategies
     const importPaths = [
+      // Try relative paths first
       '../../src/lib/ingestion/db.js',
       '../../src/lib/ingestion/db',
-      '../src/lib/ingestion/db.js',
-      '../src/lib/ingestion/db',
-      'src/lib/ingestion/db.js',
-      'src/lib/ingestion/db',
+      // Try file:// URL with import.meta.url (works if files are on filesystem)
+      new URL('../../src/lib/ingestion/db.js', import.meta.url).href,
+      new URL('../../src/lib/ingestion/db.js', import.meta.url).pathname,
     ];
     
     let lastError: any = null;
     for (const importPath of importPaths) {
       try {
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:72',message:'Trying import path',data:{importPath},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'C'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:83',message:'Trying import path',data:{importPath},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'C'})}).catch(()=>{});
         // #endregion
         dbModule = await import(importPath);
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:75',message:'getSupabaseClient import succeeded',data:{importPath,hasGetSupabaseClient:!!dbModule?.getSupabaseClient},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'C'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:86',message:'getSupabaseClient import succeeded',data:{importPath,hasGetSupabaseClient:!!dbModule?.getSupabaseClient},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'C'})}).catch(()=>{});
         // #endregion
         break; // Success, exit loop
       } catch (error: any) {
         lastError = error;
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:79',message:'Import path failed',data:{importPath,error:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'C'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:90',message:'Import path failed',data:{importPath,error:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'C'})}).catch(()=>{});
         // #endregion
         continue; // Try next path
       }
@@ -102,9 +122,9 @@ async function getGetSupabaseClient() {
     
     if (!dbModule) {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:85',message:'All import paths failed',data:{lastError:lastError?.message,stack:lastError?.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'C'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:96',message:'All import paths failed',data:{lastError:lastError?.message,stack:lastError?.stack,dbPath},timestamp:Date.now(),sessionId:'debug-session',runId:'run3',hypothesisId:'C'})}).catch(()=>{});
       // #endregion
-      throw new Error(`Failed to import getSupabaseClient after trying ${importPaths.length} paths. Last error: ${lastError?.message}`);
+      throw new Error(`Failed to import getSupabaseClient after trying ${importPaths.length} paths. Last error: ${lastError?.message}. DB path: ${dbPath}`);
     }
   }
   return dbModule.getSupabaseClient;
