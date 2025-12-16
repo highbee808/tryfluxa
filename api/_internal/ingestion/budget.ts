@@ -1,4 +1,4 @@
-import { getSupabaseClient } from "./db";
+import { getSupabaseClient } from "./db.js";
 
 /**
  * Enforce daily API usage budget for a source.

@@ -1,4 +1,4 @@
-import type { ContentAdapter, NormalizedItem } from "../types";
+import type { ContentAdapter, NormalizedItem } from "../types.js";
 
 export abstract class BaseAdapter implements ContentAdapter {
   abstract sourceKey: string;

@@ -10,18 +10,18 @@ import {
   updateContentRun,
   checkContentHashExists,
   getSupabaseClient,
-} from "./db";
-import { checkAndIncrementBudget } from "./budget";
-import { getAdapter } from "./adapters";
+} from "./db.js";
+import { checkAndIncrementBudget } from "./budget.js";
+import { getAdapter } from "./adapters/index.js";
 import {
   canonicalPublishedTime,
   generateContentHash,
-} from "../contentHash";
+} from "../contentHash.js";
 import type {
   IngestionOptions,
   IngestionResult,
   NormalizedItem,
-} from "./types";
+} from "./types.js";
 
 const DEFAULT_REFRESH_HOURS = 3;
 const DEFAULT_MAX_ITEMS_PER_RUN = 100;

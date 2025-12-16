@@ -1,5 +1,5 @@
-import { BaseAdapter } from "./base";
-import type { NormalizedItem } from "../types";
+import { BaseAdapter } from "./base.js";
+import type { NormalizedItem } from "../types.js";
 
 interface TicketmasterAdapterOptions {
   apiKey?: string;

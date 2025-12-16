@@ -1,9 +1,9 @@
-import type { ContentAdapter } from "../types";
-import { MediastackAdapter } from "./mediastack";
-import { TmdbAdapter } from "./tmdb";
-import { RapidApiSportsAdapter } from "./rapidapi-sports";
-import { TicketmasterAdapter } from "./ticketmaster";
-import { ApiSportsAdapter } from "./api-sports";
+import type { ContentAdapter } from "../types.js";
+import { MediastackAdapter } from "./mediastack.js";
+import { TmdbAdapter } from "./tmdb.js";
+import { RapidApiSportsAdapter } from "./rapidapi-sports.js";
+import { TicketmasterAdapter } from "./ticketmaster.js";
+import { ApiSportsAdapter } from "./api-sports.js";
 
 interface AdapterFactoryOptions {
   maxItemsPerRun: number;

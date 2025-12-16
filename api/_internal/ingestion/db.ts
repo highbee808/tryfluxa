@@ -6,7 +6,7 @@ import type {
   DbResult,
   InsertContentItemInput,
   UpdateContentItemInput,
-} from "./types";
+} from "./types.js";
 
 let client: SupabaseClient | null = null;
 
