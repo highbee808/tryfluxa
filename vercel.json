@@ -10,5 +10,5 @@
       "path": "/api/cron/generate",
       "schedule": "0 * * * *"
     }
-  ],
+  ]
 }
