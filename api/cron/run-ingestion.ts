@@ -25,39 +25,75 @@ async function initializeImports() {
   
   importInitPromise = (async () => {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:26',message:'Initializing imports',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:26',message:'Initializing imports',data:{cwd:process.cwd(),__dirname:typeof __dirname !== 'undefined' ? __dirname : 'undefined'},timestamp:Date.now(),sessionId:'debug-session',runId:'run6',hypothesisId:'A'})}).catch(()=>{});
     // #endregion
     
-    try {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:32',message:'Importing runner module',data:{path:'../../src/lib/ingestion/runner.js'},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      const runnerModule = await import('../../src/lib/ingestion/runner.js');
-      runIngestion = runnerModule.runIngestion;
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:35',message:'Runner import succeeded',data:{hasRunIngestion:!!runIngestion},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-    } catch (error: any) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:38',message:'Runner import failed',data:{error:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      console.error('[Cron] Failed to import runner:', error?.message);
+    // Try multiple import path strategies
+    const importPaths = [
+      '../../src/lib/ingestion/runner.js',
+      '../src/lib/ingestion/runner.js',
+      './src/lib/ingestion/runner.js',
+      'src/lib/ingestion/runner.js',
+    ];
+    
+    let runnerModule: any = null;
+    let lastRunnerError: any = null;
+    
+    for (const path of importPaths) {
+      try {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:38',message:'Trying runner import path',data:{path},timestamp:Date.now(),sessionId:'debug-session',runId:'run6',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        runnerModule = await import(path);
+        runIngestion = runnerModule.runIngestion;
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:42',message:'Runner import succeeded',data:{path,hasRunIngestion:!!runIngestion},timestamp:Date.now(),sessionId:'debug-session',runId:'run6',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        break; // Success
+      } catch (error: any) {
+        lastRunnerError = error;
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:48',message:'Runner import path failed',data:{path,error:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run6',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+      }
     }
     
-    try {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:44',message:'Importing db module',data:{path:'../../src/lib/ingestion/db.js'},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-      const dbModule = await import('../../src/lib/ingestion/db.js');
-      getSupabaseClient = dbModule.getSupabaseClient;
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:47',message:'DB import succeeded',data:{hasGetSupabaseClient:!!getSupabaseClient},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-    } catch (error: any) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:50',message:'DB import failed',data:{error:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-      console.error('[Cron] Failed to import db:', error?.message);
+    if (!runIngestion) {
+      console.error('[Cron] Failed to import runner after trying all paths:', lastRunnerError?.message);
+    }
+    
+    // Try multiple import path strategies for db
+    const dbPaths = [
+      '../../src/lib/ingestion/db.js',
+      '../src/lib/ingestion/db.js',
+      './src/lib/ingestion/db.js',
+      'src/lib/ingestion/db.js',
+    ];
+    
+    let dbModule: any = null;
+    let lastDbError: any = null;
+    
+    for (const path of dbPaths) {
+      try {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:65',message:'Trying db import path',data:{path},timestamp:Date.now(),sessionId:'debug-session',runId:'run6',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
+        dbModule = await import(path);
+        getSupabaseClient = dbModule.getSupabaseClient;
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:69',message:'DB import succeeded',data:{path,hasGetSupabaseClient:!!getSupabaseClient},timestamp:Date.now(),sessionId:'debug-session',runId:'run6',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
+        break; // Success
+      } catch (error: any) {
+        lastDbError = error;
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:75',message:'DB import path failed',data:{path,error:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run6',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
+      }
+    }
+    
+    if (!getSupabaseClient) {
+      console.error('[Cron] Failed to import db after trying all paths:', lastDbError?.message);
     }
   })();
   
