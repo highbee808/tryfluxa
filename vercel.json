@@ -13,7 +13,10 @@
   ],
   "functions": {
     "api/cron/run-ingestion.ts": {
-      "includeFiles": "src/**"
+      "includeFiles": [
+        "src/lib/ingestion/**",
+        "src/lib/contentHash.ts"
+      ]
     }
   }
 }
