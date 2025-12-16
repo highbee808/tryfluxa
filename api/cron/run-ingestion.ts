@@ -14,49 +14,54 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// #region agent log
-fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:17',message:'Starting static imports',data:{step:'before_imports'},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'A'})}).catch(()=>{});
-// #endregion
+// Module-level cached imports
+let runIngestion: any = null;
+let getSupabaseClient: any = null;
+let importInitPromise: Promise<void> | null = null;
 
-// Use static imports so Vercel's bundler can detect and include dependencies
-// This is critical - dynamic imports might not trigger includeFiles
-let runIngestion: any;
-let getSupabaseClient: any;
-
-try {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:25',message:'Attempting static import of runner',data:{path:'../../src/lib/ingestion/runner'},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
-  const runnerModule = await import('../../src/lib/ingestion/runner.js');
-  runIngestion = runnerModule.runIngestion;
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:28',message:'Static import of runner succeeded',data:{hasRunIngestion:!!runIngestion},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
-} catch (error: any) {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:31',message:'Static import of runner failed',data:{error:error?.message,stack:error?.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
-  // Store error for later - we'll handle it in the handler
-  runIngestion = null;
-  console.error('[Cron] Failed to import runner:', error?.message);
-}
-
-try {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:39',message:'Attempting static import of db',data:{path:'../../src/lib/ingestion/db'},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
-  const dbModule = await import('../../src/lib/ingestion/db.js');
-  getSupabaseClient = dbModule.getSupabaseClient;
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:43',message:'Static import of db succeeded',data:{hasGetSupabaseClient:!!getSupabaseClient},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
-} catch (error: any) {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:46',message:'Static import of db failed',data:{error:error?.message,stack:error?.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
-  // Store error for later
-  getSupabaseClient = null;
-  console.error('[Cron] Failed to import db:', error?.message);
+// Initialize imports once (lazy, but at module level for bundler detection)
+async function initializeImports() {
+  if (importInitPromise) return importInitPromise;
+  
+  importInitPromise = (async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:26',message:'Initializing imports',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
+    try {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:32',message:'Importing runner module',data:{path:'../../src/lib/ingestion/runner.js'},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      const runnerModule = await import('../../src/lib/ingestion/runner.js');
+      runIngestion = runnerModule.runIngestion;
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:35',message:'Runner import succeeded',data:{hasRunIngestion:!!runIngestion},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+    } catch (error: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:38',message:'Runner import failed',data:{error:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      console.error('[Cron] Failed to import runner:', error?.message);
+    }
+    
+    try {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:44',message:'Importing db module',data:{path:'../../src/lib/ingestion/db.js'},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      const dbModule = await import('../../src/lib/ingestion/db.js');
+      getSupabaseClient = dbModule.getSupabaseClient;
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:47',message:'DB import succeeded',data:{hasGetSupabaseClient:!!getSupabaseClient},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+    } catch (error: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:50',message:'DB import failed',data:{error:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run5',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      console.error('[Cron] Failed to import db:', error?.message);
+    }
+  })();
+  
+  return importInitPromise;
 }
 
 interface OrchestrationResult {
@@ -290,17 +295,39 @@ export default async function handler(
   res: VercelResponse
 ) {
   // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:245',message:'Handler entry',data:{method:req.method,hasQuery:!!req.query,queryKeys:Object.keys(req.query || {})},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'})}).catch(()=>{});
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:55',message:'Handler entry',data:{method:req.method},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'ALL'})}).catch(()=>{});
   // #endregion
   
   try {
+    // Initialize imports if not already done
+    await initializeImports();
+    
+    // Check if imports succeeded
+    if (!runIngestion || !getSupabaseClient) {
+      const missing = [];
+      if (!runIngestion) missing.push('runIngestion');
+      if (!getSupabaseClient) missing.push('getSupabaseClient');
+      
+      console.error(`[Cron] Required modules not available: ${missing.join(', ')}`);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:66',message:'Module imports failed',data:{missing},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'ALL'})}).catch(()=>{});
+      // #endregion
+      
+      return res.status(500).json({
+        success: false,
+        error: "Module import failed",
+        message: `Required modules not available: ${missing.join(', ')}. The ingestion engine files from src/lib/ingestion/ are not being included in the Vercel serverless function bundle. Check vercel.json includeFiles configuration.`,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    
     // Validate cron secret
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:250',message:'Before secret validation',data:{hasCronSecret:!!process.env.CRON_SECRET,requestSecret:req.query.secret},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:363',message:'Before secret validation',data:{hasCronSecret:!!process.env.CRON_SECRET,requestSecret:req.query.secret},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'ALL'})}).catch(()=>{});
     // #endregion
     if (!validateCronSecret(req)) {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:253',message:'Secret validation failed',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:366',message:'Secret validation failed',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'ALL'})}).catch(()=>{});
       // #endregion
       return res.status(401).json({
         error: "Unauthorized",
@@ -308,7 +335,7 @@ export default async function handler(
       });
     }
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:260',message:'Secret validation passed',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:373',message:'Secret validation passed',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'ALL'})}).catch(()=>{});
     // #endregion
 
     // Parse query params
@@ -316,24 +343,23 @@ export default async function handler(
     const sourceFilter = req.query.source as string | undefined;
 
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:266',message:'Before orchestrateIngestion',data:{force,sourceFilter,hasOrchestrateIngestion:typeof orchestrateIngestion === 'function'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:380',message:'Before orchestrateIngestion',data:{force,sourceFilter},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'ALL'})}).catch(()=>{});
     // #endregion
     const result = await orchestrateIngestion(force, sourceFilter);
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:269',message:'After orchestrateIngestion',data:{success:result?.success,sourcesProcessed:result?.sources_processed},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:383',message:'After orchestrateIngestion',data:{success:result?.success,sourcesProcessed:result?.sources_processed},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'ALL'})}).catch(()=>{});
     // #endregion
 
     return res.status(200).json(result);
   } catch (error: any) {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:274',message:'Handler catch block',data:{error:error?.message,stack:error?.stack,name:error?.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'ALL'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:388',message:'Handler catch block',data:{error:error?.message,stack:error?.stack,name:error?.name},timestamp:Date.now(),sessionId:'debug-session',runId:'run4',hypothesisId:'ALL'})}).catch(()=>{});
     // #endregion
     console.error("[Cron] Orchestration failed:", error);
     return res.status(500).json({
       success: false,
       error: "Orchestration failed",
       message: error?.message || String(error),
-      stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
       timestamp: new Date().toISOString(),
     });
   }
