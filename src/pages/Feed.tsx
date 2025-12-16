@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { highlightText } from "@/lib/highlightText";
 import { getApiBaseUrl, getDefaultHeaders } from "@/lib/apiConfig";
-import { fetchRecentGists, type DbGist } from "@/lib/feedData";
+import { fetchRecentGists, type DbGist, fetchContentItems, mapContentItemResponseToGist, mapContentCategoryToFeedCategory, markContentItemAsSeen } from "@/lib/feedData";
 
 type ContentCategory = "news" | "sports" | "music";
 
@@ -370,9 +370,33 @@ const Feed = () => {
           categoriesToFetch = [category];
         }
 
-        const categoryResponses = await Promise.all(
-          categoriesToFetch.map((category) => fetchCategoryContent(category, forceFresh))
-        );
+        // Fetch category content and content_items in parallel
+        const { data: { user } } = await supabase.auth.getUser();
+        const userId = user?.id;
+
+        // Determine content_items category filter based on selectedCategory
+        let contentItemsCategory: string | undefined;
+        if (selectedCategory !== "All") {
+          // Map feed category to content_item category
+          // For "Sports" -> "Sports", "Music" -> "Entertainment", "News" -> any news category
+          const feedCategory = resolveCategoryKey(selectedCategory);
+          if (feedCategory === "sports") {
+            contentItemsCategory = "Sports";
+          } else if (feedCategory === "music") {
+            contentItemsCategory = "Entertainment";
+          }
+          // For "news", don't filter by category (show all news categories)
+        }
+
+        const [categoryResponses, contentItemsData] = await Promise.all([
+          Promise.all(categoriesToFetch.map((category) => fetchCategoryContent(category, forceFresh))),
+          fetchContentItems({
+            limit: 50,
+            maxAgeHours: 168,
+            category: contentItemsCategory,
+            userId: userId,
+          }),
+        ]);
 
         let mergedItems = categoryResponses.flat();
         
@@ -381,27 +405,51 @@ const Feed = () => {
           mergedItems = mergedItems.filter(item => item.category !== "sports");
         }
 
-        if (selectedCategory === "All") {
-          // For the "All" tab we fetch each category in parallel and then
-          // merge/sort by published date so the UI feels consistent.
-          mergedItems.sort((a, b) => {
-            const dateA = a.published_at ? new Date(a.published_at).getTime() : 0;
-            const dateB = b.published_at ? new Date(b.published_at).getTime() : 0;
-            return dateB - dateA;
-          });
-        }
+        // Map content_items to Gist format
+        const contentItemsGists = contentItemsData.map(item => mapContentItemResponseToGist(item));
 
-        // If fetch-content returned items, use them
-        if (mergedItems.length > 0) {
-          // Deduplicate by ID and headline to prevent showing duplicate content
-          const seenHeadlines = new Set<string>();
-          const uniqueItems = mergedItems.filter(item => {
-            const key = `${item.id}-${item.title?.toLowerCase().trim()}`;
-            if (seenHeadlines.has(key)) return false;
-            seenHeadlines.add(key);
-            return true;
-          });
-          setGists(uniqueItems.map(mapContentItemToGist));
+        // Filter content_items by selectedCategory (if not "All")
+        const filteredContentItemsGists = selectedCategory === "All"
+          ? contentItemsGists
+          : contentItemsGists.filter(gist => {
+              // Map content_item's topic_category to feed category and compare
+              const feedCategory = mapContentCategoryToFeedCategory(gist.topic_category || "");
+              const selectedFeedCategory = resolveCategoryKey(selectedCategory);
+              return feedCategory === selectedFeedCategory;
+            });
+
+        // Apply sports interest filter for "All" tab
+        const finalContentItemsGists = selectedCategory === "All" && !hasSportsInterest
+          ? filteredContentItemsGists.filter(gist => {
+              const feedCategory = mapContentCategoryToFeedCategory(gist.topic_category || "");
+              return feedCategory !== "sports";
+            })
+          : filteredContentItemsGists;
+
+        // Merge category content items (mapped to Gist) with content_items (already mapped)
+        let allGists: Gist[] = [
+          ...mergedItems.map(mapContentItemToGist),
+          ...finalContentItemsGists,
+        ];
+
+        // Sort by published_at (descending, nulls last)
+        allGists.sort((a, b) => {
+          const dateA = a.published_at ? new Date(a.published_at).getTime() : 0;
+          const dateB = b.published_at ? new Date(b.published_at).getTime() : 0;
+          return dateB - dateA;
+        });
+
+        // Deduplicate by ID to prevent showing same item twice
+        const seenIds = new Set<string>();
+        const uniqueGists = allGists.filter(gist => {
+          if (seenIds.has(gist.id)) return false;
+          seenIds.add(gist.id);
+          return true;
+        });
+
+        // If we have items, use them
+        if (uniqueGists.length > 0) {
+          setGists(uniqueGists);
           setFeedError(null); // Clear error if we have content
         } else {
           // Fallback: fetch recent gists from database when fetch-content returns empty
@@ -627,7 +675,20 @@ const Feed = () => {
     setIsChatOpen(true);
   };
 
-  const handleCardClick = (gist: Gist) => {
+  const handleCardClick = async (gist: Gist) => {
+    // Mark content_item as seen if it's from content_items (source: "news" with URL indicates content_item)
+    // For Phase 6, we'll attempt to mark all gists with URLs as seen
+    // This is safe because user_content_seen will only accept valid content_item_ids
+    if (gist.url) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Try to mark as seen (will silently fail if not a content_item)
+        markContentItemAsSeen(gist.id, user.id).catch(() => {
+          // Ignore errors - item might not be a content_item
+        });
+      }
+    }
+    
     navigate(`/post/${gist.source}/${gist.id}?origin=feed`);
   };
 
