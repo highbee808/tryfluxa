@@ -407,10 +407,20 @@ export default function PostDetail() {
   const handleSubmitComment = async () => {
     if (!id || !commentText.trim() || !postSource || isSubmittingComment) return; // Allow comments for both gists and content_items
 
+    const submitStartTime = Date.now();
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:407',message:'handleSubmitComment entry',data:{id,postSource,hasCommentText:!!commentText.trim()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
+    // #endregion
+
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:415',message:'handleSubmitComment auth check',data:{id,hasUser:!!user,authError:authError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
+    // #endregion
     
     if (authError || !user) {
       console.error("Auth error:", authError);
@@ -439,12 +449,25 @@ export default function PostDetail() {
           ? { ...basePayload, article_id: id }
           : { ...basePayload, post_id: id };
 
-        console.log('[comments] Inserting comment with payload:', {
-          ...payload,
-          content: payload.content.substring(0, 50) + '...' // Log truncated content
-        });
+        const insertStartTime = Date.now();
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:442',message:'handleSubmitComment insert start',data:{id,column,userId:user.id,contentLength:trimmedContent.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
+        // #endregion
 
-        return supabase.from("article_comments").insert(payload as any).select().single();
+        // Add timeout to insert
+        const insertPromise = supabase.from("article_comments").insert(payload as any).select().single();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Insert timeout")), 5000)
+        );
+
+        const result = await Promise.race([insertPromise, timeoutPromise]) as any;
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:451',message:'handleSubmitComment insert result',data:{id,column,hasError:!!result.error,error:result.error?.message,errorCode:result.error?.code,elapsed:Date.now()-insertStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
+        // #endregion
+
+        return result;
       };
 
       const column = commentArticleFieldRef.current;
@@ -456,10 +479,19 @@ export default function PostDetail() {
           `[comments] Insert failed for column "${column}", retrying with "${fallbackColumn}".`
         );
         commentArticleFieldRef.current = fallbackColumn;
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:461',message:'handleSubmitComment retry with fallback',data:{id,fallbackColumn},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
+        // #endregion
+        
         ({ error, data } = await insertComment(fallbackColumn));
       }
 
       if (error) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:470',message:'handleSubmitComment error',data:{id,error:error.message,errorCode:error.code,errorDetails:error.details,elapsed:Date.now()-submitStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
+        // #endregion
+        
         console.error("Error submitting comment:", error);
         console.error("Error details:", JSON.stringify(error, null, 2));
         console.error("User ID:", user.id);
@@ -475,6 +507,9 @@ export default function PostDetail() {
           toast.error(`Couldn't post your comment: ${error.message || "Unknown error"}`);
         }
       } else {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:485',message:'handleSubmitComment success',data:{id,commentId:data?.id,elapsed:Date.now()-submitStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'L'})}).catch(()=>{});
+        // #endregion
         // Comment was successfully posted
         setCommentText("");
         

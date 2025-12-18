@@ -565,12 +565,26 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  // Verify cron secret if configured (Vercel adds ?secret=xxx to cron requests)
+  // Verify cron secret if configured
+  // Vercel cron jobs can send secret via query param or Authorization header
   const cronSecret = process.env.CRON_SECRET;
-  const requestSecret = req.query.secret as string | undefined;
+  const authHeader = req.headers.authorization;
+  const requestSecret = authHeader?.replace('Bearer ', '') || req.query.secret as string | undefined;
+  
+  // Also check for Vercel cron header (if present)
+  const vercelCronSecret = req.headers['x-vercel-cron-secret'] as string | undefined;
 
-  if (cronSecret && requestSecret !== cronSecret) {
-    return res.status(401).json({ error: "Unauthorized" });
+  // Allow if no secret is configured (for development) OR if secret matches
+  if (cronSecret) {
+    const providedSecret = requestSecret || vercelCronSecret;
+    if (!providedSecret || providedSecret !== cronSecret) {
+      console.warn('[Cron Generate] Unauthorized - missing or invalid secret', {
+        hasQuerySecret: !!req.query.secret,
+        hasAuthHeader: !!authHeader,
+        hasVercelHeader: !!vercelCronSecret,
+      });
+      return res.status(401).json({ error: "Unauthorized" });
+    }
   }
 
   try {
