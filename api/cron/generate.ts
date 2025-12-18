@@ -123,8 +123,29 @@ async function fetchNewsXArticles(topic: string): Promise<Article[]> {
     }
 
     const data = await response.json();
+    
+    // Debug: Log response structure
+    console.log(`[API Fetch] NewsX response keys: ${Object.keys(data || {}).join(', ')}`);
+    
     // NewsX returns articles in various formats, handle both
-    const articles = data.articles || data.news || data.data || [];
+    let articles: any[] = [];
+    if (Array.isArray(data)) {
+      articles = data;
+    } else if (Array.isArray(data?.articles)) {
+      articles = data.articles;
+    } else if (Array.isArray(data?.news)) {
+      articles = data.news;
+    } else if (Array.isArray(data?.data)) {
+      articles = data.data;
+    } else if (Array.isArray(data?.results)) {
+      articles = data.results;
+    } else {
+      console.log(`[API Fetch] NewsX: Unexpected response structure, data type: ${typeof data}`);
+      return [];
+    }
+    
+    console.log(`[API Fetch] NewsX: Found ${articles.length} articles in response`);
+    
     return articles.slice(0, 10).map((article: any) => ({
       title: article.title || '',
       description: article.description || article.summary || '',
@@ -179,7 +200,31 @@ async function fetchWebitNewsArticles(topic: string): Promise<Article[]> {
     }
 
     const data = await response.json();
-    const articles = data.articles || data.data || data.news || data.results || [];
+    
+    // Debug: Log response structure
+    console.log(`[API Fetch] Webit News response keys: ${Object.keys(data || {}).join(', ')}`);
+    
+    // Extract articles array from various possible response structures
+    let articles: any[] = [];
+    if (Array.isArray(data)) {
+      articles = data;
+    } else if (Array.isArray(data?.articles)) {
+      articles = data.articles;
+    } else if (Array.isArray(data?.data)) {
+      articles = data.data;
+    } else if (Array.isArray(data?.news)) {
+      articles = data.news;
+    } else if (Array.isArray(data?.results)) {
+      articles = data.results;
+    } else if (Array.isArray(data?.value)) {
+      articles = data.value;
+    } else {
+      console.log(`[API Fetch] Webit News: Unexpected response structure, data type: ${typeof data}`);
+      return [];
+    }
+    
+    console.log(`[API Fetch] Webit News: Found ${articles.length} articles in response`);
+    
     return articles.slice(0, 10).map((article: any) => ({
       title: article.title || '',
       description: article.description || article.snippet || article.summary || '',
