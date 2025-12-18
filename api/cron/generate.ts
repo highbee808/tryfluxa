@@ -274,17 +274,32 @@ async function fetchArticlesFromApis(topic: string): Promise<Article[]> {
  * Validate article freshness - reject articles older than 7 days
  */
 function isValidFreshArticle(article: Article): boolean {
-  if (!article.published_at) return false;
+  // Debug: Log the first article's date for visibility
+  console.log(`[Validation] Checking article: "${article.title?.substring(0, 50)}..." published_at: ${article.published_at}`);
+  
+  if (!article.published_at) {
+    console.log(`[Validation] ⚠️ Article has no published_at date, accepting anyway`);
+    // Accept articles without dates rather than rejecting
+    return true;
+  }
 
   const publishedDate = new Date(article.published_at);
+  
+  // Check if date is valid
+  if (isNaN(publishedDate.getTime())) {
+    console.log(`[Validation] ⚠️ Invalid date format: ${article.published_at}, accepting anyway`);
+    return true;
+  }
+  
   const now = new Date();
   const daysSincePublished = (now.getTime() - publishedDate.getTime()) / (1000 * 60 * 60 * 24);
 
   if (daysSincePublished > 7) {
-    console.log(`[Validation] ❌ Article too old: ${daysSincePublished.toFixed(1)} days`);
+    console.log(`[Validation] ❌ Article too old: ${daysSincePublished.toFixed(1)} days (published: ${article.published_at})`);
     return false;
   }
 
+  console.log(`[Validation] ✅ Article is fresh: ${daysSincePublished.toFixed(1)} days old`);
   return true;
 }
 
