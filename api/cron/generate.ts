@@ -146,14 +146,22 @@ async function fetchNewsXArticles(topic: string): Promise<Article[]> {
     
     console.log(`[API Fetch] NewsX: Found ${articles.length} articles in response`);
     
+    // Debug: Log first article's keys and values to understand structure
+    if (articles.length > 0) {
+      const first = articles[0];
+      console.log(`[API Fetch] NewsX first article keys: ${Object.keys(first).join(', ')}`);
+      console.log(`[API Fetch] NewsX first article sample: title="${first.title?.substring(0, 50)}" url="${first.url || first.link || 'MISSING'}" date="${first.publishedAt || first.published_at || first.date || first.pubDate || first.time || 'MISSING'}"`);
+    }
+    
     return articles.slice(0, 10).map((article: any) => ({
       title: article.title || '',
-      description: article.description || article.summary || '',
-      content: article.content || article.description || '',
-      url: article.url || article.link || '',
-      image: article.image || article.urlToImage || article.thumbnail || null,
-      source: article.source?.name || article.source || 'NewsX',
-      published_at: article.publishedAt || article.published_at || article.date || null,
+      description: article.description || article.summary || article.body || '',
+      content: article.content || article.description || article.body || '',
+      url: article.url || article.link || article.sourceUrl || '',
+      image: article.image || article.urlToImage || article.thumbnail || article.img || null,
+      source: article.source?.name || article.source || article.publisher || 'NewsX',
+      // Try more date field variations
+      published_at: article.publishedAt || article.published_at || article.date || article.pubDate || article.time || article.createdAt || null,
     })).filter((a: Article) => a.title && a.url);
   } catch (error) {
     console.error("[API Fetch] NewsX error:", error);
