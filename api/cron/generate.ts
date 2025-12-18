@@ -85,55 +85,22 @@ function getTrendingTopics(): string[] {
 }
 
 /**
- * Fetch articles from NewsAPI
+ * Fetch articles from Mediastack via RapidAPI (PRIORITY 1)
  */
-async function fetchNewsApiArticles(topic: string): Promise<Article[]> {
-  const apiKey = process.env.NEWSAPI_KEY;
-  if (!apiKey) return [];
-
-  try {
-    const timestamp = Date.now();
-    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&language=en&sortBy=publishedAt&pageSize=5&apiKey=${apiKey}&_t=${timestamp}`;
-    const response = await fetch(url, {
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
-    });
-
-    if (!response.ok) {
-      console.log(`[API Fetch] NewsAPI error: ${response.status}`);
-      return [];
-    }
-
-    const data = await response.json();
-    return (data.articles || []).map((article: any) => ({
-      title: article.title,
-      description: article.description,
-      content: article.content,
-      url: article.url,
-      image: article.urlToImage || null,
-      source: article.source?.name || 'NewsAPI',
-      published_at: article.publishedAt || null,
-    }));
-  } catch (error) {
-    console.error("[API Fetch] NewsAPI error:", error);
+async function fetchMediastackRapidApiArticles(topic: string): Promise<Article[]> {
+  const apiKey = process.env.RAPIDAPI_KEY;
+  if (!apiKey) {
+    console.log(`[API Fetch] Mediastack RapidAPI: RAPIDAPI_KEY not configured`);
     return [];
   }
-}
-
-/**
- * Fetch articles from Guardian API
- */
-async function fetchGuardianArticles(topic: string): Promise<Article[]> {
-  const apiKey = process.env.GUARDIAN_API_KEY;
-  if (!apiKey) return [];
 
   try {
-    const url = `https://content.guardianapis.com/search?q=${encodeURIComponent(topic)}&order-by=newest&page-size=5&show-fields=trailText,bodyText,thumbnail&api-key=${apiKey}`;
+    console.log(`[API Fetch] Using adapter: mediastack (rapidapi)`);
+    const url = `https://mediastack.p.rapidapi.com/news?keywords=${encodeURIComponent(topic)}&languages=en&limit=5&sort=published_desc`;
     const response = await fetch(url, {
       headers: {
+        'X-RapidAPI-Key': apiKey,
+        'X-RapidAPI-Host': 'mediastack.p.rapidapi.com',
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0'
@@ -141,46 +108,7 @@ async function fetchGuardianArticles(topic: string): Promise<Article[]> {
     });
 
     if (!response.ok) {
-      console.log(`[API Fetch] Guardian API error: ${response.status}`);
-      return [];
-    }
-
-    const data = await response.json();
-    const results = data.response?.results || [];
-    return results.map((article: any) => ({
-      title: article.webTitle,
-      description: article.fields?.trailText,
-      content: article.fields?.bodyText,
-      url: article.webUrl,
-      image: article.fields?.thumbnail || null,
-      source: 'The Guardian',
-      published_at: article.webPublicationDate || null,
-    }));
-  } catch (error) {
-    console.error("[API Fetch] Guardian API error:", error);
-    return [];
-  }
-}
-
-/**
- * Fetch articles from Mediastack API
- */
-async function fetchMediastackArticles(topic: string): Promise<Article[]> {
-  const apiKey = process.env.MEDIASTACK_KEY;
-  if (!apiKey) return [];
-
-  try {
-    const url = `http://api.mediastack.com/v1/news?access_key=${apiKey}&keywords=${encodeURIComponent(topic)}&languages=en&limit=5&sort=published_desc`;
-    const response = await fetch(url, {
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      }
-    });
-
-    if (!response.ok) {
-      console.log(`[API Fetch] Mediastack API error: ${response.status}`);
+      console.log(`[API Fetch] Mediastack RapidAPI error: ${response.status}`);
       return [];
     }
 
@@ -191,46 +119,82 @@ async function fetchMediastackArticles(topic: string): Promise<Article[]> {
       content: article.description,
       url: article.url,
       image: article.image || null,
-      source: article.source || 'Mediastack',
+      source: article.source || 'Mediastack (RapidAPI)',
       published_at: article.published_at || null,
     }));
   } catch (error) {
-    console.error("[API Fetch] Mediastack API error:", error);
+    console.error("[API Fetch] Mediastack RapidAPI error:", error);
     return [];
   }
 }
 
 /**
- * Fetch articles from all APIs (sequential: NewsAPI → Guardian → Mediastack)
+ * Fetch articles from NewsAPI via RapidAPI (PRIORITY 2)
+ */
+async function fetchNewsApiRapidApiArticles(topic: string): Promise<Article[]> {
+  const apiKey = process.env.RAPIDAPI_KEY;
+  if (!apiKey) {
+    console.log(`[API Fetch] NewsAPI RapidAPI: RAPIDAPI_KEY not configured`);
+    return [];
+  }
+
+  try {
+    console.log(`[API Fetch] Using adapter: newsapi (rapidapi)`);
+    const url = `https://newsapi-rapidapi.p.rapidapi.com/everything?q=${encodeURIComponent(topic)}&language=en&sortBy=publishedAt&pageSize=5`;
+    const response = await fetch(url, {
+      headers: {
+        'X-RapidAPI-Key': apiKey,
+        'X-RapidAPI-Host': 'newsapi-rapidapi.p.rapidapi.com',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+
+    if (!response.ok) {
+      console.log(`[API Fetch] NewsAPI RapidAPI error: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    return (data.articles || []).map((article: any) => ({
+      title: article.title,
+      description: article.description,
+      content: article.content,
+      url: article.url,
+      image: article.urlToImage || null,
+      source: article.source?.name || 'NewsAPI (RapidAPI)',
+      published_at: article.publishedAt || null,
+    }));
+  } catch (error) {
+    console.error("[API Fetch] NewsAPI RapidAPI error:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch articles from all APIs (sequential: Mediastack RapidAPI → NewsAPI RapidAPI)
  * MANDATORY: Must return at least one article, otherwise generation fails
+ * NOTE: Guardian and expired adapters are removed - only active RapidAPI sources are used
  */
 async function fetchArticlesFromApis(topic: string): Promise<Article[]> {
   let articles: Article[] = [];
 
-  // Try NewsAPI first
-  console.log(`[API Fetch] Fetching from NewsAPI for: ${topic}`);
-  const newsapi = await fetchNewsApiArticles(topic);
-  if (newsapi.length > 0) {
-    console.log(`[API Fetch] ✅ Found ${newsapi.length} articles from NewsAPI`);
-    articles = [...articles, ...newsapi];
-    return articles;
-  }
-
-  // Try Guardian if NewsAPI returned nothing
-  console.log(`[API Fetch] ⚠️ No articles from NewsAPI, trying Guardian...`);
-  const guardian = await fetchGuardianArticles(topic);
-  if (guardian.length > 0) {
-    console.log(`[API Fetch] ✅ Found ${guardian.length} articles from Guardian`);
-    articles = [...articles, ...guardian];
-    return articles;
-  }
-
-  // Try Mediastack if Guardian returned nothing
-  console.log(`[API Fetch] ⚠️ No articles from Guardian, trying Mediastack...`);
-  const mediastack = await fetchMediastackArticles(topic);
+  // Try Mediastack RapidAPI first (PRIORITY 1)
+  console.log(`[API Fetch] Fetching from Mediastack RapidAPI for: ${topic}`);
+  const mediastack = await fetchMediastackRapidApiArticles(topic);
   if (mediastack.length > 0) {
-    console.log(`[API Fetch] ✅ Found ${mediastack.length} articles from Mediastack`);
+    console.log(`[API Fetch] ✅ Found ${mediastack.length} articles from Mediastack RapidAPI`);
     articles = [...articles, ...mediastack];
+    return articles;
+  }
+
+  // Try NewsAPI RapidAPI if Mediastack returned nothing (PRIORITY 2)
+  console.log(`[API Fetch] ⚠️ No articles from Mediastack RapidAPI, trying NewsAPI RapidAPI...`);
+  const newsapi = await fetchNewsApiRapidApiArticles(topic);
+  if (newsapi.length > 0) {
+    console.log(`[API Fetch] ✅ Found ${newsapi.length} articles from NewsAPI RapidAPI`);
+    articles = [...articles, ...newsapi];
     return articles;
   }
 
