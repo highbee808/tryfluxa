@@ -43,6 +43,104 @@ interface GistData {
   audio_url?: string;
 }
 
+interface ContentItemData {
+  source_id: string;
+  external_id: string;
+  content_hash: string;
+  title: string;
+  url: string | null;
+  excerpt: string | null;
+  published_at: string | null;
+  image_url: string | null;
+  raw_data: Record<string, any>;
+}
+
+// AI Generated content source ID (created in content_sources table)
+const AI_GENERATED_SOURCE_ID = 'c28d4e44-862b-4aa8-80b6-a228be1faa39';
+
+// Category mapping from topic keywords to category IDs
+const CATEGORY_MAPPINGS: Record<string, string> = {
+  // Technology
+  'tech': 'aaeae3ba-08cb-46c9-94aa-30c738cf4adc',
+  'ai': 'aaeae3ba-08cb-46c9-94aa-30c738cf4adc',
+  'artificial intelligence': 'aaeae3ba-08cb-46c9-94aa-30c738cf4adc',
+  'iphone': 'aaeae3ba-08cb-46c9-94aa-30c738cf4adc',
+  'gaming': 'aaeae3ba-08cb-46c9-94aa-30c738cf4adc',
+  'cryptocurrency': 'aaeae3ba-08cb-46c9-94aa-30c738cf4adc',
+  'electric vehicle': 'aaeae3ba-08cb-46c9-94aa-30c738cf4adc',
+  'spacex': 'aaeae3ba-08cb-46c9-94aa-30c738cf4adc',
+  'streaming': 'aaeae3ba-08cb-46c9-94aa-30c738cf4adc',
+  // Sports
+  'nba': '9957e028-96ff-418d-ae68-f1bb28ac6b04',
+  'sports': '9957e028-96ff-418d-ae68-f1bb28ac6b04',
+  'olympic': '9957e028-96ff-418d-ae68-f1bb28ac6b04',
+  'championship': '9957e028-96ff-418d-ae68-f1bb28ac6b04',
+  'trade': '9957e028-96ff-418d-ae68-f1bb28ac6b04',
+  'injury': '9957e028-96ff-418d-ae68-f1bb28ac6b04',
+  // Entertainment
+  'taylor swift': '5bc3c4e4-673c-47eb-b2ef-df5e31650525',
+  'hollywood': '5bc3c4e4-673c-47eb-b2ef-df5e31650525',
+  'celebrity': '5bc3c4e4-673c-47eb-b2ef-df5e31650525',
+  'movie': '5bc3c4e4-673c-47eb-b2ef-df5e31650525',
+  'music festival': '5bc3c4e4-673c-47eb-b2ef-df5e31650525',
+  'album': '5bc3c4e4-673c-47eb-b2ef-df5e31650525',
+  'award': '5bc3c4e4-673c-47eb-b2ef-df5e31650525',
+  'fashion': '5bc3c4e4-673c-47eb-b2ef-df5e31650525',
+  'entertainment': '5bc3c4e4-673c-47eb-b2ef-df5e31650525',
+  // Business
+  'business': '401b13f7-de61-420c-ad37-c4e240d101ed',
+  'startup': '401b13f7-de61-420c-ad37-c4e240d101ed',
+  'funding': '401b13f7-de61-420c-ad37-c4e240d101ed',
+  'merger': '401b13f7-de61-420c-ad37-c4e240d101ed',
+  'layoff': '401b13f7-de61-420c-ad37-c4e240d101ed',
+  // Science
+  'science': 'e1e60d85-f41e-4655-96bc-ed9fbcdac21b',
+  'breakthrough': 'e1e60d85-f41e-4655-96bc-ed9fbcdac21b',
+  'renewable energy': 'e1e60d85-f41e-4655-96bc-ed9fbcdac21b',
+  'climate': 'e1e60d85-f41e-4655-96bc-ed9fbcdac21b',
+  // Health
+  'health': '40d68808-06b4-4f0c-9c24-48b9ca3434a2',
+  'wellness': '40d68808-06b4-4f0c-9c24-48b9ca3434a2',
+  // Politics
+  'political': 'd46b854c-6855-4ba4-9bc2-701d83f6b21f',
+  'summit': 'd46b854c-6855-4ba4-9bc2-701d83f6b21f',
+  // World
+  'travel': '394390ee-e860-4192-94fc-f28896728ded',
+  'food': '394390ee-e860-4192-94fc-f28896728ded',
+  'restaurant': '394390ee-e860-4192-94fc-f28896728ded',
+};
+
+// Default to Technology category
+const DEFAULT_CATEGORY_ID = 'aaeae3ba-08cb-46c9-94aa-30c738cf4adc';
+
+/**
+ * Generate a content hash for deduplication
+ */
+function generateContentHash(title: string, url: string | null): string {
+  const input = `${title.toLowerCase().trim()}|${url || ''}`;
+  // Simple hash function for deduplication
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    const char = input.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return `ai_${Math.abs(hash).toString(16)}`;
+}
+
+/**
+ * Map topic to category ID based on keywords
+ */
+function mapTopicToCategory(topic: string): string {
+  const lowerTopic = topic.toLowerCase();
+  for (const [keyword, categoryId] of Object.entries(CATEGORY_MAPPINGS)) {
+    if (lowerTopic.includes(keyword)) {
+      return categoryId;
+    }
+  }
+  return DEFAULT_CATEGORY_ID;
+}
+
 function getTrendingTopics(): string[] {
   // Return 30+ diverse trending topics for fresh content generation
   return [
@@ -102,10 +200,6 @@ async function fetchNewsXArticles(topic: string): Promise<Article[]> {
     const host = 'newsx.p.rapidapi.com';
     const url = `https://newsx.p.rapidapi.com/search/?q=${encodeURIComponent(topic)}&limit=10&skip=0`;
     
-    // Debug log before fetch
-    console.log(`[RapidAPI Debug] adapter=newsx url=${url} host=${host} hasKey=${!!apiKey}`);
-    console.log(`[API Fetch] Using adapter: newsx (rapidapi)`);
-    
     const response = await fetch(url, {
       headers: {
         'X-RapidAPI-Key': apiKey,
@@ -117,17 +211,12 @@ async function fetchNewsXArticles(topic: string): Promise<Article[]> {
     });
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      console.log(`[API Fetch] NewsX error: ${response.status} - ${errorText.substring(0, 200)}`);
       return [];
     }
 
     const data = await response.json();
     
-    // Debug: Log response structure
-    console.log(`[API Fetch] NewsX response keys: ${Object.keys(data || {}).join(', ')}`);
-    
-    // NewsX returns articles in various formats, handle both
+    // NewsX returns articles as an array directly
     let articles: any[] = [];
     if (Array.isArray(data)) {
       articles = data;
@@ -140,17 +229,7 @@ async function fetchNewsXArticles(topic: string): Promise<Article[]> {
     } else if (Array.isArray(data?.results)) {
       articles = data.results;
     } else {
-      console.log(`[API Fetch] NewsX: Unexpected response structure, data type: ${typeof data}`);
       return [];
-    }
-    
-    console.log(`[API Fetch] NewsX: Found ${articles.length} articles in response`);
-    
-    // Debug: Log first article's keys and values to understand structure
-    if (articles.length > 0) {
-      const first = articles[0];
-      console.log(`[API Fetch] NewsX first article keys: ${Object.keys(first).join(', ')}`);
-      console.log(`[API Fetch] NewsX first article sample: title="${first.title?.substring(0, 50)}" url="${first.url || first.link || 'MISSING'}" date="${first.publishedAt || first.published_at || first.date || first.pubDate || first.time || 'MISSING'}"`);
     }
     
     return articles.slice(0, 10).map((article: any) => ({
@@ -187,10 +266,6 @@ async function fetchWebitNewsArticles(topic: string): Promise<Article[]> {
     const host = 'webit-news-search.p.rapidapi.com';
     const url = `https://webit-news-search.p.rapidapi.com/search?q=${encodeURIComponent(topic)}&language=en`;
     
-    // Debug log before fetch
-    console.log(`[RapidAPI Debug] adapter=webit-news-search url=${url} host=${host} hasKey=${!!apiKey}`);
-    console.log(`[API Fetch] Using adapter: webit-news-search (rapidapi)`);
-    
     const response = await fetch(url, {
       headers: {
         'X-RapidAPI-Key': apiKey,
@@ -202,15 +277,10 @@ async function fetchWebitNewsArticles(topic: string): Promise<Article[]> {
     });
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      console.log(`[API Fetch] Webit News error: ${response.status} - ${errorText.substring(0, 200)}`);
       return [];
     }
 
     const data = await response.json();
-    
-    // Debug: Log response structure
-    console.log(`[API Fetch] Webit News response keys: ${Object.keys(data || {}).join(', ')}`);
     
     // Extract articles array from various possible response structures
     let articles: any[] = [];
@@ -227,11 +297,8 @@ async function fetchWebitNewsArticles(topic: string): Promise<Article[]> {
     } else if (Array.isArray(data?.value)) {
       articles = data.value;
     } else {
-      console.log(`[API Fetch] Webit News: Unexpected response structure, data type: ${typeof data}`);
       return [];
     }
-    
-    console.log(`[API Fetch] Webit News: Found ${articles.length} articles in response`);
     
     return articles.slice(0, 10).map((article: any) => ({
       title: article.title || '',
@@ -280,35 +347,26 @@ async function fetchArticlesFromApis(topic: string): Promise<Article[]> {
 
 /**
  * Validate article freshness - reject articles older than 7 days
+ * Accepts articles without dates or with invalid date formats
  */
 function isValidFreshArticle(article: Article): boolean {
-  // Debug: Log the first article's date for visibility
-  console.log(`[Validation] Checking article: "${article.title?.substring(0, 50)}..." published_at: ${article.published_at}`);
-  
+  // Accept articles without dates
   if (!article.published_at) {
-    console.log(`[Validation] ⚠️ Article has no published_at date, accepting anyway`);
-    // Accept articles without dates rather than rejecting
     return true;
   }
 
   const publishedDate = new Date(article.published_at);
   
-  // Check if date is valid
+  // Accept articles with invalid date formats
   if (isNaN(publishedDate.getTime())) {
-    console.log(`[Validation] ⚠️ Invalid date format: ${article.published_at}, accepting anyway`);
     return true;
   }
   
   const now = new Date();
   const daysSincePublished = (now.getTime() - publishedDate.getTime()) / (1000 * 60 * 60 * 24);
 
-  if (daysSincePublished > 7) {
-    console.log(`[Validation] ❌ Article too old: ${daysSincePublished.toFixed(1)} days (published: ${article.published_at})`);
-    return false;
-  }
-
-  console.log(`[Validation] ✅ Article is fresh: ${daysSincePublished.toFixed(1)} days old`);
-  return true;
+  // Reject articles older than 7 days
+  return daysSincePublished <= 7;
 }
 
 /**
@@ -478,6 +536,81 @@ async function insertGist(gistData: GistData): Promise<string | null> {
   return insertedId;
 }
 
+/**
+ * Insert content into content_items table (PRIMARY feed source)
+ * Also creates the category mapping in content_item_categories
+ */
+async function insertContentItem(
+  contentData: ContentItemData,
+  categoryId: string
+): Promise<string | null> {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceKey) {
+    throw new Error("Missing Supabase credentials");
+  }
+
+  const { createClient } = await import("@supabase/supabase-js");
+
+  const supabase = createClient(supabaseUrl, serviceKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+
+  // Check for existing content with same hash (deduplication)
+  const { data: existing } = await supabase
+    .from('content_items')
+    .select('id')
+    .eq('content_hash', contentData.content_hash)
+    .maybeSingle();
+
+  if (existing) {
+    console.log(`[insertContentItem] Duplicate detected (hash: ${contentData.content_hash}), skipping`);
+    return null;
+  }
+
+  // Insert into content_items
+  const { error, data } = await supabase
+    .from("content_items")
+    .insert(contentData)
+    .select();
+
+  if (error) {
+    console.error('[insertContentItem] Insert failed:', {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
+    throw new Error(`Database insert failed: ${error.message} (code: ${error.code})`);
+  }
+
+  const insertedId = data?.[0]?.id || null;
+  if (!insertedId) {
+    console.error('[insertContentItem] Insert succeeded but no ID returned', { data });
+    return null;
+  }
+
+  // Insert category mapping
+  const { error: categoryError } = await supabase
+    .from('content_item_categories')
+    .insert({
+      content_item_id: insertedId,
+      category_id: categoryId,
+    });
+
+  if (categoryError) {
+    console.warn('[insertContentItem] Category mapping failed:', categoryError.message);
+    // Don't fail the whole operation for category mapping
+  }
+
+  console.log(`[insertContentItem] ✅ Inserted into content_items: ${contentData.title.substring(0, 50)}...`);
+  return insertedId;
+}
+
 async function runContentPipeline(): Promise<{
   success: boolean;
   generated: number;
@@ -549,42 +682,48 @@ async function runContentPipeline(): Promise<{
           console.log(`[Content Pipeline] ✅ Using source image from article`);
         }
 
-        // STEP 5: Prepare gist data with source metadata
+        // STEP 5: Prepare content_item data (PRIMARY feed source)
         const now = new Date().toISOString();
-        const articlePublishedAt = selectedArticle.published_at || now;
-
-        const gistData: GistData = {
-          topic,
-          topic_category: "Trending",
-          headline: aiSummary.headline,
-          context: aiSummary.summary,
-          narration: aiSummary.narration,
-          script: aiSummary.narration,
-          image_url: finalImageUrl,
-          source_url: selectedArticle.url,
-          audio_url: "",
-          status: "published",
+        const articlePublishedAt = selectedArticle.published_at || null;
+        
+        // Map topic to category
+        const categoryId = mapTopicToCategory(topic);
+        
+        // Generate content hash for deduplication
+        const contentHash = generateContentHash(aiSummary.headline, selectedArticle.url);
+        
+        const contentItemData: ContentItemData = {
+          source_id: AI_GENERATED_SOURCE_ID,
+          external_id: `ai_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          content_hash: contentHash,
+          title: aiSummary.headline,
+          url: selectedArticle.url,
+          excerpt: aiSummary.summary,
           published_at: articlePublishedAt,
-          created_at: now,
-          meta: {
+          image_url: finalImageUrl,
+          raw_data: {
             generated_by: "content_pipeline",
             generated_at: now,
+            topic: topic,
             source_name: selectedArticle.source || 'Unknown',
             source_title: selectedArticle.title,
             image_source: selectedArticle.image ? "source_article" : "openai_dalle",
-            summary: aiSummary.summary,
+            narration: aiSummary.narration,
+            context: aiSummary.context,
           },
         };
 
-        // STEP 6: Insert into database
-        const insertedId = await insertGist(gistData);
+        // STEP 6: Insert into content_items (PRIMARY feed source)
+        console.log(`[Content Pipeline] Inserting into content_items: title="${contentItemData.title.substring(0,50)}" category=${categoryId}`);
+        const insertedId = await insertContentItem(contentItemData, categoryId);
         if (insertedId) {
           insertedIds.push(insertedId);
           generated++;
-          console.log(`[Content Pipeline] ✅ Successfully generated: ${aiSummary.headline}`);
+          console.log(`[Content Pipeline] ✅ Inserted into content_items: id=${insertedId} title="${aiSummary.headline.substring(0,50)}"`);
         } else {
-          console.error(`[Content Pipeline] Insert returned no ID for: ${topic}`);
-          errors.push(`${topic}: Insert completed but no ID returned`);
+          // Duplicate was detected, count as skipped not error
+          console.log(`[Content Pipeline] ⚠️ Skipped duplicate: ${topic}`);
+          skipped++;
         }
 
         await new Promise((resolve) => setTimeout(resolve, 1000));
