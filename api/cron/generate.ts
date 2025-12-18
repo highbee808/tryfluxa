@@ -85,22 +85,26 @@ function getTrendingTopics(): string[] {
 }
 
 /**
- * Fetch articles from Mediastack via RapidAPI (PRIORITY 1)
+ * Fetch articles from NewsX via RapidAPI (PRIORITY 1)
+ * Uses NEWSX_API or RAPIDAPI_KEY env var
+ * Host: newsx.p.rapidapi.com
+ * Endpoint: /search?q=keyword
  */
-async function fetchMediastackRapidApiArticles(topic: string): Promise<Article[]> {
-  const apiKey = process.env.RAPIDAPI_KEY;
+async function fetchNewsXArticles(topic: string): Promise<Article[]> {
+  // Try NEWSX_API first, then fallback to RAPIDAPI_KEY
+  const apiKey = process.env.NEWSX_API || process.env.RAPIDAPI_KEY;
   if (!apiKey) {
-    console.log(`[API Fetch] Mediastack RapidAPI: RAPIDAPI_KEY not configured`);
+    console.log(`[API Fetch] NewsX: No API key found (checked NEWSX_API, RAPIDAPI_KEY)`);
     return [];
   }
 
   try {
-    const host = 'mediastack.p.rapidapi.com';
-    const url = `https://mediastack.p.rapidapi.com/v1/news?keywords=${encodeURIComponent(topic)}&languages=en&limit=5&sort=published_desc`;
+    const host = 'newsx.p.rapidapi.com';
+    const url = `https://newsx.p.rapidapi.com/search?q=${encodeURIComponent(topic)}`;
     
     // Debug log before fetch
-    console.log(`[RapidAPI Debug] adapter=mediastack url=${url} host=${host} hasKey=${!!apiKey}`);
-    console.log(`[API Fetch] Using adapter: mediastack (rapidapi)`);
+    console.log(`[RapidAPI Debug] adapter=newsx url=${url} host=${host} hasKey=${!!apiKey}`);
+    console.log(`[API Fetch] Using adapter: newsx (rapidapi)`);
     
     const response = await fetch(url, {
       headers: {
@@ -113,43 +117,49 @@ async function fetchMediastackRapidApiArticles(topic: string): Promise<Article[]
     });
 
     if (!response.ok) {
-      console.log(`[API Fetch] Mediastack RapidAPI error: ${response.status}`);
+      const errorText = await response.text().catch(() => '');
+      console.log(`[API Fetch] NewsX error: ${response.status} - ${errorText.substring(0, 200)}`);
       return [];
     }
 
     const data = await response.json();
-    return (data.data || []).map((article: any) => ({
-      title: article.title,
-      description: article.description,
-      content: article.description,
-      url: article.url,
-      image: article.image || null,
-      source: article.source || 'Mediastack (RapidAPI)',
-      published_at: article.published_at || null,
-    }));
+    // NewsX returns articles in various formats, handle both
+    const articles = data.articles || data.news || data.data || [];
+    return articles.slice(0, 10).map((article: any) => ({
+      title: article.title || '',
+      description: article.description || article.summary || '',
+      content: article.content || article.description || '',
+      url: article.url || article.link || '',
+      image: article.image || article.urlToImage || article.thumbnail || null,
+      source: article.source?.name || article.source || 'NewsX',
+      published_at: article.publishedAt || article.published_at || article.date || null,
+    })).filter((a: Article) => a.title && a.url);
   } catch (error) {
-    console.error("[API Fetch] Mediastack RapidAPI error:", error);
+    console.error("[API Fetch] NewsX error:", error);
     return [];
   }
 }
 
 /**
- * Fetch articles from NewsAPI via RapidAPI (PRIORITY 2)
+ * Fetch articles from Real-Time News Data via RapidAPI (PRIORITY 2)
+ * Uses REAL_TIME_SPORTS_NEWS_API or RAPIDAPI_KEY env var
+ * Host: real-time-news-data.p.rapidapi.com
  */
-async function fetchNewsApiRapidApiArticles(topic: string): Promise<Article[]> {
-  const apiKey = process.env.RAPIDAPI_KEY;
+async function fetchRealTimeNewsArticles(topic: string): Promise<Article[]> {
+  // Try specific key first, then fallback to RAPIDAPI_KEY
+  const apiKey = process.env.REAL_TIME_SPORTS_NEWS_API || process.env.RAPIDAPI_KEY;
   if (!apiKey) {
-    console.log(`[API Fetch] NewsAPI RapidAPI: RAPIDAPI_KEY not configured`);
+    console.log(`[API Fetch] Real-Time News: No API key found`);
     return [];
   }
 
   try {
-    const host = 'newsapi.org';
-    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&language=en&sortBy=publishedAt&pageSize=5`;
+    const host = 'real-time-news-data.p.rapidapi.com';
+    const url = `https://real-time-news-data.p.rapidapi.com/search?query=${encodeURIComponent(topic)}&limit=10&time_published=anytime&country=US&lang=en`;
     
     // Debug log before fetch
-    console.log(`[RapidAPI Debug] adapter=newsapi url=${url} host=${host} hasKey=${!!apiKey}`);
-    console.log(`[API Fetch] Using adapter: newsapi (rapidapi)`);
+    console.log(`[RapidAPI Debug] adapter=real-time-news url=${url} host=${host} hasKey=${!!apiKey}`);
+    console.log(`[API Fetch] Using adapter: real-time-news (rapidapi)`);
     
     const response = await fetch(url, {
       headers: {
@@ -162,49 +172,51 @@ async function fetchNewsApiRapidApiArticles(topic: string): Promise<Article[]> {
     });
 
     if (!response.ok) {
-      console.log(`[API Fetch] NewsAPI RapidAPI error: ${response.status}`);
+      const errorText = await response.text().catch(() => '');
+      console.log(`[API Fetch] Real-Time News error: ${response.status} - ${errorText.substring(0, 200)}`);
       return [];
     }
 
     const data = await response.json();
-    return (data.articles || []).map((article: any) => ({
-      title: article.title,
-      description: article.description,
-      content: article.content,
-      url: article.url,
-      image: article.urlToImage || null,
-      source: article.source?.name || 'NewsAPI (RapidAPI)',
-      published_at: article.publishedAt || null,
-    }));
+    const articles = data.data || data.articles || data.news || [];
+    return articles.slice(0, 10).map((article: any) => ({
+      title: article.title || '',
+      description: article.snippet || article.description || '',
+      content: article.snippet || article.description || '',
+      url: article.link || article.url || '',
+      image: article.photo_url || article.image || article.thumbnail || null,
+      source: article.source_name || article.source || 'Real-Time News',
+      published_at: article.published_datetime_utc || article.published_at || null,
+    })).filter((a: Article) => a.title && a.url);
   } catch (error) {
-    console.error("[API Fetch] NewsAPI RapidAPI error:", error);
+    console.error("[API Fetch] Real-Time News error:", error);
     return [];
   }
 }
 
 /**
- * Fetch articles from all APIs (sequential: Mediastack RapidAPI → NewsAPI RapidAPI)
+ * Fetch articles from all APIs (sequential: NewsX → Real-Time News)
  * MANDATORY: Must return at least one article, otherwise generation fails
- * NOTE: Guardian and expired adapters are removed - only active RapidAPI sources are used
+ * NOTE: Uses RapidAPI adapters that the user has subscribed to
  */
 async function fetchArticlesFromApis(topic: string): Promise<Article[]> {
   let articles: Article[] = [];
 
-  // Try Mediastack RapidAPI first (PRIORITY 1)
-  console.log(`[API Fetch] Fetching from Mediastack RapidAPI for: ${topic}`);
-  const mediastack = await fetchMediastackRapidApiArticles(topic);
-  if (mediastack.length > 0) {
-    console.log(`[API Fetch] ✅ Found ${mediastack.length} articles from Mediastack RapidAPI`);
-    articles = [...articles, ...mediastack];
+  // Try NewsX first (PRIORITY 1) - user has NEWSX_API
+  console.log(`[API Fetch] Fetching from NewsX RapidAPI for: ${topic}`);
+  const newsx = await fetchNewsXArticles(topic);
+  if (newsx.length > 0) {
+    console.log(`[API Fetch] ✅ Found ${newsx.length} articles from NewsX`);
+    articles = [...articles, ...newsx];
     return articles;
   }
 
-  // Try NewsAPI RapidAPI if Mediastack returned nothing (PRIORITY 2)
-  console.log(`[API Fetch] ⚠️ No articles from Mediastack RapidAPI, trying NewsAPI RapidAPI...`);
-  const newsapi = await fetchNewsApiRapidApiArticles(topic);
-  if (newsapi.length > 0) {
-    console.log(`[API Fetch] ✅ Found ${newsapi.length} articles from NewsAPI RapidAPI`);
-    articles = [...articles, ...newsapi];
+  // Try Real-Time News if NewsX returned nothing (PRIORITY 2)
+  console.log(`[API Fetch] ⚠️ No articles from NewsX, trying Real-Time News...`);
+  const realTimeNews = await fetchRealTimeNewsArticles(topic);
+  if (realTimeNews.length > 0) {
+    console.log(`[API Fetch] ✅ Found ${realTimeNews.length} articles from Real-Time News`);
+    articles = [...articles, ...realTimeNews];
     return articles;
   }
 
