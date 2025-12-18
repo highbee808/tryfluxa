@@ -88,7 +88,7 @@ function getTrendingTopics(): string[] {
  * Fetch articles from NewsX via RapidAPI (PRIORITY 1)
  * Uses NEWSX_API or RAPIDAPI_KEY env var
  * Host: newsx.p.rapidapi.com
- * Endpoint: /search?q=keyword
+ * Endpoint: /search/?limit=10&skip=0
  */
 async function fetchNewsXArticles(topic: string): Promise<Article[]> {
   // Try NEWSX_API first, then fallback to RAPIDAPI_KEY
@@ -100,7 +100,7 @@ async function fetchNewsXArticles(topic: string): Promise<Article[]> {
 
   try {
     const host = 'newsx.p.rapidapi.com';
-    const url = `https://newsx.p.rapidapi.com/search?q=${encodeURIComponent(topic)}`;
+    const url = `https://newsx.p.rapidapi.com/search/?q=${encodeURIComponent(topic)}&limit=10&skip=0`;
     
     // Debug log before fetch
     console.log(`[RapidAPI Debug] adapter=newsx url=${url} host=${host} hasKey=${!!apiKey}`);
@@ -141,9 +141,10 @@ async function fetchNewsXArticles(topic: string): Promise<Article[]> {
 }
 
 /**
- * Fetch articles from Webit News via RapidAPI (PRIORITY 2)
+ * Fetch articles from Webit News Search via RapidAPI (PRIORITY 2)
  * Uses WEBIT_NEWS_API or RAPIDAPI_KEY env var
- * Host: webit-news.p.rapidapi.com
+ * Host: webit-news-search.p.rapidapi.com
+ * Endpoint: /search?q=keyword
  */
 async function fetchWebitNewsArticles(topic: string): Promise<Article[]> {
   // Try WEBIT_NEWS_API first, then fallback to RAPIDAPI_KEY
@@ -154,12 +155,12 @@ async function fetchWebitNewsArticles(topic: string): Promise<Article[]> {
   }
 
   try {
-    const host = 'webit-news.p.rapidapi.com';
-    const url = `https://webit-news.p.rapidapi.com/search?q=${encodeURIComponent(topic)}&language=en&pageSize=10`;
+    const host = 'webit-news-search.p.rapidapi.com';
+    const url = `https://webit-news-search.p.rapidapi.com/search?q=${encodeURIComponent(topic)}&language=en`;
     
     // Debug log before fetch
-    console.log(`[RapidAPI Debug] adapter=webit-news url=${url} host=${host} hasKey=${!!apiKey}`);
-    console.log(`[API Fetch] Using adapter: webit-news (rapidapi)`);
+    console.log(`[RapidAPI Debug] adapter=webit-news-search url=${url} host=${host} hasKey=${!!apiKey}`);
+    console.log(`[API Fetch] Using adapter: webit-news-search (rapidapi)`);
     
     const response = await fetch(url, {
       headers: {
