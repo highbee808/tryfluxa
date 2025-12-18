@@ -95,12 +95,17 @@ async function fetchMediastackRapidApiArticles(topic: string): Promise<Article[]
   }
 
   try {
+    const host = 'mediastack.p.rapidapi.com';
+    const url = `https://mediastack.p.rapidapi.com/v1/news?keywords=${encodeURIComponent(topic)}&languages=en&limit=5&sort=published_desc`;
+    
+    // Debug log before fetch
+    console.log(`[RapidAPI Debug] adapter=mediastack url=${url} host=${host} hasKey=${!!apiKey}`);
     console.log(`[API Fetch] Using adapter: mediastack (rapidapi)`);
-    const url = `https://mediastack.p.rapidapi.com/news?keywords=${encodeURIComponent(topic)}&languages=en&limit=5&sort=published_desc`;
+    
     const response = await fetch(url, {
       headers: {
         'X-RapidAPI-Key': apiKey,
-        'X-RapidAPI-Host': 'mediastack.p.rapidapi.com',
+        'X-RapidAPI-Host': host,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0'
@@ -139,12 +144,17 @@ async function fetchNewsApiRapidApiArticles(topic: string): Promise<Article[]> {
   }
 
   try {
+    const host = 'newsapi.org';
+    const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(topic)}&language=en&sortBy=publishedAt&pageSize=5`;
+    
+    // Debug log before fetch
+    console.log(`[RapidAPI Debug] adapter=newsapi url=${url} host=${host} hasKey=${!!apiKey}`);
     console.log(`[API Fetch] Using adapter: newsapi (rapidapi)`);
-    const url = `https://newsapi-rapidapi.p.rapidapi.com/everything?q=${encodeURIComponent(topic)}&language=en&sortBy=publishedAt&pageSize=5`;
+    
     const response = await fetch(url, {
       headers: {
         'X-RapidAPI-Key': apiKey,
-        'X-RapidAPI-Host': 'newsapi-rapidapi.p.rapidapi.com',
+        'X-RapidAPI-Host': host,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0'
