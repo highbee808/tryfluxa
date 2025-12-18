@@ -82,6 +82,7 @@ export default function PostDetail() {
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const commentArticleFieldRef = useRef<"article_id" | "post_id">("article_id");
   const [trendingGists, setTrendingGists] = useState<DbGist[]>([]);
+  const isLoadingPostRef = useRef(false);
 
   useEffect(() => {
     if (!source || !id) {
@@ -91,6 +92,10 @@ export default function PostDetail() {
     // Validate source is either "gist" or "news"
     if (source !== "gist" && source !== "news") {
       setLoading(false);
+      return;
+    }
+    // Prevent multiple simultaneous loads
+    if (isLoadingPostRef.current) {
       return;
     }
     loadPost();
@@ -109,12 +114,19 @@ export default function PostDetail() {
   async function loadPost() {
     if (!source || !id) return;
     if (source !== "gist" && source !== "news") return;
+    
+    // Prevent multiple simultaneous loads
+    if (isLoadingPostRef.current) {
+      return;
+    }
+    isLoadingPostRef.current = true;
 
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:109',message:'loadPost entry',data:{source,id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
     // #endregion
 
     setLoading(true);
+    const loadStartTime = Date.now();
     try {
       const result = await fetchPostBySourceAndId(source as "gist" | "news", id);
 
@@ -206,8 +218,15 @@ export default function PostDetail() {
       }
     } catch (error) {
       console.error("Error loading post:", error);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:203',message:'loadPost error',data:{source,id,error:error instanceof Error?error.message:String(error),elapsed:Date.now()-loadStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
+      // #endregion
     } finally {
       setLoading(false);
+      isLoadingPostRef.current = false;
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:210',message:'loadPost complete',data:{source,id,elapsed:Date.now()-loadStartTime,found:!!post},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
+      // #endregion
     }
   }
 

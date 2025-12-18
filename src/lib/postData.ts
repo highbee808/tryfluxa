@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getFrontendUrl } from "@/lib/apiConfig";
 
 /**
  * Fetch a post by source and ID from the specified table
@@ -16,80 +17,151 @@ export async function fetchPostBySourceAndId(
   // #endregion
   
   if (source === "gist") {
-    const { data, error } = await supabase
+    const gistQueryStartTime = Date.now();
+    const gistQueryTimeout = 5000; // 5 second timeout
+    
+    const gistQueryPromise = supabase
       .from("gists")
       .select("*")
       .eq("id", id)
       .maybeSingle();
 
+    const gistTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Query timeout")), gistQueryTimeout)
+    );
+
+    let gistData: any = null;
+    let gistError: any = null;
+    
+    try {
+      const result = await Promise.race([gistQueryPromise, gistTimeoutPromise]) as any;
+      gistData = result.data;
+      gistError = result.error;
+    } catch (timeoutError) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:15',message:'fetchPostBySourceAndId gist query timeout',data:{source,id,elapsed:Date.now()-gistQueryStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
+      // #endregion
+      console.warn(`[PostDetail] gists query timed out after ${gistQueryTimeout}ms`);
+    }
+
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:15',message:'fetchPostBySourceAndId gist query',data:{source,id,found:!!data,error:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:33',message:'fetchPostBySourceAndId gist query result',data:{source,id,found:!!gistData,error:gistError?.message,elapsed:Date.now()-gistQueryStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
     // #endregion
 
-    if (error) {
-      console.error("Error fetching gist:", error);
+    if (gistError) {
+      console.error("Error fetching gist:", gistError);
       return null;
     }
 
-    if (data) {
-      return { source: "gist", data };
+    if (gistData) {
+      return { source: "gist", data: gistData };
     }
   } else if (source === "news") {
-    // First try news_cache (for fetch-content items)
-    const { data: newsData, error: newsError } = await supabase
+    // First try news_cache (for fetch-content items) with timeout
+    const newsQueryStartTime = Date.now();
+    const newsQueryTimeout = 5000; // 5 second timeout
+    
+    const newsQueryPromise = supabase
       .from("news_cache")
       .select("*")
       .eq("id", id)
       .maybeSingle();
 
+    const newsTimeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Query timeout")), newsQueryTimeout)
+    );
+
+    let newsData: any = null;
+    let newsError: any = null;
+    
+    try {
+      const result = await Promise.race([newsQueryPromise, newsTimeoutPromise]) as any;
+      newsData = result.data;
+      newsError = result.error;
+    } catch (timeoutError) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:30',message:'fetchPostBySourceAndId news_cache query timeout',data:{source,id,elapsed:Date.now()-newsQueryStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
+      // #endregion
+      console.warn(`[PostDetail] news_cache query timed out after ${newsQueryTimeout}ms`);
+    }
+
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:30',message:'fetchPostBySourceAndId news_cache query',data:{source,id,found:!!newsData,error:newsError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:48',message:'fetchPostBySourceAndId news_cache query result',data:{source,id,found:!!newsData,error:newsError?.message,elapsed:Date.now()-newsQueryStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
     // #endregion
 
     if (!newsError && newsData) {
       return { source: "news", data: newsData };
     }
 
-    // If not found in news_cache, try content_items table
-    const { data: contentItemData, error: contentItemError } = await supabase
+    // If not found in news_cache, try content_items table with optimized query
+    // Use simple select first (no joins) for speed
+    const queryStartTime = Date.now();
+    const queryTimeout = 5000; // 5 second timeout
+    
+    const contentItemPromise = supabase
       .from("content_items")
-      .select(`
-        id,
-        source_id,
-        title,
-        url,
-        excerpt,
-        published_at,
-        image_url,
-        created_at,
-        content_item_categories(
-          content_categories(
-            name,
-            slug
-          )
-        ),
-        content_sources(
-          source_key,
-          name
-        )
-      `)
+      .select("id, source_id, title, url, excerpt, published_at, image_url, created_at")
       .eq("id", id)
       .maybeSingle();
 
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("Query timeout")), queryTimeout)
+    );
+
+    let contentItemData: any = null;
+    let contentItemError: any = null;
+    
+    try {
+      const result = await Promise.race([contentItemPromise, timeoutPromise]) as any;
+      contentItemData = result.data;
+      contentItemError = result.error;
+    } catch (timeoutError) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:54',message:'fetchPostBySourceAndId content_items query timeout',data:{source,id,elapsed:Date.now()-queryStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
+      // #endregion
+      console.warn(`[PostDetail] content_items query timed out after ${queryTimeout}ms`);
+      return null; // Return early on timeout
+    }
+
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:50',message:'fetchPostBySourceAndId content_items query',data:{source,id,found:!!contentItemData,error:contentItemError?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:68',message:'fetchPostBySourceAndId content_items query result',data:{source,id,found:!!contentItemData,error:contentItemError?.message,elapsed:Date.now()-queryStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
     // #endregion
 
     if (!contentItemError && contentItemData) {
-      // Map content_item to expected format
-      const categories = (contentItemData.content_item_categories || [])
-        .map((cic: any) => cic.content_categories?.name)
-        .filter(Boolean);
+      // Fetch source and categories separately (non-blocking, with short timeout)
+      let sourceName = "News";
+      let categories: string[] = [];
+      
+      // Fetch source name (quick, separate query)
+      if (contentItemData.source_id) {
+        try {
+          const sourceResult = await Promise.race([
+            supabase.from("content_sources").select("name").eq("id", contentItemData.source_id).maybeSingle(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 2000))
+          ]) as any;
+          if (sourceResult?.data) sourceName = sourceResult.data.name;
+        } catch (e) {
+          // Ignore - use default
+        }
+      }
+
+      // Fetch categories (quick, separate query)
+      try {
+        const categoryResult = await Promise.race([
+          supabase.from("content_item_categories").select("content_categories(name)").eq("content_item_id", id).limit(5),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 2000))
+        ]) as any;
+        categories = (categoryResult?.data || [])
+          .map((cic: any) => cic.content_categories?.name)
+          .filter(Boolean);
+      } catch (e) {
+        // Ignore - use empty array
+      }
       
       const mappedData = {
         id: contentItemData.id,
         title: contentItemData.title,
-        headline: contentItemData.title, // Alias for headline
+        headline: contentItemData.title,
         summary: contentItemData.excerpt || "",
         context: contentItemData.excerpt || "",
         image_url: contentItemData.image_url,
@@ -98,14 +170,14 @@ export async function fetchPostBySourceAndId(
         url: contentItemData.url,
         source_url: contentItemData.url,
         category: categories[0] || null,
-        topic: contentItemData.content_sources?.name || "News",
+        topic: sourceName,
         topic_category: categories[0] || null,
         views_count: 0,
         comments_count: 0,
       };
 
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:72',message:'fetchPostBySourceAndId content_item mapped',data:{id:mappedData.id,title:mappedData.title,categories},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:110',message:'fetchPostBySourceAndId content_item mapped',data:{id:mappedData.id,title:mappedData.title,categories,sourceName},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
       // #endregion
 
       return { source: "news", data: mappedData };
