@@ -12,9 +12,6 @@ export async function fetchPostBySourceAndId(
   source: "gist" | "news";
   data: any;
 } | null> {
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:7',message:'fetchPostBySourceAndId entry',data:{source,id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
-  // #endregion
   
   if (source === "gist") {
     const gistQueryStartTime = Date.now();
@@ -38,15 +35,8 @@ export async function fetchPostBySourceAndId(
       gistData = result.data;
       gistError = result.error;
     } catch (timeoutError) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:15',message:'fetchPostBySourceAndId gist query timeout',data:{source,id,elapsed:Date.now()-gistQueryStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
-      // #endregion
       console.warn(`[PostDetail] gists query timed out after ${gistQueryTimeout}ms`);
     }
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:33',message:'fetchPostBySourceAndId gist query result',data:{source,id,found:!!gistData,error:gistError?.message,elapsed:Date.now()-gistQueryStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
-    // #endregion
 
     if (gistError) {
       console.error("Error fetching gist:", gistError);
@@ -67,19 +57,11 @@ export async function fetchPostBySourceAndId(
       // Use single-item API endpoint (much faster than fetching 100 items)
       const apiUrl = `${frontendUrl}/api/feed/content-item/${id}`;
       
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:70',message:'fetchPostBySourceAndId API request start',data:{source,id,apiUrl:apiUrl.substring(0,100)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
-      // #endregion
-      
       const fetchPromise = fetch(apiUrl, {
         headers: {
           "Content-Type": "application/json",
         },
       }).then(async (response) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:78',message:'fetchPostBySourceAndId API response received',data:{source,id,status:response.status,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
-        // #endregion
-        
         if (response.status === 404) return null;
         if (!response.ok) throw new Error(`API returned ${response.status}`);
         const data = await response.json();
@@ -91,10 +73,6 @@ export async function fetchPostBySourceAndId(
       );
 
       const contentItemData = await Promise.race([fetchPromise, timeoutPromise]) as any;
-
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:60',message:'fetchPostBySourceAndId content_items API query',data:{source,id,found:!!contentItemData,elapsed:Date.now()-apiQueryStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
-      // #endregion
 
       if (contentItemData) {
         const mappedData = {
@@ -115,24 +93,13 @@ export async function fetchPostBySourceAndId(
           comments_count: 0,
         };
 
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:85',message:'fetchPostBySourceAndId content_item mapped from API',data:{id:mappedData.id,title:mappedData.title},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
-        // #endregion
-
         return { source: "news", data: mappedData };
       }
     } catch (apiError) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:100',message:'fetchPostBySourceAndId content_items API error',data:{source,id,error:apiError instanceof Error?apiError.message:String(apiError),elapsed:Date.now()-apiQueryStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
-      // #endregion
       console.warn(`[PostDetail] content_items API query failed:`, apiError);
       
       // If API endpoint doesn't exist (404), fall back to fetching from feed API
       if (apiError instanceof Error && apiError.message.includes('404')) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:105',message:'fetchPostBySourceAndId falling back to feed API',data:{source,id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
-        // #endregion
-        
         try {
           const feedApiUrl = `${frontendUrl}/api/feed/content-items?limit=100`;
           const feedResponse = await fetch(feedApiUrl, {
@@ -162,10 +129,6 @@ export async function fetchPostBySourceAndId(
                 comments_count: 0,
               };
               
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:130',message:'fetchPostBySourceAndId feed API fallback success',data:{source,id,found:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
-              // #endregion
-              
               return { source: "news", data: mappedData };
             }
           }
@@ -194,30 +157,14 @@ export async function fetchPostBySourceAndId(
       );
 
       const result = await Promise.race([newsQueryPromise, newsTimeoutPromise]) as any;
-      
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:110',message:'fetchPostBySourceAndId news_cache fallback query',data:{source,id,found:!!result.data,elapsed:Date.now()-newsQueryStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
-      // #endregion
 
       if (result.data && !result.error) {
         return { source: "news", data: result.data };
       }
     } catch (timeoutError) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:120',message:'fetchPostBySourceAndId news_cache fallback timeout',data:{source,id,elapsed:Date.now()-newsQueryStartTime},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
-      // #endregion
       // Ignore timeout - API is primary method
     }
-
-    if (newsError) {
-      console.error("Error fetching news item:", newsError);
-      return null;
-    }
   }
-
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'postData.ts:85',message:'fetchPostBySourceAndId not found',data:{source,id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'J'})}).catch(()=>{});
-  // #endregion
 
   return null;
 }

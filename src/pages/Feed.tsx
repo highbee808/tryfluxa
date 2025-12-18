@@ -368,10 +368,6 @@ const Feed = () => {
       }
       
       const url = urlObj.toString();
-      
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:248',message:'fetchCategoryContent called',data:{category,forceFresh,url:url.substring(0,100)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
 
       try {
         const response = await fetch(url, {
@@ -394,15 +390,8 @@ const Feed = () => {
 
         const payload = (await response.json()) as FetchContentResponse;
         if (!payload.items || !Array.isArray(payload.items)) {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:284',message:'fetchCategoryContent empty response',data:{category,hasItems:!!payload.items,isArray:Array.isArray(payload.items)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-          // #endregion
           return [];
         }
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:289',message:'fetchCategoryContent success',data:{category,itemCount:payload.items.length,firstItemId:payload.items[0]?.id,firstItemTitle:payload.items[0]?.title?.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
         
         return payload.items;
       } catch (err) {
@@ -485,18 +474,9 @@ const Feed = () => {
 
   // Helper to update gists state progressively
   const updateGistsProgressively = (newGists: Gist[], source: "categoryContent" | "contentItems") => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:487',message:'updateGistsProgressively entry',data:{source,newGistsCount:newGists.length,newGistsIds:newGists.slice(0,3).map(g=>g.id),newGistsSourceTypes:newGists.slice(0,3).map(g=>g.sourceType)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-    // #endregion
     try {
       setGists(prev => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:490',message:'updateGistsProgressively before merge',data:{source,prevCount:prev.length,newGistsCount:newGists.length,prevSourceTypes:prev.slice(0,5).map(g=>g.sourceType)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-        // #endregion
         const merged = mergeAndSortGists(newGists, prev);
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:492',message:'updateGistsProgressively after merge',data:{source,mergedCount:merged.length,mergedSourceTypes:merged.filter(g=>g.sourceType==='content_item').length,allSourceTypes:merged.reduce((acc,g)=>{acc[g.sourceType||'unknown']=(acc[g.sourceType||'unknown']||0)+1;return acc;},{})},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'G'})}).catch(()=>{});
-        // #endregion
         return merged;
       });
       
@@ -512,9 +492,6 @@ const Feed = () => {
 
   const loadGists = useCallback(
     async (showToast = false, forceFresh = false) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:504',message:'loadGists entry',data:{showToast,forceFresh,selectedCategory,gistsCount:gists.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       try {
         if (showToast) setIsRefreshing(true);
         setFeedError(null);
@@ -527,10 +504,6 @@ const Feed = () => {
         const shouldSkipFetch = !forceFresh && 
                                  timeSinceLastFetch < 2 * 60 * 1000 && // 2 minutes
                                  gists.length > 0;
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:519',message:'early return check',data:{shouldSkipFetch,forceFresh,timeSinceLastFetch,hasGists:gists.length>0},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        // #endregion
         
         if (shouldSkipFetch) {
           if (import.meta.env.DEV) {
@@ -587,10 +560,6 @@ const Feed = () => {
           }
         }
 
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:563',message:'contentItems fetch params',data:{selectedCategory,contentItemsCategory,userId:userId||null,hasSportsInterest,hasMusicInterest},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-        // #endregion
-
         // Fetch both sources, but handle them progressively
         const fetchPromises = [
           Promise.all(categoriesToFetch.map((category) => fetchCategoryContent(category, forceFresh)))
@@ -627,16 +596,8 @@ const Feed = () => {
             userId: userId,
           })
             .then((contentItemsData) => {
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:609',message:'fetchContentItems response',data:{rawCount:contentItemsData.length,firstItemId:contentItemsData[0]?.id,firstItemTitle:contentItemsData[0]?.title?.substring(0,50),firstItemCategory:contentItemsData[0]?.categories?.[0]},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-              // #endregion
-              
               // Map content_items to Gist format
               const contentItemsGists = contentItemsData.map(item => mapContentItemResponseToGist(item));
-
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:612',message:'contentItems mapped',data:{mappedCount:contentItemsGists.length,firstMappedId:contentItemsGists[0]?.id,firstMappedSourceType:contentItemsGists[0]?.sourceType,firstMappedTopicCategory:contentItemsGists[0]?.topic_category},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-              // #endregion
 
               // Filter content_items by selectedCategory (if not "All")
               const filteredContentItemsGists = selectedCategory === "All"
@@ -647,10 +608,6 @@ const Feed = () => {
                     return feedCategory === selectedFeedCategory;
                   });
 
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:616',message:'contentItems after category filter',data:{selectedCategory,filteredCount:filteredContentItemsGists.length,originalCount:contentItemsGists.length,firstFilteredTopicCategory:filteredContentItemsGists[0]?.topic_category},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-              // #endregion
-
               // Apply sports interest filter for "All" tab
               const finalContentItemsGists = selectedCategory === "All" && !hasSportsInterest
                 ? filteredContentItemsGists.filter(gist => {
@@ -658,10 +615,6 @@ const Feed = () => {
                     return feedCategory !== "sports";
                   })
                 : filteredContentItemsGists;
-
-              // #region agent log
-              fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:628',message:'contentItems after sports filter',data:{finalCount:finalContentItemsGists.length,afterCategoryFilterCount:filteredContentItemsGists.length,hasSportsInterest},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-              // #endregion
 
               updateGistsProgressively(finalContentItemsGists, "contentItems");
               
@@ -948,9 +901,6 @@ const Feed = () => {
   };
 
   const filteredGists: Gist[] = React.useMemo(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:820',message:'filteredGists memo entry',data:{gistsCount:gists.length,selectedCategory,selectedTab,searchQuery,contentItemsCount:gists.filter(g=>g.sourceType==='content_item').length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
-    // #endregion
     let filtered = gists;
 
     if (selectedTab === "bookmarks") {
@@ -964,9 +914,6 @@ const Feed = () => {
           g.topic_category?.toLowerCase().includes(selectedCategory.toLowerCase()) ||
           g.topic.toLowerCase().includes(selectedCategory.toLowerCase())
       );
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:832',message:'filteredGists after category filter',data:{selectedCategory,beforeCount:beforeCategoryFilter,afterCount:filtered.length,removedCount:beforeCategoryFilter-filtered.length,removedContentItems:beforeCategoryFilter-filtered.length,contentItemsInFiltered:filtered.filter(g=>g.sourceType==='content_item').length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
-      // #endregion
     }
 
     if (searchQuery.trim()) {
@@ -978,10 +925,6 @@ const Feed = () => {
           g.topic?.toLowerCase().includes(query)
       );
     }
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:845',message:'filteredGists final',data:{finalCount:filtered.length,contentItemsInFinal:filtered.filter(g=>g.sourceType==='content_item').length,contentItemIds:filtered.filter(g=>g.sourceType==='content_item').slice(0,5).map(g=>g.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H'})}).catch(()=>{});
-    // #endregion
 
     return filtered;
   }, [gists, selectedCategory, searchQuery, selectedTab, bookmarkedGists]);
@@ -1254,9 +1197,6 @@ const Feed = () => {
               ) : (
                 <>
                   {(() => {
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'Feed.tsx:1255',message:'render feed items',data:{combinedFeedCount:combinedFeed.length,contentItemsCount:combinedFeed.filter(i=>i.sourceType==='content_item').length,contentItemIds:combinedFeed.filter(i=>i.sourceType==='content_item').slice(0,5).map(i=>i.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'I'})}).catch(()=>{});
-                    // #endregion
                     return combinedFeed.map((item) => (
                       <FeedCardWithSocial
                       key={`gist-${item.id}`}

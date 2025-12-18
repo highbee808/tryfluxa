@@ -95,12 +95,6 @@ export const FeedCard = ({
     (imageUrls?.primary && isValidImageUrl(imageUrls.primary) ? imageUrls.primary : null) ||
     (imageUrls?.ai && isValidImageUrl(imageUrls.ai) ? imageUrls.ai : null) ||
     null;
-  
-  // #region agent log
-  useEffect(() => {
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FeedCard.tsx:83',message:'FeedCard image priority',data:{id,headline:headline?.substring(0,50),hasSource:!!imageUrls?.source,hasPrimary:!!imageUrl,hasAi:!!imageUrls?.ai,normalizedUrl:normalizedImageUrl?.substring(0,50)||null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  }, [id, headline, imageUrl, imageUrls, normalizedImageUrl]);
-  // #endregion
 
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(
     normalizedImageUrl
