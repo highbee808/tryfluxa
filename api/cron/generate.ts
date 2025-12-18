@@ -141,25 +141,25 @@ async function fetchNewsXArticles(topic: string): Promise<Article[]> {
 }
 
 /**
- * Fetch articles from Real-Time News Data via RapidAPI (PRIORITY 2)
- * Uses REAL_TIME_SPORTS_NEWS_API or RAPIDAPI_KEY env var
- * Host: real-time-news-data.p.rapidapi.com
+ * Fetch articles from Webit News via RapidAPI (PRIORITY 2)
+ * Uses WEBIT_NEWS_API or RAPIDAPI_KEY env var
+ * Host: webit-news.p.rapidapi.com
  */
-async function fetchRealTimeNewsArticles(topic: string): Promise<Article[]> {
-  // Try specific key first, then fallback to RAPIDAPI_KEY
-  const apiKey = process.env.REAL_TIME_SPORTS_NEWS_API || process.env.RAPIDAPI_KEY;
+async function fetchWebitNewsArticles(topic: string): Promise<Article[]> {
+  // Try WEBIT_NEWS_API first, then fallback to RAPIDAPI_KEY
+  const apiKey = process.env.WEBIT_NEWS_API || process.env.RAPIDAPI_KEY;
   if (!apiKey) {
-    console.log(`[API Fetch] Real-Time News: No API key found`);
+    console.log(`[API Fetch] Webit News: No API key found (checked WEBIT_NEWS_API, RAPIDAPI_KEY)`);
     return [];
   }
 
   try {
-    const host = 'real-time-news-data.p.rapidapi.com';
-    const url = `https://real-time-news-data.p.rapidapi.com/search?query=${encodeURIComponent(topic)}&limit=10&time_published=anytime&country=US&lang=en`;
+    const host = 'webit-news.p.rapidapi.com';
+    const url = `https://webit-news.p.rapidapi.com/search?q=${encodeURIComponent(topic)}&language=en&pageSize=10`;
     
     // Debug log before fetch
-    console.log(`[RapidAPI Debug] adapter=real-time-news url=${url} host=${host} hasKey=${!!apiKey}`);
-    console.log(`[API Fetch] Using adapter: real-time-news (rapidapi)`);
+    console.log(`[RapidAPI Debug] adapter=webit-news url=${url} host=${host} hasKey=${!!apiKey}`);
+    console.log(`[API Fetch] Using adapter: webit-news (rapidapi)`);
     
     const response = await fetch(url, {
       headers: {
@@ -173,31 +173,31 @@ async function fetchRealTimeNewsArticles(topic: string): Promise<Article[]> {
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => '');
-      console.log(`[API Fetch] Real-Time News error: ${response.status} - ${errorText.substring(0, 200)}`);
+      console.log(`[API Fetch] Webit News error: ${response.status} - ${errorText.substring(0, 200)}`);
       return [];
     }
 
     const data = await response.json();
-    const articles = data.data || data.articles || data.news || [];
+    const articles = data.articles || data.data || data.news || data.results || [];
     return articles.slice(0, 10).map((article: any) => ({
       title: article.title || '',
-      description: article.snippet || article.description || '',
-      content: article.snippet || article.description || '',
-      url: article.link || article.url || '',
-      image: article.photo_url || article.image || article.thumbnail || null,
-      source: article.source_name || article.source || 'Real-Time News',
-      published_at: article.published_datetime_utc || article.published_at || null,
+      description: article.description || article.snippet || article.summary || '',
+      content: article.content || article.description || '',
+      url: article.url || article.link || '',
+      image: article.urlToImage || article.image || article.thumbnail || null,
+      source: article.source?.name || article.source || 'Webit News',
+      published_at: article.publishedAt || article.published_at || article.date || null,
     })).filter((a: Article) => a.title && a.url);
   } catch (error) {
-    console.error("[API Fetch] Real-Time News error:", error);
+    console.error("[API Fetch] Webit News error:", error);
     return [];
   }
 }
 
 /**
- * Fetch articles from all APIs (sequential: NewsX → Real-Time News)
+ * Fetch articles from all APIs (sequential: NewsX → Webit News)
  * MANDATORY: Must return at least one article, otherwise generation fails
- * NOTE: Uses RapidAPI adapters that the user has subscribed to
+ * NOTE: Uses RapidAPI adapters that the user has subscribed to (NEWSX_API, WEBIT_NEWS_API)
  */
 async function fetchArticlesFromApis(topic: string): Promise<Article[]> {
   let articles: Article[] = [];
@@ -211,12 +211,12 @@ async function fetchArticlesFromApis(topic: string): Promise<Article[]> {
     return articles;
   }
 
-  // Try Real-Time News if NewsX returned nothing (PRIORITY 2)
-  console.log(`[API Fetch] ⚠️ No articles from NewsX, trying Real-Time News...`);
-  const realTimeNews = await fetchRealTimeNewsArticles(topic);
-  if (realTimeNews.length > 0) {
-    console.log(`[API Fetch] ✅ Found ${realTimeNews.length} articles from Real-Time News`);
-    articles = [...articles, ...realTimeNews];
+  // Try Webit News if NewsX returned nothing (PRIORITY 2)
+  console.log(`[API Fetch] ⚠️ No articles from NewsX, trying Webit News...`);
+  const webitNews = await fetchWebitNewsArticles(topic);
+  if (webitNews.length > 0) {
+    console.log(`[API Fetch] ✅ Found ${webitNews.length} articles from Webit News`);
+    articles = [...articles, ...webitNews];
     return articles;
   }
 
