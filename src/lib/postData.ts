@@ -57,29 +57,25 @@ export async function fetchPostBySourceAndId(
       return { source: "gist", data: gistData };
     }
   } else if (source === "news") {
-    // For content_items, use the API endpoint (faster, bypasses RLS complexity)
-    // The API endpoint works (we see items in feed), so use it for single item lookup
+    // Use optimized single-item API endpoint (fast, bypasses RLS complexity)
     const apiQueryStartTime = Date.now();
-    const apiQueryTimeout = 3000; // 3 second timeout (shorter since API is faster)
+    const apiQueryTimeout = 3000; // 3 second timeout
     
     try {
       const frontendUrl = getFrontendUrl();
-      const { data: { user } } = await supabase.auth.getUser();
-      const userId = user?.id;
       
-      // Use API endpoint that we know works (same one used in feed)
-      const apiUrl = `${frontendUrl}/api/feed/content-items?limit=100&excludeSeen=false${userId ? `&userId=${userId}` : ''}`;
+      // Use single-item API endpoint (much faster than fetching 100 items)
+      const apiUrl = `${frontendUrl}/api/feed/content-item/${id}`;
       
       const fetchPromise = fetch(apiUrl, {
         headers: {
           "Content-Type": "application/json",
         },
       }).then(async (response) => {
+        if (response.status === 404) return null;
         if (!response.ok) throw new Error(`API returned ${response.status}`);
         const data = await response.json();
-        // Find the specific item by ID
-        const item = (data.items || []).find((item: any) => item.id === id);
-        return item;
+        return data;
       });
 
       const timeoutPromise = new Promise((_, reject) => 

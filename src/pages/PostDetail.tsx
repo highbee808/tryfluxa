@@ -771,7 +771,7 @@ export default function PostDetail() {
 
               {/* Actions */}
               <div className="flex items-center gap-6 pt-4 border-t border-border">
-                {postSource === "gist" && (
+                {(postSource === "gist" || postSource === "news") && (
                   <>
                     <button
                       onClick={toggleLike}
@@ -894,16 +894,6 @@ export default function PostDetail() {
                       ))}
                     </div>
                   )}
-                </div>
-              )}
-
-              {/* Comments Coming Soon for news posts */}
-              {postSource === "news" && (
-                <div className="mt-8 pt-6 border-t border-border">
-                  <div className="text-center py-8 text-muted-foreground">
-                    <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                    <p>Comments coming soon</p>
-                  </div>
                 </div>
               )}
             </div>
