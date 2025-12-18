@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { getApiBaseUrl, getDefaultHeaders } from "@/lib/apiConfig";
+import { getApiBaseUrl, getDefaultHeaders, getFrontendUrl } from "@/lib/apiConfig";
 
 /**
  * Content item response from feed API endpoint
@@ -171,9 +171,13 @@ export async function fetchContentItems(options?: {
   source?: string;
   userId?: string;
 }): Promise<ContentItemResponse[]> {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'feedData.ts:167',message:'fetchContentItems entry',data:{options},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+  // #endregion
   try {
-    const API_BASE = getApiBaseUrl();
-    const baseUrl = API_BASE.replace(/\/$/, "");
+    // Use frontend URL for Vercel serverless function, not Supabase Edge Function
+    const frontendUrl = getFrontendUrl();
+    const baseUrl = frontendUrl.replace(/\/$/, "");
     const urlObj = new URL(`${baseUrl}/api/feed/content-items`);
     
     if (options?.limit) {
@@ -192,9 +196,17 @@ export async function fetchContentItems(options?: {
       urlObj.searchParams.set("userId", options.userId);
     }
     
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'feedData.ts:195',message:'fetchContentItems request',data:{url:urlObj.toString().substring(0,150)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+    
     const response = await fetch(urlObj.toString(), {
       headers: getDefaultHeaders(),
     });
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'feedData.ts:199',message:'fetchContentItems response status',data:{status:response.status,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     
     if (!response.ok) {
       console.warn(`[Feed] content-items API returned ${response.status}`);
@@ -202,8 +214,14 @@ export async function fetchContentItems(options?: {
     }
     
     const data = await response.json() as { items: ContentItemResponse[]; count: number };
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'feedData.ts:205',message:'fetchContentItems response data',data:{itemsCount:data.items?.length||0,count:data.count,firstItemId:data.items?.[0]?.id,firstItemTitle:data.items?.[0]?.title?.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     return data.items || [];
   } catch (error) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'feedData.ts:207',message:'fetchContentItems error',data:{error:error instanceof Error?error.message:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     console.error("[Feed] Error fetching content items:", error);
     return [];
   }
