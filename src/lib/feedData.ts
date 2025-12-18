@@ -200,13 +200,63 @@ export async function fetchContentItems(options?: {
     fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'feedData.ts:195',message:'fetchContentItems request',data:{url:urlObj.toString().substring(0,150)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
     // #endregion
     
-    const response = await fetch(urlObj.toString(), {
-      headers: getDefaultHeaders(),
-    });
-    
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'feedData.ts:199',message:'fetchContentItems response status',data:{status:response.status,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
+    let response: Response;
+    try {
+      response = await fetch(urlObj.toString(), {
+        headers: getDefaultHeaders(),
+      });
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'feedData.ts:199',message:'fetchContentItems response status',data:{status:response.status,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      
+      // Check if response is valid JSON (Vercel functions don't run in Vite dev, so we get source code)
+      if (response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json() as { items: ContentItemResponse[]; count: number };
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'feedData.ts:205',message:'fetchContentItems response data',data:{itemsCount:data.items?.length||0,count:data.count,firstItemId:data.items?.[0]?.id,firstItemTitle:data.items?.[0]?.title?.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
+          return data.items || [];
+        } else {
+          // Local API returned non-JSON (source code) - fall back to production
+          if (import.meta.env.DEV) {
+            console.warn('[Feed] Local API not available, using production API');
+            const prodUrl = new URL('https://tryfluxa.vercel.app/api/feed/content-items');
+            urlObj.searchParams.forEach((value, key) => prodUrl.searchParams.set(key, value));
+            response = await fetch(prodUrl.toString(), {
+              headers: getDefaultHeaders(),
+            });
+            if (response.ok) {
+              const data = await response.json() as { items: ContentItemResponse[]; count: number };
+              // #region agent log
+              fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'feedData.ts:220',message:'fetchContentItems production fallback success',data:{itemsCount:data.items?.length||0,count:data.count},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+              // #endregion
+              return data.items || [];
+            }
+          }
+        }
+      }
+    } catch (parseError) {
+      // JSON parse error - likely local API returned source code
+      if (import.meta.env.DEV) {
+        console.warn('[Feed] Local API parse error, using production API');
+        const prodUrl = new URL('https://tryfluxa.vercel.app/api/feed/content-items');
+        urlObj.searchParams.forEach((value, key) => prodUrl.searchParams.set(key, value));
+        response = await fetch(prodUrl.toString(), {
+          headers: getDefaultHeaders(),
+        });
+        if (response.ok) {
+          const data = await response.json() as { items: ContentItemResponse[]; count: number };
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'feedData.ts:232',message:'fetchContentItems production fallback after parse error',data:{itemsCount:data.items?.length||0,count:data.count},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
+          return data.items || [];
+        }
+      }
+      throw parseError;
+    }
     
     if (!response.ok) {
       console.warn(`[Feed] content-items API returned ${response.status}`);
@@ -215,7 +265,7 @@ export async function fetchContentItems(options?: {
     
     const data = await response.json() as { items: ContentItemResponse[]; count: number };
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'feedData.ts:205',message:'fetchContentItems response data',data:{itemsCount:data.items?.length||0,count:data.count,firstItemId:data.items?.[0]?.id,firstItemTitle:data.items?.[0]?.title?.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'feedData.ts:245',message:'fetchContentItems response data',data:{itemsCount:data.items?.length||0,count:data.count,firstItemId:data.items?.[0]?.id,firstItemTitle:data.items?.[0]?.title?.substring(0,50)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
     // #endregion
     return data.items || [];
   } catch (error) {

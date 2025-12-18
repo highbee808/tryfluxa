@@ -110,9 +110,17 @@ export default function PostDetail() {
     if (!source || !id) return;
     if (source !== "gist" && source !== "news") return;
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:109',message:'loadPost entry',data:{source,id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
+    // #endregion
+
     setLoading(true);
     try {
       const result = await fetchPostBySourceAndId(source as "gist" | "news", id);
+
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:115',message:'loadPost fetchPostBySourceAndId result',data:{source,id,found:!!result,resultSource:result?.source},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
+      // #endregion
 
       if (!result) {
         setLoading(false);
@@ -167,8 +175,9 @@ export default function PostDetail() {
         setViews((prev) => prev + 1);
       }
 
-      // Load user actions and comments (only for gists)
-      if (resultSource === "gist") {
+      // Load user actions and comments (for gists and content_items)
+      // Note: Comments use article_id for both gists and content_items
+      if (resultSource === "gist" || resultSource === "news") {
         const authUser = await supabase.auth.getUser();
 
         if (authUser.data.user) {
@@ -203,7 +212,7 @@ export default function PostDetail() {
   }
 
   const toggleLike = async () => {
-    if (!id || !postSource || postSource !== "gist") return;
+    if (!id || !postSource) return; // Allow likes for both gists and content_items
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) return;
 
@@ -225,7 +234,7 @@ export default function PostDetail() {
   };
 
   const toggleBookmark = async () => {
-    if (!id || !postSource || postSource !== "gist") return;
+    if (!id || !postSource) return; // Allow bookmarks for both gists and content_items
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) return;
 
@@ -259,7 +268,7 @@ export default function PostDetail() {
   };
 
   const loadComments = async () => {
-    if (!id || postSource !== "gist") return;
+    if (!id || !postSource) return; // Allow comments for both gists and content_items
 
     setIsLoadingComments(true);
     try {
@@ -332,7 +341,7 @@ export default function PostDetail() {
   };
 
   const handleSubmitComment = async () => {
-    if (!id || !commentText.trim() || postSource !== "gist" || isSubmittingComment) return;
+    if (!id || !commentText.trim() || !postSource || isSubmittingComment) return; // Allow comments for both gists and content_items
 
     const {
       data: { user },
@@ -789,8 +798,8 @@ export default function PostDetail() {
                 </button>
               </div>
 
-              {/* Comments Section - Only for gist posts */}
-              {postSource === "gist" && (
+              {/* Comments Section - For gist posts and content_items */}
+              {(postSource === "gist" || postSource === "news") && (
                 <div className="mt-8 pt-6 border-t border-border">
                   <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                     <MessageCircle className="w-5 h-5" />
