@@ -269,6 +269,7 @@ export async function fetchMediastackArticles(topic: string): Promise<SourceResu
 /**
  * Gather articles from all available sources in parallel
  * Returns all successful results and failures
+ * Note: Guardian and expired adapters are excluded
  */
 export async function gatherAllSources(topic: string): Promise<{
   success: boolean
@@ -278,16 +279,32 @@ export async function gatherAllSources(topic: string): Promise<{
 }> {
   console.log('[sources] GATHER_START', { topic })
   
-  // Fetch from all sources in parallel
-  const [newsapiResult, guardianResult, mediastackResult] = await Promise.all([
-    fetchNewsApiArticles(topic),
-    fetchGuardianArticles(topic),
+  // Fetch from active sources only (Guardian and expired adapters removed)
+  // Prioritize RapidAPI sources first
+  const [mediastackResult, newsapiResult] = await Promise.all([
     fetchMediastackArticles(topic),
+    fetchNewsApiArticles(topic),
   ])
 
   const allArticles: any[] = []
   const failures: Array<{ source: string; status?: number; error: string; details?: any }> = []
   const sourceStats: Array<{ source: string; items: number; ok: boolean }> = []
+
+  // Process Mediastack first (prioritized)
+  if (mediastackResult.ok && mediastackResult.items.length > 0) {
+    allArticles.push(...mediastackResult.items)
+    sourceStats.push({ source: 'mediastack', items: mediastackResult.items.length, ok: true })
+  } else {
+    if (mediastackResult.error) {
+      failures.push({
+        source: 'mediastack',
+        status: mediastackResult.status,
+        error: mediastackResult.error,
+        details: mediastackResult.details,
+      })
+    }
+    sourceStats.push({ source: 'mediastack', items: 0, ok: false })
+  }
 
   // Process NewsAPI
   if (newsapiResult.ok && newsapiResult.items.length > 0) {
@@ -303,38 +320,6 @@ export async function gatherAllSources(topic: string): Promise<{
       })
     }
     sourceStats.push({ source: 'newsapi', items: 0, ok: false })
-  }
-
-  // Process Guardian
-  if (guardianResult.ok && guardianResult.items.length > 0) {
-    allArticles.push(...guardianResult.items)
-    sourceStats.push({ source: 'guardian', items: guardianResult.items.length, ok: true })
-  } else {
-    if (guardianResult.error) {
-      failures.push({
-        source: 'guardian',
-        status: guardianResult.status,
-        error: guardianResult.error,
-        details: guardianResult.details,
-      })
-    }
-    sourceStats.push({ source: 'guardian', items: 0, ok: false })
-  }
-
-  // Process Mediastack
-  if (mediastackResult.ok && mediastackResult.items.length > 0) {
-    allArticles.push(...mediastackResult.items)
-    sourceStats.push({ source: 'mediastack', items: mediastackResult.items.length, ok: true })
-  } else {
-    if (mediastackResult.error) {
-      failures.push({
-        source: 'mediastack',
-        status: mediastackResult.status,
-        error: mediastackResult.error,
-        details: mediastackResult.details,
-      })
-    }
-    sourceStats.push({ source: 'mediastack', items: 0, ok: false })
   }
 
   // Sort by published date

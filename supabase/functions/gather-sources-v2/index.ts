@@ -84,8 +84,8 @@ serve(async (req) => {
         failures: result.failures,
         envVars: {
           hasNewsApiKey: !!Deno.env.get('NEWSAPI_KEY'),
-          hasGuardianKey: !!Deno.env.get('GUARDIAN_API_KEY'),
           hasMediastackKey: !!Deno.env.get('MEDIASTACK_KEY'),
+          hasRapidApiKey: !!Deno.env.get('RAPIDAPI_KEY'),
         },
       } : {}),
     })

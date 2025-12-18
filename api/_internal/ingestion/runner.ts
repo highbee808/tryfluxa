@@ -157,6 +157,7 @@ export async function runIngestion(
   let errorMessage: string | undefined;
 
   try {
+    console.log(`[Ingestion] Getting adapter for source: ${sourceKey}`);
     const adapter = getAdapter(sourceKey, { maxItemsPerRun });
 
     const raw = await adapter.fetch();

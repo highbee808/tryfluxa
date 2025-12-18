@@ -64,6 +64,7 @@ function validateCronSecret(req: VercelRequest): boolean {
 
 /**
  * Get all enabled content sources from database
+ * Filters out expired/unsupported adapters (guardian, old mediastack, old newsapi)
  */
 async function getAllEnabledSources(sourceFilter?: string): Promise<any[]> {
   try {
@@ -72,8 +73,7 @@ async function getAllEnabledSources(sourceFilter?: string): Promise<any[]> {
     let query = supabase
       .from("content_sources")
       .select("*")
-      .eq("is_active", true)
-      .order("source_key", { ascending: true });
+      .eq("is_active", true);
 
     if (sourceFilter) {
       query = query.eq("source_key", sourceFilter);
@@ -85,7 +85,22 @@ async function getAllEnabledSources(sourceFilter?: string): Promise<any[]> {
       throw new Error(`Failed to load content sources: ${error.message}`);
     }
 
-    return data || [];
+    // Filter out expired/unsupported adapters
+    const expiredAdapters = ["guardian", "mediastack", "newsapi"];
+    const validSources = (data || []).filter(
+      (source) => !expiredAdapters.includes(source.source_key)
+    );
+
+    // Sort: RapidAPI adapters first, then others
+    const rapidApiSources = validSources.filter((s) => 
+      s.source_key.includes("rapidapi") || s.source_key === "mediastack-rapidapi" || s.source_key === "newsapi-rapidapi"
+    );
+    const otherSources = validSources.filter((s) => 
+      !s.source_key.includes("rapidapi") && s.source_key !== "mediastack-rapidapi" && s.source_key !== "newsapi-rapidapi"
+    );
+
+    // Return RapidAPI sources first, then others
+    return [...rapidApiSources, ...otherSources];
   } catch (error: any) {
     throw error;
   }
@@ -125,6 +140,7 @@ async function orchestrateIngestion(
   // Process each source
   for (const source of sources) {
     try {
+      console.log(`[Cron] Processing source: ${source.source_key} (${source.name})`);
       const result = await runIngestion(source.source_key, { force });
       
       if (result.success) {

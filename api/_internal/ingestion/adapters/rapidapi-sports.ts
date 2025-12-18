@@ -24,6 +24,7 @@ export class RapidApiSportsAdapter extends BaseAdapter {
   constructor(options: RapidApiSportsOptions) {
     super();
     this.options = { ...DEFAULT_OPTIONS, ...options };
+    console.log("Using adapter: rapidapi-sports");
   }
 
   async fetch(): Promise<unknown> {
