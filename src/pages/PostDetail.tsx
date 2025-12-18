@@ -190,31 +190,64 @@ export default function PostDetail() {
       // Load user actions and comments (for gists and content_items)
       // Note: Comments use article_id for both gists and content_items
       if (resultSource === "gist" || resultSource === "news") {
+        const userActionsStart = Date.now();
         const authUser = await supabase.auth.getUser();
 
         if (authUser.data.user) {
           const userId = authUser.data.user.id;
 
-          const { data: likeData } = await supabase
+          // Use Promise.race with timeout for user actions
+          const likePromise = supabase
             .from("article_likes")
             .select("id")
             .eq("article_id", id)
             .eq("user_id", userId)
             .maybeSingle();
 
-          const { data: saveData } = await supabase
+          const savePromise = supabase
             .from("article_saves")
             .select("id")
             .eq("article_id", id)
             .eq("user_id", userId)
             .maybeSingle();
 
-          setIsLiked(!!likeData);
-          setIsBookmarked(!!saveData);
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("User actions timeout")), 2000)
+          );
+
+          try {
+            const [likeResult, saveResult] = await Promise.race([
+              Promise.all([likePromise, savePromise]),
+              timeoutPromise
+            ]) as any[];
+            
+            setIsLiked(!!likeResult?.data);
+            setIsBookmarked(!!saveResult?.data);
+          } catch (error) {
+            console.warn("[PostDetail] User actions query timeout or error:", error);
+            // Continue without user actions
+          }
         }
 
-        // Load comments
-        await loadComments();
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:195',message:'loadPost user actions complete',data:{source,id,elapsed:Date.now()-userActionsStart},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
+        // #endregion
+
+        // Load comments (with timeout)
+        const commentsStart = Date.now();
+        try {
+          await Promise.race([
+            loadComments(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Comments timeout")), 3000))
+          ]);
+        } catch (error) {
+          console.warn("[PostDetail] Comments load timeout or error:", error);
+          // Continue without comments
+        }
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:217',message:'loadPost comments complete',data:{source,id,elapsed:Date.now()-commentsStart},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'K'})}).catch(()=>{});
+        // #endregion
       }
     } catch (error) {
       console.error("Error loading post:", error);
@@ -292,7 +325,14 @@ export default function PostDetail() {
     setIsLoadingComments(true);
     try {
       const column = commentArticleFieldRef.current;
-      let { data, error } = await fetchCommentsByColumn(column);
+      
+      // Add timeout to comments query
+      const commentsQueryPromise = fetchCommentsByColumn(column);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Comments query timeout")), 2000)
+      );
+
+      let { data, error } = await Promise.race([commentsQueryPromise, timeoutPromise]) as any;
 
       if (error && isMissingColumnError(error, column)) {
         const fallbackColumn = column === "article_id" ? "post_id" : "article_id";
@@ -300,7 +340,12 @@ export default function PostDetail() {
           `[comments] Column "${column}" missing, retrying with "${fallbackColumn}".`
         );
         commentArticleFieldRef.current = fallbackColumn;
-        ({ data, error } = await fetchCommentsByColumn(fallbackColumn));
+        
+        const fallbackPromise = fetchCommentsByColumn(fallbackColumn);
+        const fallbackTimeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Fallback comments query timeout")), 2000)
+        );
+        ({ data, error } = await Promise.race([fallbackPromise, fallbackTimeout]) as any);
       }
 
       if (error) {
