@@ -340,10 +340,14 @@ export default function PostDetail() {
       )) as string[];
       
       // Fetch all profiles at once
-      const { data: profiles } = userIds.length > 0 ? await supabase
+      const { data: profiles, error: profileError } = userIds.length > 0 ? await supabase
         .from("profiles")
         .select("user_id, display_name, avatar_url")
-        .in("user_id", userIds) : { data: null };
+        .in("user_id", userIds) : { data: null, error: null };
+
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:loadComments-profiles',message:'Profile fetch result',data:{userIds,profileCount:profiles?.length,profileError:profileError?.message,profiles:profiles?.map(p=>({userId:p.user_id,displayName:p.display_name}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
+      // #endregion
 
       const profileMap = new Map(
         (profiles || []).map(p => [p.user_id, p])
@@ -351,6 +355,10 @@ export default function PostDetail() {
 
       const commentsWithProfiles = (data || []).map((comment) => {
         const profile = profileMap.get(comment.user_id);
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:loadComments-mapping',message:'Mapping comment to profile',data:{commentUserId:comment.user_id,foundProfile:!!profile,displayName:profile?.display_name},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
+        // #endregion
         
         // If no profile exists, try to extract username from user_id or use a default
         // For now, we'll show a generic name but ensure it's not "Anonymous" for signed-in users

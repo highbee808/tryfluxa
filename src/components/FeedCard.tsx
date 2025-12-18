@@ -364,7 +364,14 @@ export const FeedCard = ({
 
               {/* Like */}
               <button
-                onClick={onLike}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  // #region agent log
+                  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FeedCard.tsx:like-click',message:'Like button clicked',data:{id,isLiked,likes},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+                  // #endregion
+                  if (onLike) onLike();
+                }}
                 className="flex items-center gap-2 text-muted-foreground hover:text-red-500 transition-colors group"
               >
                 <Heart
@@ -387,7 +394,11 @@ export const FeedCard = ({
 
               {/* Bookmark */}
               <button
-                onClick={onBookmark}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (onBookmark) onBookmark();
+                }}
                 className="flex items-center gap-2 text-muted-foreground hover:text-coral-active transition-colors group"
               >
                 <Bookmark

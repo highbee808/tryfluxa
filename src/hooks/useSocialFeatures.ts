@@ -45,6 +45,18 @@ export const useArticleLikes = (articleId: string) => {
   };
 
   const toggleLike = async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useSocialFeatures.ts:toggleLike-entry',message:'toggleLike called',data:{articleId,isLiked,loading},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
+    // #endregion
+    
+    // Prevent multiple clicks while loading
+    if (loading) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useSocialFeatures.ts:toggleLike-blocked',message:'Blocked - already loading',data:{articleId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
+      // #endregion
+      return;
+    }
+    
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
@@ -75,8 +87,14 @@ export const useArticleLikes = (articleId: string) => {
         setIsLiked(true);
         setLikesCount((prev) => prev + 1);
       }
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useSocialFeatures.ts:toggleLike-success',message:'Like toggled successfully',data:{articleId,newIsLiked:!isLiked},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
+      // #endregion
     } catch (error) {
       console.error('Error toggling like:', error);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useSocialFeatures.ts:toggleLike-error',message:'Error toggling like',data:{articleId,error:String(error)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
+      // #endregion
       toast({
         title: 'Error',
         description: 'Failed to update like status',
