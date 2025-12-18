@@ -684,7 +684,9 @@ async function runContentPipeline(): Promise<{
 
         // STEP 5: Prepare content_item data (PRIMARY feed source)
         const now = new Date().toISOString();
-        const articlePublishedAt = selectedArticle.published_at || null;
+        // IMPORTANT: Always set published_at to current time if source has no date
+        // The feed sorts by published_at DESC, so null values go to the END
+        const articlePublishedAt = selectedArticle.published_at || now;
         
         // Map topic to category
         const categoryId = mapTopicToCategory(topic);
