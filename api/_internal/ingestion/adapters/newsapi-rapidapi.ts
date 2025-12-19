@@ -13,7 +13,7 @@ interface NewsApiRapidApiAdapterOptions {
 }
 
 const DEFAULT_OPTIONS: Omit<NewsApiRapidApiAdapterOptions, "maxItemsPerRun"> = {
-  baseUrl: "https://newsapi-rapidapi.p.rapidapi.com/everything",
+  baseUrl: "https://newsapi-rapidapi.p.rapidapi.com/v2/everything",
   host: "newsapi-rapidapi.p.rapidapi.com",
   query: "news",
   language: "en",
@@ -55,7 +55,26 @@ export class NewsApiRapidApiAdapter extends BaseAdapter {
     });
     
     if (!response.ok) {
-      throw new Error(`NewsAPI RapidAPI fetch failed: ${response.status}`);
+      // Enhanced error logging for debugging 404s
+      let errorDetail = `NewsAPI RapidAPI fetch failed: ${response.status}`;
+      try {
+        const errorText = await response.text();
+        if (errorText) {
+          errorDetail += ` - ${errorText.substring(0, 200)}`;
+        }
+      } catch (e) {
+        // Ignore errors reading response body
+      }
+      
+      // Log the actual URL and host for debugging
+      console.error(`[NewsAPI RapidAPI] Request failed:`, {
+        url,
+        host,
+        status: response.status,
+        statusText: response.statusText,
+      });
+      
+      throw new Error(errorDetail);
     }
     return response.json();
   }
