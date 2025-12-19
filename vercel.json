@@ -1,7 +1,7 @@
 {
   "crons": [
     {
-      "path": "/api/cron/run-ingestion?secret=${CRON_SECRET_toggle}",
+      "path": "/api/cron/run-ingestion",
       "schedule": "0 * * * *"
     }
   ]

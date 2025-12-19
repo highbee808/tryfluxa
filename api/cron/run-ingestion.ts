@@ -46,25 +46,24 @@ interface OrchestrationResult {
 }
 
 /**
- * Validate cron secret from query params
+ * Validate cron execution
+ * - Allows Vercel scheduled cron via x-vercel-cron header
+ * - Allows manual execution via ?secret=CRON_SECRET
  */
-function validateCronSecret(req: VercelRequest): boolean {
+function validateCron(req: VercelRequest): boolean {
+  // ✅ Allow Vercel scheduled cron jobs
+  if (req.headers["x-vercel-cron"] === "1") {
+    return true;
+  }
+
+  // ✅ Allow manual runs via secret
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
-    // Allow in dev mode if secret not configured
-    const isProduction = process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production";
-    if (isProduction) {
-      console.warn("[Cron] CRON_SECRET not configured in production");
-    }
-    return true; // Allow in dev
+    // Allow in dev if secret is not configured
+    return true;
   }
 
   const requestSecret = req.query.secret as string | undefined;
-  
-  if (!requestSecret) {
-    return false;
-  }
-
   return requestSecret === cronSecret;
 }
 
@@ -275,13 +274,14 @@ export default async function handler(
   res: VercelResponse
 ) {
   try {
-    // Validate cron secret
-    if (!validateCronSecret(req)) {
-      return res.status(401).json({
-        error: "Unauthorized",
-        message: "Invalid or missing cron secret",
-      });
-    }
+    // Validate cron execution (Vercel cron or manual secret)
+if (!validateCron(req)) {
+  return res.status(401).json({
+    error: "Unauthorized",
+    message: "Invalid cron execution",
+  });
+}
+
 
     // Parse query params
     const force = req.query.force === "true" || req.query.force === true;
