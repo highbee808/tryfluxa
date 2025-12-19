@@ -51,79 +51,41 @@ interface OrchestrationResult {
  * - Allows manual execution via ?secret=CRON_SECRET
  */
 function validateCron(req: VercelRequest): boolean {
-  // #region agent log
-  console.log('[DEBUG validateCron] Entry - Header keys:', Object.keys(req.headers || {}));
-  const userAgent = req.headers['user-agent'];
-  console.log('[DEBUG validateCron] User-Agent:', userAgent);
-  // #endregion
-  
   // ✅ Allow Vercel scheduled cron jobs
   // Method 1: Check x-vercel-cron header (primary method)
   // Vercel sends x-vercel-cron header with value "1" for scheduled cron jobs
-  // Headers in @vercel/node are typically lowercase, but check case-insensitively
   const headerKeys = Object.keys(req.headers || {});
   const cronHeaderKey = headerKeys.find(k => k.toLowerCase() === 'x-vercel-cron');
   const cronHeaderValue = cronHeaderKey ? req.headers[cronHeaderKey] : undefined;
-  
-  // #region agent log
-  console.log('[DEBUG validateCron] x-vercel-cron header:', { 
-    value: cronHeaderValue, 
-    type: typeof cronHeaderValue,
-    isArray: Array.isArray(cronHeaderValue),
-    stringified: String(cronHeaderValue)
-  });
-  // #endregion
   
   // Check if this is a Vercel scheduled cron (header present with value "1" or "true")
   if (cronHeaderValue !== undefined && cronHeaderValue !== null) {
     const headerStr = Array.isArray(cronHeaderValue) ? cronHeaderValue[0] : String(cronHeaderValue);
     const isVercelCron = headerStr === "1" || headerStr === "true" || headerStr.toLowerCase() === "1";
     
-    // #region agent log
-    console.log('[DEBUG validateCron] Vercel cron header check result:', { isVercelCron, headerStr });
-    // #endregion
-    
     if (isVercelCron) {
-      console.log('[DEBUG validateCron] ✅ Validated via Vercel cron header');
       return true;
     }
   }
   
   // Method 2: Fallback to User-Agent check (vercel-cron/1.0)
   // This is a reliable indicator when header is missing or not accessible
+  const userAgent = req.headers['user-agent'];
   const userAgentStr = Array.isArray(userAgent) ? userAgent[0] : (typeof userAgent === 'string' ? userAgent : String(userAgent || ''));
   if (userAgentStr && userAgentStr.startsWith('vercel-cron/')) {
-    // #region agent log
-    console.log('[DEBUG validateCron] ✅ Validated via User-Agent:', userAgentStr);
-    // #endregion
     return true;
   }
 
   // ✅ Allow manual runs via secret
   const cronSecret = process.env.CRON_SECRET;
   
-  // #region agent log
-  console.log('[DEBUG validateCron] Secret validation path:', { hasCronSecret: !!cronSecret, hasQuerySecret: !!req.query.secret });
-  // #endregion
-  
   if (!cronSecret) {
     // Allow in dev if secret is not configured
-    console.log('[DEBUG validateCron] ✅ Allowed (no CRON_SECRET configured - dev mode)');
     return true;
   }
 
   const requestSecret = req.query.secret as string | undefined;
-  const isValid = requestSecret === cronSecret;
-  
-  // #region agent log
-  console.log('[DEBUG validateCron] Exit:', { isValid, reason: isValid ? 'secret-match' : 'no-valid-auth' });
-  // #endregion
-  
-  if (!isValid) {
-    console.log('[DEBUG validateCron] ❌ Validation failed - no valid cron header or secret match');
-  }
-  
-  return isValid;
+  return requestSecret === cronSecret;
 }
 
 /**
@@ -226,12 +188,25 @@ async function orchestrateIngestion(
       
       const result = await runIngestion(source.source_key, { force });
       
+      // #region agent log
+      console.log(`[DEBUG orchestrateIngestion] Source ${source.source_key} result:`, {
+        success: result.success,
+        runId: result.runId,
+        itemsFetched: result.itemsFetched,
+        itemsCreated: result.itemsCreated,
+        error: result.error,
+        skippedReason: result.skippedReason
+      });
+      // #endregion
+      
       if (result.success) {
         sourcesRun.push(source.source_key);
         // [DIAGNOSTIC] Log items created with source_id
         if (result.itemsCreated > 0) {
           console.log(`[Cron] ✅ Created ${result.itemsCreated} items with source_id: ${source.id}`);
           console.log(`[Cron]    These items are FEED-ELIGIBLE (source is active)`);
+        } else {
+          console.log(`[Cron] ⚠️ Source ${source.source_key} succeeded but created 0 items (runId: ${result.runId})`);
         }
         results.push({
           sourceKey: source.source_key,
@@ -246,6 +221,7 @@ async function orchestrateIngestion(
       } else {
         // Check if skipped due to cadence
         if (result.error?.includes("Skipped: cadence")) {
+          console.log(`[Cron] ⏭️ Source ${source.source_key} skipped due to cadence (runId: ${result.runId})`);
           sourcesSkipped.push(source.source_key);
           results.push({
             sourceKey: source.source_key,
@@ -300,6 +276,7 @@ async function orchestrateIngestion(
 
   // [DIAGNOSTIC] Summary log
   const totalCreated = results.reduce((sum, r) => sum + r.itemsCreated, 0);
+  const runIds = results.map(r => r.runId).filter(Boolean);
   console.log(`[Cron] ═══════════════════════════════════════════════════════`);
   console.log(`[Cron] INGESTION COMPLETE`);
   console.log(`[Cron]   Sources processed: ${sources.length}`);
@@ -308,10 +285,22 @@ async function orchestrateIngestion(
   console.log(`[Cron]   Errors: ${errors.length}`);
   console.log(`[Cron]   Total items created: ${totalCreated}`);
   console.log(`[Cron]   Execution time: ${executionTimeSeconds.toFixed(2)}s`);
+  console.log(`[Cron]   Run IDs created: ${runIds.length} (${runIds.join(', ')})`);
   if (totalCreated > 0) {
     console.log(`[Cron] ✅ New content is FEED-ELIGIBLE (from active sources)`);
   }
   console.log(`[Cron] ═══════════════════════════════════════════════════════`);
+  
+  // #region agent log
+  console.log(`[DEBUG orchestrateIngestion] Final result summary:`, {
+    totalSources: sources.length,
+    sourcesRun,
+    sourcesSkipped,
+    totalItemsCreated: totalCreated,
+    runIds,
+    results: results.map(r => ({ source: r.sourceKey, runId: r.runId, status: r.success ? 'success' : 'error', itemsCreated: r.itemsCreated }))
+  });
+  // #endregion
 
   return {
     success: errors.length === 0 || sourcesRun.length > 0,
@@ -332,21 +321,9 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  // #region agent log
-  console.log('[DEBUG handler] Entry point reached');
-  console.log('[DEBUG handler] Method:', req.method);
-  console.log('[DEBUG handler] URL:', req.url);
-  // #endregion
-  
   try {
     // Validate cron execution (Vercel cron or manual secret)
-    const isValid = validateCron(req);
-    // #region agent log
-    console.log('[DEBUG handler] Validation result:', isValid);
-    // #endregion
-    
-    if (!isValid) {
-      console.log('[DEBUG handler] ❌ Validation failed - returning 401');
+    if (!validateCron(req)) {
       return res.status(401).json({
         error: "Unauthorized",
         message: "Invalid cron execution",
