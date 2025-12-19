@@ -1,8 +1,12 @@
 /**
  * Vercel serverless function for fetching content_items for feed display
  * 
+ * PRIMARY SOURCE: content_items table (from ingestion pipeline)
+ * 
  * Queries content_items from active sources, filters by user_content_seen,
- * and returns items sorted by published_at for chronological feed display.
+ * and returns items sorted by published_at (fallback to created_at) for chronological feed display.
+ * 
+ * Observability: Logs source attribution and exclusion reasons for each request.
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -25,12 +29,32 @@ interface ContentItemResponse {
 interface FeedResponse {
   items: ContentItemResponse[];
   count: number;
+  meta?: {
+    sources: Record<string, number>;
+    excluded: {
+      inactiveSource: number;
+      seenByUser: number;
+      outsideFreshness: number;
+    };
+    newestItemAt: string | null;
+    queryTimeMs: number;
+  };
 }
 
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
+  const startTime = Date.now();
+  
+  // Observability counters
+  const excluded = {
+    inactiveSource: 0,
+    seenByUser: 0,
+    outsideFreshness: 0,
+  };
+  const sourceCounts: Record<string, number> = {};
+
   try {
     // Parse query parameters
     const limit = Math.min(
@@ -42,6 +66,7 @@ export default async function handler(
     const sourceKey = req.query.source as string | undefined; // Override for testing
     const excludeSeen = req.query.excludeSeen !== 'false'; // Default true
     const userId = req.query.userId as string | undefined;
+    const includeMeta = req.query.meta === 'true'; // Include observability metadata
 
     // Calculate cutoff time
     const cutoffTime = new Date();
@@ -53,17 +78,15 @@ export default async function handler(
     // First, get active source IDs (unless source override)
     let sourceQuery = supabase
       .from('content_sources')
-      .select('id, source_key, name');
+      .select('id, source_key, name, is_active');
     
     if (sourceKey) {
       // Override: filter by specific source_key (for testing)
       sourceQuery = sourceQuery.eq('source_key', sourceKey);
-    } else {
-      // Default: only active sources
-      sourceQuery = sourceQuery.eq('is_active', true);
     }
+    // Note: we fetch all sources to track inactive exclusions, then filter
 
-    const { data: sources, error: sourcesError } = await sourceQuery;
+    const { data: allSources, error: sourcesError } = await sourceQuery;
 
     if (sourcesError) {
       console.error('[Feed API] Sources query error:', sourcesError);
@@ -73,7 +96,18 @@ export default async function handler(
       });
     }
 
+    // Filter to active sources only (unless specific source requested)
+    const sources = (allSources || []).filter(s => {
+      if (sourceKey) return true; // If specific source requested, include it
+      if (!s.is_active) {
+        excluded.inactiveSource++;
+        return false;
+      }
+      return true;
+    });
+
     if (!sources || sources.length === 0) {
+      console.log('[Feed API] No active sources found');
       return res.status(200).json({ items: [], count: 0 });
     }
 
@@ -81,6 +115,7 @@ export default async function handler(
     const sourceMap = new Map(sources.map(s => [s.id, s]));
 
     // Build query for content_items
+    // Sort by published_at first, fallback to created_at for items without published_at
     let query = supabase
       .from('content_items')
       .select(`
@@ -102,11 +137,8 @@ export default async function handler(
       .in('source_id', sourceIds)
       .gte('created_at', cutoffTime.toISOString())
       .order('published_at', { ascending: false, nullsFirst: false })
-      .limit(limit);
-
-    // Filter by category if provided (requires join)
-    // Note: This is approximate - we'll filter in code after fetch if needed
-    // Supabase doesn't easily support filtering nested relations in this way
+      .order('created_at', { ascending: false }) // Secondary sort for items without published_at
+      .limit(limit * 2); // Fetch extra to account for filtering
 
     // Execute query
     const { data, error } = await query;
@@ -122,6 +154,11 @@ export default async function handler(
     // Transform data to response format
     let items: ContentItemResponse[] = (data || []).map((item: any) => {
       const source = sourceMap.get(item.source_id);
+      const sourceKeyVal = source?.source_key || 'unknown';
+      
+      // Track source attribution
+      sourceCounts[sourceKeyVal] = (sourceCounts[sourceKeyVal] || 0) + 1;
+      
       const categories = (item.content_item_categories || [])
         .map((cic: any) => cic.content_categories?.name)
         .filter(Boolean);
@@ -129,7 +166,7 @@ export default async function handler(
       return {
         id: item.id,
         source_id: item.source_id,
-        source_key: source?.source_key || '',
+        source_key: sourceKeyVal,
         source_name: source?.name || '',
         title: item.title,
         url: item.url,
@@ -143,7 +180,9 @@ export default async function handler(
 
     // Filter by category if provided (client-side since Supabase join filtering is complex)
     if (category) {
+      const beforeCount = items.length;
       items = items.filter(item => item.categories.includes(category));
+      console.log(`[Feed API] Category filter "${category}": ${beforeCount} -> ${items.length}`);
     }
 
     // Filter out seen items if userId provided and excludeSeen is true
@@ -158,14 +197,47 @@ export default async function handler(
 
       if (!seenError && seenData) {
         const seenIds = new Set(seenData.map(row => row.content_item_id));
+        excluded.seenByUser = seenIds.size;
         filteredItems = items.filter(item => !seenIds.has(item.id));
       }
     }
+
+    // Apply final limit
+    filteredItems = filteredItems.slice(0, limit);
+
+    // Determine newest item timestamp (for cache invalidation)
+    const newestItemAt = filteredItems.length > 0 
+      ? filteredItems[0].published_at || filteredItems[0].created_at 
+      : null;
+
+    const queryTimeMs = Date.now() - startTime;
+
+    // Log observability summary
+    console.log(`[Feed API] Served ${filteredItems.length} items from ${Object.keys(sourceCounts).length} sources in ${queryTimeMs}ms`, {
+      sources: sourceCounts,
+      excluded,
+      newestItemAt,
+    });
 
     const response: FeedResponse = {
       items: filteredItems,
       count: filteredItems.length,
     };
+
+    // Include metadata if requested (for debugging/observability)
+    if (includeMeta) {
+      response.meta = {
+        sources: sourceCounts,
+        excluded,
+        newestItemAt,
+        queryTimeMs,
+      };
+    }
+
+    // Set cache headers: short TTL since content updates frequently
+    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
+    res.setHeader('X-Feed-Newest-At', newestItemAt || '');
+    res.setHeader('X-Feed-Query-Time', String(queryTimeMs));
 
     return res.status(200).json(response);
   } catch (error: any) {

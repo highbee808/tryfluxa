@@ -2,6 +2,93 @@ import { supabase } from "@/integrations/supabase/client";
 import { getApiBaseUrl, getDefaultHeaders, getFrontendUrl } from "@/lib/apiConfig";
 
 /**
+ * Feed status response for cache invalidation
+ */
+export interface FeedStatusResponse {
+  newestItemAt: string | null;
+  activeSourceCount: number;
+  lastIngestionAt: string | null;
+  sources: Array<{
+    source_key: string;
+    name: string;
+    is_active: boolean;
+    item_count: number;
+  }>;
+}
+
+// Track the last known newest item timestamp for cache invalidation
+let lastKnownNewestAt: string | null = null;
+
+/**
+ * Check if feed has new content since last fetch
+ * Returns true if cache should be bypassed
+ */
+export async function checkFeedForNewContent(): Promise<boolean> {
+  try {
+    const frontendUrl = getFrontendUrl().replace(/\/$/, "");
+    const response = await fetch(`${frontendUrl}/api/feed-status`, {
+      headers: getDefaultHeaders(),
+    });
+
+    if (!response.ok) {
+      console.warn("[Feed] Status check failed:", response.status);
+      return false;
+    }
+
+    const status: FeedStatusResponse = await response.json();
+    
+    if (!status.newestItemAt) {
+      return false;
+    }
+
+    // If we have no previous timestamp, this is first load
+    if (!lastKnownNewestAt) {
+      lastKnownNewestAt = status.newestItemAt;
+      return false;
+    }
+
+    // Compare timestamps to detect new content
+    const newTimestamp = new Date(status.newestItemAt).getTime();
+    const lastTimestamp = new Date(lastKnownNewestAt).getTime();
+
+    if (newTimestamp > lastTimestamp) {
+      console.log("[Feed] New content detected:", {
+        previous: lastKnownNewestAt,
+        new: status.newestItemAt,
+      });
+      lastKnownNewestAt = status.newestItemAt;
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error("[Feed] Status check error:", error);
+    return false;
+  }
+}
+
+/**
+ * Get feed status (for debugging and admin use)
+ */
+export async function getFeedStatus(): Promise<FeedStatusResponse | null> {
+  try {
+    const frontendUrl = getFrontendUrl().replace(/\/$/, "");
+    const response = await fetch(`${frontendUrl}/api/feed-status`, {
+      headers: getDefaultHeaders(),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("[Feed] Status fetch error:", error);
+    return null;
+  }
+}
+
+/**
  * Content item response from feed API endpoint
  */
 export interface ContentItemResponse {
@@ -163,6 +250,9 @@ export function mapContentCategoryToFeedCategory(categoryName: string): "news" |
 
 /**
  * Fetch content_items from feed API endpoint
+ * 
+ * Primary source for feed content. Queries content_items table from ingestion pipeline.
+ * Supports filtering by category, source, and user's seen items.
  */
 export async function fetchContentItems(options?: {
   limit?: number;
@@ -170,6 +260,7 @@ export async function fetchContentItems(options?: {
   category?: string;
   source?: string;
   userId?: string;
+  includeMeta?: boolean;
 }): Promise<ContentItemResponse[]> {
   try {
     // Use frontend URL for Vercel serverless function, not Supabase Edge Function
@@ -191,6 +282,9 @@ export async function fetchContentItems(options?: {
     }
     if (options?.userId) {
       urlObj.searchParams.set("userId", options.userId);
+    }
+    if (options?.includeMeta) {
+      urlObj.searchParams.set("meta", "true");
     }
     
     let response: Response;
