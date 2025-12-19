@@ -18,6 +18,10 @@ import Room from "./pages/Room";
 import Profile from "./pages/Profile";
 import AdminHealth from "./pages/AdminHealth";
 import AdminSponsors from "./pages/AdminSponsors";
+import AdminSources from "./pages/AdminSources";
+import AdminRuns from "./pages/AdminRuns";
+import AdminActions from "./pages/AdminActions";
+import AdminStatus from "./pages/AdminStatus";
 import AnalyticsDashboard from "./pages/AnalyticsDashboard";
 import Analytics from "./pages/Analytics";
 import SportsHub from "./pages/SportsHub";
@@ -105,6 +109,10 @@ const App = () => (
           <Route path="/admin/sponsors" element={<AdminSponsors />} />
           <Route path="/admin/health" element={<AdminHealth />} />
           <Route path="/admin/analytics" element={<Analytics />} />
+          <Route path="/admin/sources" element={<AdminSources />} />
+          <Route path="/admin/runs" element={<AdminRuns />} />
+          <Route path="/admin/actions" element={<AdminActions />} />
+          <Route path="/admin/status" element={<AdminStatus />} />
           <Route path="/analytics" element={<AnalyticsDashboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { invokeAdminFunction } from "@/lib/invokeAdminFunction";
 import { runScraper } from "@/lib/runScraper";
 import { toast } from "sonner";
-import { Loader2, Play, LogOut, Sparkles, Trash2, RefreshCw } from "lucide-react";
+import { Loader2, Play, LogOut, Sparkles, Trash2, RefreshCw, Database, Activity, Zap, BarChart3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { topics } from "@/data/topics";
 
@@ -470,6 +470,59 @@ const Admin = () => {
             </Button>
           </div>
         </div>
+
+        {/* Pipeline Control Panel Navigation */}
+        <Card className="p-4 bg-card/95 backdrop-blur border-primary/20">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-sm text-muted-foreground">Pipeline Control Panel</h3>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <Button
+              variant="outline"
+              className="flex items-center justify-start gap-2 h-auto py-3"
+              onClick={() => navigate("/admin/status")}
+            >
+              <BarChart3 className="h-4 w-4 text-blue-500" />
+              <div className="text-left">
+                <div className="font-medium text-sm">Status</div>
+                <div className="text-xs text-muted-foreground">Feed health</div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex items-center justify-start gap-2 h-auto py-3"
+              onClick={() => navigate("/admin/sources")}
+            >
+              <Database className="h-4 w-4 text-green-500" />
+              <div className="text-left">
+                <div className="font-medium text-sm">Sources</div>
+                <div className="text-xs text-muted-foreground">Manage sources</div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex items-center justify-start gap-2 h-auto py-3"
+              onClick={() => navigate("/admin/runs")}
+            >
+              <Activity className="h-4 w-4 text-purple-500" />
+              <div className="text-left">
+                <div className="font-medium text-sm">Runs</div>
+                <div className="text-xs text-muted-foreground">View history</div>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex items-center justify-start gap-2 h-auto py-3"
+              onClick={() => navigate("/admin/actions")}
+            >
+              <Zap className="h-4 w-4 text-yellow-500" />
+              <div className="text-left">
+                <div className="font-medium text-sm">Actions</div>
+                <div className="text-xs text-muted-foreground">Manual controls</div>
+              </div>
+            </Button>
+          </div>
+        </Card>
 
         <Tabs defaultValue="gists" className="w-full">
           <TabsList className="grid w-full grid-cols-5">
