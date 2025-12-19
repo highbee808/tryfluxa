@@ -51,20 +51,47 @@ interface OrchestrationResult {
  * - Allows manual execution via ?secret=CRON_SECRET
  */
 function validateCron(req: VercelRequest): boolean {
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:53',message:'validateCron entry',data:{headerKeys:Object.keys(req.headers),xVercelCronLower:req.headers["x-vercel-cron"],xVercelCronUpper:req.headers["X-Vercel-Cron"]},timestamp:Date.now(),sessionId:'debug-session',runId:'cron-401-debug',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+  
   // ✅ Allow Vercel scheduled cron jobs
-  if (req.headers["x-vercel-cron"] === "1") {
+  // Check header case-insensitively and handle various formats (1, "1", "true", array)
+  const headerKey = Object.keys(req.headers).find(k => k.toLowerCase() === "x-vercel-cron");
+  const cronHeader = headerKey ? req.headers[headerKey] : undefined;
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:60',message:'Cron header check',data:{headerKey,cronHeader,type:typeof cronHeader,isArray:Array.isArray(cronHeader),matches:!!(cronHeader === "1" || cronHeader === "true" || (Array.isArray(cronHeader) && cronHeader.some(v => v === "1" || v === "true"))),rawHeaders:req.headers},timestamp:Date.now(),sessionId:'debug-session',runId:'cron-401-debug',hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
+  
+  if (cronHeader === "1" || cronHeader === "true" || 
+      (Array.isArray(cronHeader) && cronHeader.some(v => v === "1" || v === "true"))) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:67',message:'Cron header validated - Vercel cron allowed',data:{cronHeader},timestamp:Date.now(),sessionId:'debug-session',runId:'cron-401-debug',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     return true;
   }
 
   // ✅ Allow manual runs via secret
   const cronSecret = process.env.CRON_SECRET;
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:75',message:'Secret validation path',data:{hasCronSecret:!!cronSecret,hasQuerySecret:!!req.query.secret},timestamp:Date.now(),sessionId:'debug-session',runId:'cron-401-debug',hypothesisId:'C'})}).catch(()=>{});
+  // #endregion
+  
   if (!cronSecret) {
     // Allow in dev if secret is not configured
     return true;
   }
 
   const requestSecret = req.query.secret as string | undefined;
-  return requestSecret === cronSecret;
+  const isValid = requestSecret === cronSecret;
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'run-ingestion.ts:83',message:'validateCron exit',data:{isValid,validationMethod:cronHeader ? 'cron-header' : (isValid ? 'secret-match' : 'failed')},timestamp:Date.now(),sessionId:'debug-session',runId:'cron-401-debug',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
+  
+  return isValid;
 }
 
 /**
