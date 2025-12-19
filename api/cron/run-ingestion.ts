@@ -1,9 +1,15 @@
 /**
  * Vercel serverless function for content ingestion
  * 
- * Orchestrates Phase 3 ingestion engine for all enabled content sources.
+ * PRIMARY CRON ENDPOINT - Orchestrates admin-controlled ingestion pipeline.
  * 
- * Configure in vercel.json (optional - can run on same schedule as /api/cron/generate):
+ * Key behaviors:
+ * - Queries content_sources table for is_active=true sources only
+ * - Uses adapter registry to fetch content
+ * - Inserts content_items with correct source_id (matches active sources)
+ * - Content becomes feed-eligible immediately (no disabled source exclusion)
+ * 
+ * Configured in vercel.json:
  * {
  *   "crons": [{
  *     "path": "/api/cron/run-ingestion",
@@ -116,10 +122,25 @@ async function orchestrateIngestion(
   const startTime = Date.now();
   const timestamp = new Date().toISOString();
 
+  // [DIAGNOSTIC] Log pipeline identification
+  console.log(`[Cron] ═══════════════════════════════════════════════════════`);
+  console.log(`[Cron] ADMIN-CONTROLLED INGESTION PIPELINE`);
+  console.log(`[Cron] Timestamp: ${timestamp}`);
+  console.log(`[Cron] Force mode: ${force}`);
+  console.log(`[Cron] Source filter: ${sourceFilter || 'none (all active sources)'}`);
+  console.log(`[Cron] ═══════════════════════════════════════════════════════`);
+
   // Load enabled sources
   const sources = await getAllEnabledSources(sourceFilter);
   
+  // [DIAGNOSTIC] Log active sources with IDs
+  console.log(`[Cron] Active sources from content_sources table: ${sources.length}`);
+  for (const source of sources) {
+    console.log(`[Cron]   - ${source.source_key} (id: ${source.id}, name: ${source.name})`);
+  }
+  
   if (sources.length === 0) {
+    console.warn(`[Cron] WARNING: No active sources found. Enable sources in Admin to populate feeds.`);
     return {
       success: true,
       timestamp,
@@ -140,11 +161,20 @@ async function orchestrateIngestion(
   // Process each source
   for (const source of sources) {
     try {
-      console.log(`[Cron] Processing source: ${source.source_key} (${source.name})`);
+      console.log(`[Cron] ───────────────────────────────────────────────────`);
+      console.log(`[Cron] Processing source: ${source.source_key}`);
+      console.log(`[Cron]   source_id: ${source.id}`);
+      console.log(`[Cron]   is_active: ${source.is_active}`);
+      
       const result = await runIngestion(source.source_key, { force });
       
       if (result.success) {
         sourcesRun.push(source.source_key);
+        // [DIAGNOSTIC] Log items created with source_id
+        if (result.itemsCreated > 0) {
+          console.log(`[Cron] ✅ Created ${result.itemsCreated} items with source_id: ${source.id}`);
+          console.log(`[Cron]    These items are FEED-ELIGIBLE (source is active)`);
+        }
         results.push({
           sourceKey: source.source_key,
           runId: result.runId,
@@ -209,6 +239,21 @@ async function orchestrateIngestion(
       `[Cron] Execution time exceeded 5 minutes: ${executionTimeSeconds.toFixed(2)}s`
     );
   }
+
+  // [DIAGNOSTIC] Summary log
+  const totalCreated = results.reduce((sum, r) => sum + r.itemsCreated, 0);
+  console.log(`[Cron] ═══════════════════════════════════════════════════════`);
+  console.log(`[Cron] INGESTION COMPLETE`);
+  console.log(`[Cron]   Sources processed: ${sources.length}`);
+  console.log(`[Cron]   Sources run: ${sourcesRun.length}`);
+  console.log(`[Cron]   Sources skipped (cadence): ${sourcesSkipped.length}`);
+  console.log(`[Cron]   Errors: ${errors.length}`);
+  console.log(`[Cron]   Total items created: ${totalCreated}`);
+  console.log(`[Cron]   Execution time: ${executionTimeSeconds.toFixed(2)}s`);
+  if (totalCreated > 0) {
+    console.log(`[Cron] ✅ New content is FEED-ELIGIBLE (from active sources)`);
+  }
+  console.log(`[Cron] ═══════════════════════════════════════════════════════`);
 
   return {
     success: errors.length === 0 || sourcesRun.length > 0,

@@ -7,7 +7,7 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/generate",
+      "path": "/api/cron/run-ingestion",
       "schedule": "0 * * * *"
     }
   ]
