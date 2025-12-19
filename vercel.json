@@ -1,13 +1,7 @@
 {
-  "rewrites": [
-    {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
-    }
-  ],
   "crons": [
     {
-      "path": "/api/cron/run-ingestion",
+      "path": "/api/cron/run-ingestion?secret=${CRON_SECRET_toggle}",
       "schedule": "0 * * * *"
     }
   ]
