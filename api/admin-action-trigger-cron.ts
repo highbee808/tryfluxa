@@ -106,21 +106,39 @@ async function handlePost(req: VercelRequest, res: VercelResponse): Promise<void
         
         const result = await runIngestion(source.source_key, { force });
         
+        // Determine status based on result
+        let status: string;
+        if (result.success) {
+          status = 'success';
+        } else if (result.skippedReason) {
+          // Skip reasons: disabled, cadence, budget_exceeded, no_data
+          status = result.skippedReason;
+        } else if (result.error?.includes('Adapter not found')) {
+          status = 'no_adapter';
+        } else {
+          status = 'failed';
+        }
+        
         results.push({
           source_key: source.source_key,
           run_id: result.runId || '',
           items_created: result.itemsCreated,
-          status: result.success ? 'success' : (result.skippedReason || 'failed'),
+          status,
           error: result.error || null,
         });
       } catch (err: any) {
         console.error(`[Admin Action] Error processing ${source.source_key}:`, err.message);
+        
+        // Check if it's an adapter not found error
+        const errorMessage = err.message || 'Unknown error';
+        const status = errorMessage.includes('Adapter not found') ? 'no_adapter' : 'error';
+        
         results.push({
           source_key: source.source_key,
           run_id: '',
           items_created: 0,
-          status: 'error',
-          error: err.message || 'Unknown error',
+          status,
+          error: errorMessage,
         });
       }
     }
@@ -128,10 +146,21 @@ async function handlePost(req: VercelRequest, res: VercelResponse): Promise<void
     const executionTime = Date.now() - startTime;
     const successCount = results.filter(r => r.status === 'success').length;
     const failedCount = results.filter(r => r.status === 'failed' || r.status === 'error').length;
+    const skippedCount = results.filter(r => ['disabled', 'cadence', 'budget_exceeded', 'no_data'].includes(r.status)).length;
+    const noAdapterCount = results.filter(r => r.status === 'no_adapter').length;
+    
+    // Build detailed message
+    const parts: string[] = [];
+    if (successCount > 0) parts.push(`${successCount} succeeded`);
+    if (failedCount > 0) parts.push(`${failedCount} failed`);
+    if (noAdapterCount > 0) parts.push(`${noAdapterCount} no adapter`);
+    if (skippedCount > 0) parts.push(`${skippedCount} skipped`);
+    
+    const message = `Processed ${sources.length} source(s): ${parts.join(', ') || 'none processed'}`;
     
     const response: TriggerResponse = {
-      success: failedCount === 0 || successCount > 0,
-      message: `Processed ${sources.length} source(s): ${successCount} succeeded, ${failedCount} failed`,
+      success: failedCount === 0 && noAdapterCount === 0 && successCount > 0,
+      message,
       results,
       execution_time_ms: executionTime,
     };

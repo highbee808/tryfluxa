@@ -28,10 +28,12 @@ List recent ingestion runs with optional filtering and pagination.
 | `limit` | number | 50 | Max results (max 100) |
 | `offset` | number | 0 | Pagination offset |
 
-**Example:**
+**Examples:**
+
+Bash/Unix:
 ```bash
 # List last 10 runs
-curl -X GET "https://your-app.vercel.app/api/admin-observability-runs?limit=10" \
+curl -X GET "https://tryfluxa.vercel.app/api/admin-observability-runs?limit=10" \
   -H "x-admin-secret: NEW68DE6BA1ED9113AA26C725EA4C926ADNIM"
 
 # Filter by source
@@ -41,6 +43,18 @@ curl -X GET "https://your-app.vercel.app/api/admin-observability-runs?source_key
 # Filter by status
 curl -X GET "https://your-app.vercel.app/api/admin-observability-runs?status=failed" \
   -H "x-admin-secret: NEW68DE6BA1ED9113AA26C725EA4C926ADNIM"
+```
+
+PowerShell:
+```powershell
+# List last 10 runs
+Invoke-RestMethod -Uri "https://tryfluxa.vercel.app/api/admin-observability-runs?limit=10" -Method Get -Headers @{"x-admin-secret"="NEW68DE6BA1ED9113AA26C725EA4C926ADNIM"}
+
+# Filter by source
+Invoke-RestMethod -Uri "https://tryfluxa.vercel.app/api/admin-observability-runs?source_key=newsapi-rapidapi" -Method Get -Headers @{"x-admin-secret"="NEW68DE6BA1ED9113AA26C725EA4C926ADNIM"}
+
+# Filter by status
+Invoke-RestMethod -Uri "https://tryfluxa.vercel.app/api/admin-observability-runs?status=failed" -Method Get -Headers @{"x-admin-secret"="NEW68DE6BA1ED9113AA26C725EA4C926ADNIM"}
 ```
 
 **Response:**
@@ -114,10 +128,17 @@ curl -X GET "https://your-app.vercel.app/api/admin-observability-run?id=<run-uui
 
 Get health status for all content sources.
 
-**Example:**
+**Examples:**
+
+Bash/Unix:
 ```bash
 curl -X GET "https://your-app.vercel.app/api/admin-observability-sources" \
   -H "x-admin-secret: NEW68DE6BA1ED9113AA26C725EA4C926ADNIM"
+```
+
+PowerShell:
+```powershell
+Invoke-RestMethod -Uri "https://tryfluxa.vercel.app/api/admin-observability-sources" -Method Get -Headers @{"x-admin-secret"="NEW68DE6BA1ED9113AA26C725EA4C926ADNIM"}
 ```
 
 **Response:**
@@ -150,10 +171,17 @@ curl -X GET "https://your-app.vercel.app/api/admin-observability-sources" \
 
 Get high-level pipeline summary.
 
-**Example:**
+**Examples:**
+
+Bash/Unix:
 ```bash
 curl -X GET "https://your-app.vercel.app/api/admin-observability-overview" \
   -H "x-admin-secret: NEW68DE6BA1ED9113AA26C725EA4C926ADNIM"
+```
+
+PowerShell:
+```powershell
+Invoke-RestMethod -Uri "https://tryfluxa.vercel.app/api/admin-observability-overview" -Method Get -Headers @{"x-admin-secret"="NEW68DE6BA1ED9113AA26C725EA4C926ADNIM"}
 ```
 
 **Response:**
@@ -203,6 +231,8 @@ Manually trigger the ingestion pipeline.
 | `force` | boolean | No | Ignore freshness window (default: false) |
 
 **Examples:**
+
+Bash/Unix:
 ```bash
 # Trigger all active sources
 curl -X POST "https://your-app.vercel.app/api/admin-action-trigger-cron" \
@@ -221,6 +251,18 @@ curl -X POST "https://your-app.vercel.app/api/admin-action-trigger-cron" \
   -H "x-admin-secret: NEW68DE6BA1ED9113AA26C725EA4C926ADNIM" \
   -H "Content-Type: application/json" \
   -d '{"source_key": "newsapi-rapidapi", "force": true}'
+```
+
+PowerShell:
+```powershell
+# Trigger all active sources
+Invoke-RestMethod -Uri "https://tryfluxa.vercel.app/api/admin-action-trigger-cron" -Method Post -Headers @{"x-admin-secret"="NEW68DE6BA1ED9113AA26C725EA4C926ADNIM"; "Content-Type"="application/json"} -Body '{}'
+
+# Trigger specific source
+Invoke-RestMethod -Uri "https://tryfluxa.vercel.app/api/admin-action-trigger-cron" -Method Post -Headers @{"x-admin-secret"="NEW68DE6BA1ED9113AA26C725EA4C926ADNIM"; "Content-Type"="application/json"} -Body '{"source_key": "newsapi-rapidapi"}'
+
+# Trigger with force (ignore freshness)
+Invoke-RestMethod -Uri "https://tryfluxa.vercel.app/api/admin-action-trigger-cron" -Method Post -Headers @{"x-admin-secret"="NEW68DE6BA1ED9113AA26C725EA4C926ADNIM"; "Content-Type"="application/json"} -Body '{"source_key": "newsapi-rapidapi", "force": true}'
 ```
 
 **Response:**
@@ -252,12 +294,19 @@ Force refresh a specific source, ignoring the freshness window.
 |-------|------|----------|-------------|
 | `source_key` | string | Yes | Source to refresh |
 
-**Example:**
+**Examples:**
+
+Bash/Unix:
 ```bash
 curl -X POST "https://your-app.vercel.app/api/admin-action-force-refresh" \
   -H "x-admin-secret: NEW68DE6BA1ED9113AA26C725EA4C926ADNIM" \
   -H "Content-Type: application/json" \
   -d '{"source_key": "newsapi-rapidapi"}'
+```
+
+PowerShell:
+```powershell
+Invoke-RestMethod -Uri "https://tryfluxa.vercel.app/api/admin-action-force-refresh" -Method Post -Headers @{"x-admin-secret"="NEW68DE6BA1ED9113AA26C725EA4C926ADNIM"; "Content-Type"="application/json"} -Body '{"source_key": "newsapi-rapidapi"}'
 ```
 
 **Response:**
@@ -283,12 +332,19 @@ Clear feed cache (safe operation, no data deletion).
 |-------|------|----------|-------------|
 | `source_key` | string | No | Scope to specific source |
 
-**Example:**
+**Examples:**
+
+Bash/Unix:
 ```bash
 curl -X POST "https://your-app.vercel.app/api/admin-action-clear-cache" \
   -H "x-admin-secret: NEW68DE6BA1ED9113AA26C725EA4C926ADNIM" \
   -H "Content-Type: application/json" \
   -d '{}'
+```
+
+PowerShell:
+```powershell
+Invoke-RestMethod -Uri "https://tryfluxa.vercel.app/api/admin-action-clear-cache" -Method Post -Headers @{"x-admin-secret"="NEW68DE6BA1ED9113AA26C725EA4C926ADNIM"; "Content-Type"="application/json"} -Body '{}'
 ```
 
 **Response:**
