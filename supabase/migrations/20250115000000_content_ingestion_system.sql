@@ -261,44 +261,54 @@ ALTER TABLE public.api_usage_budget ENABLE ROW LEVEL SECURITY;
 -- Basic policies for service role access (all tables)
 -- Users will only access via application logic in Phase 2
 
-CREATE POLICY IF NOT EXISTS "Service role can manage content_sources"
+DROP POLICY IF EXISTS "Service role can manage content_sources" ON public.content_sources;
+CREATE POLICY "Service role can manage content_sources"
   ON public.content_sources FOR ALL
   USING (auth.role() = 'service_role');
 
-CREATE POLICY IF NOT EXISTS "Service role can manage content_categories"
+DROP POLICY IF EXISTS "Service role can manage content_categories" ON public.content_categories;
+CREATE POLICY "Service role can manage content_categories"
   ON public.content_categories FOR ALL
   USING (auth.role() = 'service_role');
 
-CREATE POLICY IF NOT EXISTS "Service role can manage content_items"
+DROP POLICY IF EXISTS "Service role can manage content_items" ON public.content_items;
+CREATE POLICY "Service role can manage content_items"
   ON public.content_items FOR ALL
   USING (auth.role() = 'service_role');
 
-CREATE POLICY IF NOT EXISTS "Service role can manage content_item_categories"
+DROP POLICY IF EXISTS "Service role can manage content_item_categories" ON public.content_item_categories;
+CREATE POLICY "Service role can manage content_item_categories"
   ON public.content_item_categories FOR ALL
   USING (auth.role() = 'service_role');
 
-CREATE POLICY IF NOT EXISTS "Service role can manage content_runs"
+DROP POLICY IF EXISTS "Service role can manage content_runs" ON public.content_runs;
+CREATE POLICY "Service role can manage content_runs"
   ON public.content_runs FOR ALL
   USING (auth.role() = 'service_role');
 
 -- Users can only see their own seen records
-CREATE POLICY IF NOT EXISTS "Users can view their own content_seen"
+DROP POLICY IF EXISTS "Users can view their own content_seen" ON public.user_content_seen;
+CREATE POLICY "Users can view their own content_seen"
   ON public.user_content_seen FOR SELECT
   USING (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Users can insert their own content_seen"
+DROP POLICY IF EXISTS "Users can insert their own content_seen" ON public.user_content_seen;
+CREATE POLICY "Users can insert their own content_seen"
   ON public.user_content_seen FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
-CREATE POLICY IF NOT EXISTS "Service role can manage user_content_seen"
+DROP POLICY IF EXISTS "Service role can manage user_content_seen" ON public.user_content_seen;
+CREATE POLICY "Service role can manage user_content_seen"
   ON public.user_content_seen FOR ALL
   USING (auth.role() = 'service_role');
 
-CREATE POLICY IF NOT EXISTS "Service role can manage content_config"
+DROP POLICY IF EXISTS "Service role can manage content_config" ON public.content_config;
+CREATE POLICY "Service role can manage content_config"
   ON public.content_config FOR ALL
   USING (auth.role() = 'service_role');
 
-CREATE POLICY IF NOT EXISTS "Service role can manage api_usage_budget"
+DROP POLICY IF EXISTS "Service role can manage api_usage_budget" ON public.api_usage_budget;
+CREATE POLICY "Service role can manage api_usage_budget"
   ON public.api_usage_budget FOR ALL
   USING (auth.role() = 'service_role');
 

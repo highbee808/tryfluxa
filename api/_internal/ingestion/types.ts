@@ -31,6 +31,7 @@ export interface IngestionResult {
   itemsSkipped: number;
   itemsUpdated: number;
   error?: string;
+  skippedReason?: string;
 }
 
 export interface ContentRunRecord {
@@ -39,6 +40,7 @@ export interface ContentRunRecord {
   status: string;
   started_at: string | null;
   completed_at: string | null;
+  skipped_reason?: string | null;
 }
 
 export interface ContentSourceRecord {

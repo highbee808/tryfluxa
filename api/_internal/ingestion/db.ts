@@ -109,6 +109,37 @@ export async function createContentRun(
   return { data, error };
 }
 
+/**
+ * Create a skipped run record for observability
+ * Used when a source is skipped due to cadence, disabled status, etc.
+ * 
+ * @param sourceId - The content source ID
+ * @param skippedReason - Why the run was skipped (cadence, disabled, budget_exceeded, no_data)
+ */
+export async function createSkippedRun(
+  sourceId: string,
+  skippedReason: string
+): Promise<DbResult<{ id: string }>> {
+  const supabase = getSupabaseClient();
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("content_runs")
+    .insert({
+      source_id: sourceId,
+      status: "skipped",
+      skipped_reason: skippedReason,
+      started_at: now,
+      completed_at: now,
+      items_fetched: 0,
+      items_created: 0,
+      items_skipped: 0,
+      items_updated: 0,
+    })
+    .select("id")
+    .single();
+  return { data, error };
+}
+
 export async function updateContentRun(
   runId: string,
   values: Record<string, any>
@@ -208,4 +239,85 @@ export async function insertItemCategories(
   }));
   const { error } = await supabase.from("content_item_categories").insert(rows);
   return { data: null, error };
+}
+
+/**
+ * Upsert source health record after each ingestion run
+ * 
+ * @param sourceId - The content source ID
+ * @param runId - The content run ID
+ * @param success - Whether the run succeeded
+ * @param itemsCreated - Number of items created in this run
+ * @param errorReason - Error message if the run failed
+ */
+export async function upsertSourceHealth(
+  sourceId: string,
+  runId: string,
+  success: boolean,
+  itemsCreated: number,
+  errorReason?: string
+): Promise<void> {
+  const supabase = getSupabaseClient();
+  const now = new Date().toISOString();
+
+  try {
+    if (success) {
+      // Success case: update last_success_at and reset consecutive_failures
+      const { error } = await supabase
+        .from("content_source_health")
+        .upsert(
+          {
+            source_id: sourceId,
+            last_run_id: runId,
+            items_generated_last_run: itemsCreated,
+            last_success_at: now,
+            consecutive_failures: 0,
+            updated_at: now,
+          },
+          {
+            onConflict: "source_id",
+            ignoreDuplicates: false,
+          }
+        );
+
+      if (error) {
+        console.error("[DB] Failed to upsert source health (success):", error.message);
+      }
+    } else {
+      // Failure case: update last_error_at and increment consecutive_failures
+      // First, try to get current consecutive_failures count
+      const { data: existing } = await supabase
+        .from("content_source_health")
+        .select("consecutive_failures")
+        .eq("source_id", sourceId)
+        .maybeSingle();
+
+      const currentFailures = existing?.consecutive_failures ?? 0;
+
+      const { error } = await supabase
+        .from("content_source_health")
+        .upsert(
+          {
+            source_id: sourceId,
+            last_run_id: runId,
+            items_generated_last_run: itemsCreated,
+            last_error_at: now,
+            last_error_reason: errorReason || "Unknown error",
+            consecutive_failures: currentFailures + 1,
+            updated_at: now,
+          },
+          {
+            onConflict: "source_id",
+            ignoreDuplicates: false,
+          }
+        );
+
+      if (error) {
+        console.error("[DB] Failed to upsert source health (failure):", error.message);
+      }
+    }
+  } catch (err: any) {
+    // Don't throw - health tracking is non-critical
+    console.error("[DB] Error upserting source health:", err?.message || err);
+  }
 }

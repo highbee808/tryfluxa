@@ -4,7 +4,8 @@
 -- ============================================
 
 -- Allow authenticated users to read content_items from active sources
-CREATE POLICY IF NOT EXISTS "Users can read content_items from active sources"
+DROP POLICY IF EXISTS "Users can read content_items from active sources" ON public.content_items;
+CREATE POLICY "Users can read content_items from active sources"
   ON public.content_items FOR SELECT
   USING (
     auth.uid() IS NOT NULL
@@ -16,7 +17,8 @@ CREATE POLICY IF NOT EXISTS "Users can read content_items from active sources"
   );
 
 -- Allow authenticated users to read content_sources metadata (for joins)
-CREATE POLICY IF NOT EXISTS "Users can read active content_sources"
+DROP POLICY IF EXISTS "Users can read active content_sources" ON public.content_sources;
+CREATE POLICY "Users can read active content_sources"
   ON public.content_sources FOR SELECT
   USING (
     auth.uid() IS NOT NULL
@@ -24,7 +26,8 @@ CREATE POLICY IF NOT EXISTS "Users can read active content_sources"
   );
 
 -- Allow authenticated users to read content_categories (for category info)
-CREATE POLICY IF NOT EXISTS "Users can read active content_categories"
+DROP POLICY IF EXISTS "Users can read active content_categories" ON public.content_categories;
+CREATE POLICY "Users can read active content_categories"
   ON public.content_categories FOR SELECT
   USING (
     auth.uid() IS NOT NULL
@@ -32,7 +35,8 @@ CREATE POLICY IF NOT EXISTS "Users can read active content_categories"
   );
 
 -- Allow authenticated users to read content_item_categories (for joins)
-CREATE POLICY IF NOT EXISTS "Users can read content_item_categories"
+DROP POLICY IF EXISTS "Users can read content_item_categories" ON public.content_item_categories;
+CREATE POLICY "Users can read content_item_categories"
   ON public.content_item_categories FOR SELECT
   USING (auth.uid() IS NOT NULL);
 

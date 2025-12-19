@@ -7,9 +7,11 @@ import {
   insertItemCategories,
   updateContentItemByExternalId,
   createContentRun,
+  createSkippedRun,
   updateContentRun,
   checkContentHashExists,
   getSupabaseClient,
+  upsertSourceHealth,
 } from "./db";
 import { checkAndIncrementBudget } from "./budget";
 import { getAdapter } from "./adapters";
@@ -79,14 +81,24 @@ export async function runIngestion(
     };
   }
   if (!source.is_active) {
+    // Create a skipped run record for observability
+    const { data: skippedRun } = await createSkippedRun(source.id, "disabled");
+    const runId = skippedRun?.id || "";
+    
+    // Update source health (failure case - source disabled)
+    if (runId) {
+      await upsertSourceHealth(source.id, runId, false, 0, "Source is disabled");
+    }
+    
     return {
       success: false,
-      runId: "",
+      runId,
       itemsFetched: 0,
       itemsCreated: 0,
       itemsSkipped: 0,
       itemsUpdated: 0,
       error: "Source is disabled",
+      skippedReason: "disabled",
     };
   }
 
@@ -123,14 +135,19 @@ export async function runIngestion(
       const last = new Date(lastRun.completed_at);
       const elapsedHours = (fetchedAt.getTime() - last.getTime()) / (1000 * 60 * 60);
       if (elapsedHours < effectiveRefreshHours) {
+        // Create a skipped run record for observability
+        const { data: skippedRun } = await createSkippedRun(source.id, "cadence");
+        const runId = skippedRun?.id || "";
+        
         return {
           success: true,
-          runId: "",
+          runId,
           itemsFetched: 0,
           itemsCreated: 0,
           itemsSkipped: 0,
           itemsUpdated: 0,
           error: `Skipped: cadence window (${effectiveRefreshHours}h) not met`,
+          skippedReason: "cadence",
         };
       }
     }
@@ -166,9 +183,14 @@ export async function runIngestion(
       if (!ok) {
         await updateContentRun(run.id, {
           status: "skipped",
+          skipped_reason: "budget_exceeded",
           error_message: "Budget exceeded",
           completed_at: new Date().toISOString(),
         });
+        
+        // Update source health (failure case - budget exceeded)
+        await upsertSourceHealth(source.id, run.id, false, 0, "Budget exceeded");
+        
         return {
           success: false,
           runId: run.id,
@@ -177,6 +199,7 @@ export async function runIngestion(
           itemsSkipped: 0,
           itemsUpdated: 0,
           error: "Budget exceeded",
+          skippedReason: "budget_exceeded",
         };
       }
     }
@@ -264,6 +287,9 @@ export async function runIngestion(
       completed_at: new Date().toISOString(),
     });
 
+    // Update source health (success case)
+    await upsertSourceHealth(source.id, run.id, true, itemsCreated);
+
     return {
       success: true,
       runId: run.id,
@@ -283,6 +309,10 @@ export async function runIngestion(
       items_updated: itemsUpdated,
       completed_at: new Date().toISOString(),
     });
+    
+    // Update source health (failure case)
+    await upsertSourceHealth(source.id, run.id, false, itemsCreated, errorMessage);
+    
     return {
       success: false,
       runId: run.id,
