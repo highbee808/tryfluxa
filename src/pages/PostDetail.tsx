@@ -186,6 +186,34 @@ export default function PostDetail() {
         // Use getSession() instead of getUser() - it's cached and faster
         const { data: { session } } = await supabase.auth.getSession();
 
+        // Fetch actual like/save counts from database (works for all content types)
+        const likeCountPromise = supabase
+          .from("article_likes")
+          .select("id", { count: "exact", head: true })
+          .eq("article_id", id);
+
+        const saveCountPromise = supabase
+          .from("article_saves")
+          .select("id", { count: "exact", head: true })
+          .eq("article_id", id);
+
+        try {
+          const [likeCountResult, saveCountResult] = await Promise.all([
+            likeCountPromise,
+            saveCountPromise
+          ]);
+          
+          // Update counts from actual database values
+          if (likeCountResult.count !== null) {
+            setLikes(likeCountResult.count);
+          }
+          if (saveCountResult.count !== null) {
+            setBookmarks(saveCountResult.count);
+          }
+        } catch (error) {
+          console.warn("[PostDetail] Count queries error:", error);
+        }
+
         if (session?.user) {
           const userId = session.user.id;
 
@@ -213,10 +241,6 @@ export default function PostDetail() {
               Promise.all([likePromise, savePromise]),
               timeoutPromise
             ]) as any[];
-            
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:loadPost-likeCheck',message:'PostDetail like status loaded',data:{id,userId,foundLike:!!likeResult?.data,foundSave:!!saveResult?.data},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-            // #endregion
             
             setIsLiked(!!likeResult?.data);
             setIsBookmarked(!!saveResult?.data);
@@ -251,10 +275,6 @@ export default function PostDetail() {
     // Use getSession() instead of getUser() for faster auth
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) return;
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:toggleLike',message:'Toggle like called',data:{id,postSource,isLiked,userId:session.user.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-    // #endregion
 
     if (isLiked) {
       await supabase

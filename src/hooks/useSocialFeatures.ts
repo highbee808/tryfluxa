@@ -25,10 +25,6 @@ export const useArticleLikes = (articleId: string) => {
         .eq('user_id', session.user.id)
         .maybeSingle();
 
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useSocialFeatures.ts:checkLikeStatus',message:'Like status checked',data:{articleId,userId:session.user.id,foundLike:!!data,error:error?.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
-
       setIsLiked(!!data);
     } catch (error) {
       console.error('Error checking like status:', error);
