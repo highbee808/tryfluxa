@@ -143,8 +143,20 @@ export async function runIngestion(
       const elapsedHours = (fetchedAt.getTime() - last.getTime()) / (1000 * 60 * 60);
       if (elapsedHours < effectiveRefreshHours) {
         // Create a skipped run record for observability
-        const { data: skippedRun } = await createSkippedRun(source.id, "cadence");
+        const { data: skippedRun, error: skipError } = await createSkippedRun(source.id, "cadence");
         const runId = skippedRun?.id || "";
+        
+        // #region agent log
+        console.log(`[DEBUG runIngestion] Cadence skip - createSkippedRun result:`, {
+          sourceId: source.id,
+          sourceKey: sourceKey,
+          skippedRun: skippedRun ? { id: skippedRun.id } : null,
+          skipError: skipError ? { message: skipError.message, code: skipError.code } : null,
+          runId,
+          elapsedHours: elapsedHours.toFixed(2),
+          effectiveRefreshHours
+        });
+        // #endregion
         
         return {
           success: true,

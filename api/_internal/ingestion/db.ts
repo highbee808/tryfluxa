@@ -123,21 +123,41 @@ export async function createSkippedRun(
 ): Promise<DbResult<{ id: string }>> {
   const supabase = getSupabaseClient();
   const now = new Date().toISOString();
+  const insertPayload = {
+    source_id: sourceId,
+    status: "skipped",
+    skipped_reason: skippedReason,
+    started_at: now,
+    completed_at: now,
+    items_fetched: 0,
+    items_created: 0,
+    items_skipped: 0,
+    items_updated: 0,
+  };
+  
+  // #region agent log
+  console.log(`[DEBUG createSkippedRun] Attempting to create skipped run:`, {
+    sourceId,
+    skippedReason,
+    insertPayload
+  });
+  // #endregion
+  
   const { data, error } = await supabase
     .from("content_runs")
-    .insert({
-      source_id: sourceId,
-      status: "skipped",
-      skipped_reason: skippedReason,
-      started_at: now,
-      completed_at: now,
-      items_fetched: 0,
-      items_created: 0,
-      items_skipped: 0,
-      items_updated: 0,
-    })
+    .insert(insertPayload)
     .select("id")
     .single();
+  
+  // #region agent log
+  console.log(`[DEBUG createSkippedRun] Database result:`, {
+    sourceId,
+    skippedReason,
+    data: data ? { id: data.id } : null,
+    error: error ? { message: error.message, code: error.code, details: error.details } : null
+  });
+  // #endregion
+  
   return { data, error };
 }
 
