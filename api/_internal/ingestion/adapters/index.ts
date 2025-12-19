@@ -5,6 +5,7 @@ import { RapidApiSportsAdapter } from "./rapidapi-sports.js";
 import { TmdbAdapter } from "./tmdb.js";
 import { TicketmasterAdapter } from "./ticketmaster.js";
 import { ApiSportsAdapter } from "./api-sports.js";
+import { GoogleNewsAdapter } from "./google-news.js";
 
 interface AdapterFactoryOptions {
   maxItemsPerRun: number;
@@ -17,6 +18,8 @@ export function getAdapter(
   const { maxItemsPerRun } = options;
   switch (sourceKey) {
     // RapidAPI adapters - prioritized first
+    case "google-news":
+      return new GoogleNewsAdapter({ maxItemsPerRun });
     case "mediastack-rapidapi":
       return new MediastackRapidApiAdapter({ maxItemsPerRun });
     case "newsapi-rapidapi":

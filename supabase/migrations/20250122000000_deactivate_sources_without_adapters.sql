@@ -2,8 +2,9 @@
 -- This ensures clean observability metrics by only keeping sources with working adapters
 
 -- List of implemented adapters (from api/_internal/ingestion/adapters/index.ts):
--- - mediastack-rapidapi
--- - newsapi-rapidapi
+-- - google-news (NEW - Google News via RapidAPI)
+-- - mediastack-rapidapi (quota exceeded - will be deactivated separately)
+-- - newsapi-rapidapi (quota exceeded - will be deactivated separately)
 -- - rapidapi-sports
 -- - tmdb
 -- - ticketmaster
@@ -15,6 +16,7 @@ SET is_active = false,
     updated_at = now()
 WHERE is_active = true
   AND source_key NOT IN (
+    'google-news',
     'mediastack-rapidapi',
     'newsapi-rapidapi',
     'rapidapi-sports',
