@@ -368,7 +368,7 @@ const Feed = () => {
       }
       
       const url = urlObj.toString();
-
+      
       try {
         const response = await fetch(url, {
           headers: getDefaultHeaders(),
@@ -1198,9 +1198,9 @@ const Feed = () => {
                 <>
                   {(() => {
                     return combinedFeed.map((item) => (
-                      <FeedCardWithSocial
-                      key={`gist-${item.id}`}
-                      id={item.id}
+                    <FeedCardWithSocial
+                    key={`gist-${item.id}`}
+                    id={item.id}
                     imageUrl={item.image_url && item.image_url !== 'null' && item.image_url.trim() !== '' ? item.image_url : undefined}
                     imageUrls={{
                       primary: item.image_url && item.image_url !== 'null' && item.image_url.trim() !== '' ? item.image_url : null,

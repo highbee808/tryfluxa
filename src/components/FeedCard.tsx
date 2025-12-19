@@ -95,7 +95,7 @@ export const FeedCard = ({
     (imageUrls?.primary && isValidImageUrl(imageUrls.primary) ? imageUrls.primary : null) ||
     (imageUrls?.ai && isValidImageUrl(imageUrls.ai) ? imageUrls.ai : null) ||
     null;
-
+  
   const [currentImageUrl, setCurrentImageUrl] = useState<string | null>(
     normalizedImageUrl
   );

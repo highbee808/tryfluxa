@@ -202,7 +202,7 @@ export default function PostDetail() {
             likeCountPromise,
             saveCountPromise
           ]);
-          
+
           // Update counts from actual database values
           if (likeCountResult.count !== null) {
             setLikes(likeCountResult.count);

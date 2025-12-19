@@ -147,10 +147,10 @@ export async function fetchPostBySourceAndId(
     
     try {
       const newsQueryPromise = supabase
-        .from("news_cache")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
+      .from("news_cache")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
 
       const newsTimeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error("Query timeout")), newsQueryTimeout)

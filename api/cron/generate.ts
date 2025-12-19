@@ -299,7 +299,7 @@ async function fetchWebitNewsArticles(topic: string): Promise<Article[]> {
     } else {
       return [];
     }
-    
+
     return articles.slice(0, 10).map((article: any) => ({
       title: article.title || '',
       description: article.description || article.snippet || article.summary || '',
@@ -687,7 +687,7 @@ async function runContentPipeline(): Promise<{
         // IMPORTANT: Always set published_at to current time if source has no date
         // The feed sorts by published_at DESC, so null values go to the END
         const articlePublishedAt = selectedArticle.published_at || now;
-        
+
         // Map topic to category
         const categoryId = mapTopicToCategory(topic);
         
@@ -766,7 +766,7 @@ export default async function handler(
   const cronSecret = process.env.CRON_SECRET;
   const authHeader = req.headers.authorization;
   const requestSecret = authHeader?.replace('Bearer ', '') || req.query.secret as string | undefined;
-  
+
   // Also check for Vercel cron header (if present)
   const vercelCronSecret = req.headers['x-vercel-cron-secret'] as string | undefined;
 
@@ -779,7 +779,7 @@ export default async function handler(
         hasAuthHeader: !!authHeader,
         hasVercelHeader: !!vercelCronSecret,
       });
-      return res.status(401).json({ error: "Unauthorized" });
+    return res.status(401).json({ error: "Unauthorized" });
     }
   }
 

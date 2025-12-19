@@ -196,8 +196,8 @@ export async function fetchContentItems(options?: {
     let response: Response;
     try {
       response = await fetch(urlObj.toString(), {
-        headers: getDefaultHeaders(),
-      });
+      headers: getDefaultHeaders(),
+    });
       
       // Check if response is valid JSON (Vercel functions don't run in Vite dev, so we get source code)
       if (response.ok) {
