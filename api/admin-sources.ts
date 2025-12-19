@@ -14,10 +14,6 @@ import {
   sendSuccess,
 } from './_internal/admin-auth.js';
 
-// #region agent log - Hypothesis A,E: Track that module loaded successfully
-const MODULE_LOADED_AT = new Date().toISOString();
-// #endregion
-
 /**
  * GET handler - List all content sources
  */
@@ -53,19 +49,6 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ): Promise<void> {
-  // #region agent log - Hypothesis B,D: Debug mode to test if handler is reached
-  if (req.query.debug === 'true') {
-    return res.status(200).json({
-      ok: true,
-      route: '/api/admin-sources',
-      moduleLoadedAt: MODULE_LOADED_AT,
-      method: req.method,
-      timestamp: new Date().toISOString(),
-      message: 'Handler reached successfully - module imports worked',
-    });
-  }
-  // #endregion
-
   // Validate admin authentication
   if (!requireAdminAuth(req, res)) {
     return;
