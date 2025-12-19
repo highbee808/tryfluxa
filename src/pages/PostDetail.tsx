@@ -183,10 +183,11 @@ export default function PostDetail() {
       // Note: Comments use article_id for both gists and content_items
       if (resultSource === "gist" || resultSource === "news") {
         const userActionsStart = Date.now();
-        const authUser = await supabase.auth.getUser();
+        // Use getSession() instead of getUser() - it's cached and faster
+        const { data: { session } } = await supabase.auth.getSession();
 
-        if (authUser.data.user) {
-          const userId = authUser.data.user.id;
+        if (session?.user) {
+          const userId = session.user.id;
 
           // Use Promise.race with timeout for user actions
           const likePromise = supabase
@@ -212,6 +213,10 @@ export default function PostDetail() {
               Promise.all([likePromise, savePromise]),
               timeoutPromise
             ]) as any[];
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:loadPost-likeCheck',message:'PostDetail like status loaded',data:{id,userId,foundLike:!!likeResult?.data,foundSave:!!saveResult?.data},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
+            // #endregion
             
             setIsLiked(!!likeResult?.data);
             setIsBookmarked(!!saveResult?.data);
@@ -243,20 +248,25 @@ export default function PostDetail() {
 
   const toggleLike = async () => {
     if (!id || !postSource) return; // Allow likes for both gists and content_items
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) return;
+    // Use getSession() instead of getUser() for faster auth
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:toggleLike',message:'Toggle like called',data:{id,postSource,isLiked,userId:session.user.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
+    // #endregion
 
     if (isLiked) {
       await supabase
         .from("article_likes")
         .delete()
         .eq("article_id", id)
-        .eq("user_id", user.id);
+        .eq("user_id", session.user.id);
       setLikes((l) => l - 1);
     } else {
       await supabase
         .from("article_likes")
-        .insert({ article_id: id, user_id: user.id });
+        .insert({ article_id: id, user_id: session.user.id });
       setLikes((l) => l + 1);
     }
 
@@ -265,20 +275,20 @@ export default function PostDetail() {
 
   const toggleBookmark = async () => {
     if (!id || !postSource) return; // Allow bookmarks for both gists and content_items
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
 
     if (isBookmarked) {
       await supabase
         .from("article_saves")
         .delete()
         .eq("article_id", id)
-        .eq("user_id", user.id);
+        .eq("user_id", session.user.id);
       setBookmarks((b) => b - 1);
     } else {
       await supabase
         .from("article_saves")
-        .insert({ article_id: id, user_id: user.id });
+        .insert({ article_id: id, user_id: session.user.id });
       setBookmarks((b) => b + 1);
     }
 
@@ -339,15 +349,15 @@ export default function PostDetail() {
         }).filter((uid: string) => uid && uid.trim() !== '')
       )) as string[];
       
-      // Fetch all profiles at once
+      // Fetch all profiles at once - using 'username' column (not 'display_name')
       const { data: profiles, error: profileError } = userIds.length > 0 ? await supabase
         .from("profiles")
-        .select("user_id, display_name, avatar_url")
+        .select("user_id, username")
         .in("user_id", userIds) : { data: null, error: null };
 
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:loadComments-profiles',message:'Profile fetch result',data:{userIds,profileCount:profiles?.length,profileError:profileError?.message,profiles:profiles?.map(p=>({userId:p.user_id,displayName:p.display_name}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-      // #endregion
+      if (profileError) {
+        console.error("Error fetching profiles:", profileError);
+      }
 
       const profileMap = new Map(
         (profiles || []).map(p => [p.user_id, p])
@@ -356,15 +366,8 @@ export default function PostDetail() {
       const commentsWithProfiles = (data || []).map((comment) => {
         const profile = profileMap.get(comment.user_id);
         
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PostDetail.tsx:loadComments-mapping',message:'Mapping comment to profile',data:{commentUserId:comment.user_id,foundProfile:!!profile,displayName:profile?.display_name},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-        // #endregion
-        
-        // If no profile exists, try to extract username from user_id or use a default
-        // For now, we'll show a generic name but ensure it's not "Anonymous" for signed-in users
+        // If no profile exists, show "User" as fallback
         if (!profile) {
-          // Check if we can get user info - for signed-in users, we should have a profile
-          // If not, it might be an old comment or the profile wasn't created
           return {
             ...comment,
             profile: {
@@ -377,8 +380,8 @@ export default function PostDetail() {
         return {
           ...comment,
           profile: {
-            display_name: profile.display_name || "User",
-            avatar_url: profile.avatar_url,
+            display_name: profile.username || "User",
+            avatar_url: null, // profiles table doesn't have avatar_url
           },
         };
       });
@@ -479,13 +482,12 @@ export default function PostDetail() {
                 .maybeSingle();
 
               if (!existingProfile) {
-                const username = currentUser.email?.split('@')[0] || 'User';
+                const usernameFromEmail = currentUser.email?.split('@')[0] || 'User';
                 await supabase
                   .from("profiles")
                   .insert({
                     user_id: currentUser.id,
-                    display_name: username,
-                    avatar_url: null,
+                    username: usernameFromEmail,
                   });
                 // Ignore errors - profile might already exist or RLS might prevent it
               }

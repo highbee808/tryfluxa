@@ -15,15 +15,19 @@ export const useArticleLikes = (articleId: string) => {
 
   const checkLikeStatus = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('article_likes')
         .select('id')
         .eq('article_id', articleId)
-        .eq('user_id', user.id)
-        .single();
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useSocialFeatures.ts:checkLikeStatus',message:'Like status checked',data:{articleId,userId:session.user.id,foundLike:!!data,error:error?.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H4'})}).catch(()=>{});
+      // #endregion
 
       setIsLiked(!!data);
     } catch (error) {
@@ -45,22 +49,14 @@ export const useArticleLikes = (articleId: string) => {
   };
 
   const toggleLike = async () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useSocialFeatures.ts:toggleLike-entry',message:'toggleLike called',data:{articleId,isLiked,loading},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-    // #endregion
-    
     // Prevent multiple clicks while loading
-    if (loading) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useSocialFeatures.ts:toggleLike-blocked',message:'Blocked - already loading',data:{articleId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
-      return;
-    }
+    if (loading) return;
     
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Use getSession() instead of getUser() - it's cached and much faster
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
         toast({
           title: 'Authentication required',
           description: 'Please log in to like articles',
@@ -69,32 +65,28 @@ export const useArticleLikes = (articleId: string) => {
         return;
       }
 
+      const userId = session.user.id;
+
       if (isLiked) {
         await supabase
           .from('article_likes')
           .delete()
           .eq('article_id', articleId)
-          .eq('user_id', user.id);
+          .eq('user_id', userId);
 
         setIsLiked(false);
         setLikesCount((prev) => Math.max(0, prev - 1));
       } else {
         await supabase.from('article_likes').insert({
           article_id: articleId,
-          user_id: user.id,
+          user_id: userId,
         });
 
         setIsLiked(true);
         setLikesCount((prev) => prev + 1);
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useSocialFeatures.ts:toggleLike-success',message:'Like toggled successfully',data:{articleId,newIsLiked:!isLiked},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
     } catch (error) {
       console.error('Error toggling like:', error);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useSocialFeatures.ts:toggleLike-error',message:'Error toggling like',data:{articleId,error:String(error)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       toast({
         title: 'Error',
         description: 'Failed to update like status',
@@ -119,15 +111,15 @@ export const useArticleSaves = (articleId: string) => {
 
   const checkSaveStatus = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
 
       const { data } = await supabase
         .from('article_saves')
         .select('id')
         .eq('article_id', articleId)
-        .eq('user_id', user.id)
-        .single();
+        .eq('user_id', session.user.id)
+        .maybeSingle();
 
       setIsSaved(!!data);
     } catch (error) {
@@ -136,10 +128,12 @@ export const useArticleSaves = (articleId: string) => {
   };
 
   const toggleSave = async () => {
+    if (loading) return;
+    
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
         toast({
           title: 'Authentication required',
           description: 'Please log in to save articles',
@@ -148,12 +142,14 @@ export const useArticleSaves = (articleId: string) => {
         return;
       }
 
+      const userId = session.user.id;
+
       if (isSaved) {
         await supabase
           .from('article_saves')
           .delete()
           .eq('article_id', articleId)
-          .eq('user_id', user.id);
+          .eq('user_id', userId);
 
         setIsSaved(false);
         toast({
@@ -163,7 +159,7 @@ export const useArticleSaves = (articleId: string) => {
       } else {
         await supabase.from('article_saves').insert({
           article_id: articleId,
-          user_id: user.id,
+          user_id: userId,
         });
 
         setIsSaved(true);
@@ -198,15 +194,15 @@ export const useDeeperSummary = (articleId: string) => {
 
   const checkRequestStatus = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
 
       const { data } = await supabase
         .from('deeper_summary_requests')
         .select('id')
         .eq('article_id', articleId)
-        .eq('user_id', user.id)
-        .single();
+        .eq('user_id', session.user.id)
+        .maybeSingle();
 
       setRequested(!!data);
     } catch (error) {
@@ -215,10 +211,12 @@ export const useDeeperSummary = (articleId: string) => {
   };
 
   const requestDeeperSummary = async () => {
+    if (loading) return;
+    
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
         toast({
           title: 'Authentication required',
           description: 'Please log in to request deeper summaries',
@@ -237,7 +235,7 @@ export const useDeeperSummary = (articleId: string) => {
 
       await supabase.from('deeper_summary_requests').insert({
         article_id: articleId,
-        user_id: user.id,
+        user_id: session.user.id,
       });
 
       setRequested(true);
