@@ -20,6 +20,7 @@ interface ContentItemResponse {
   title: string;
   url: string | null;
   excerpt: string | null;
+  ai_summary: string | null;
   published_at: string | null;
   image_url: string | null;
   categories: string[];
@@ -124,6 +125,7 @@ export default async function handler(
         title,
         url,
         excerpt,
+        ai_summary,
         published_at,
         image_url,
         created_at,
@@ -171,6 +173,7 @@ export default async function handler(
         title: item.title,
         url: item.url,
         excerpt: item.excerpt,
+        ai_summary: item.ai_summary || null,
         published_at: item.published_at,
         image_url: item.image_url,
         categories,

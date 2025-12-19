@@ -89,3 +89,32 @@ export interface AdapterConstants {
   defaultLimit: number;
   [key: string]: number;
 }
+
+/**
+ * Result from AI summary generation
+ */
+export interface AISummaryResult {
+  summary: string;
+  model: string;
+  generatedAt: string;
+  length: number;
+}
+
+/**
+ * Stats for AI summary generation within a run
+ */
+export interface AISummaryStats {
+  generated: number;
+  skipped: number;
+  failed: number;
+}
+
+/**
+ * Input for updating AI summary fields on a content item
+ */
+export interface UpdateAISummaryInput {
+  ai_summary: string;
+  ai_summary_model: string;
+  ai_summary_generated_at: string;
+  ai_summary_length: number;
+}

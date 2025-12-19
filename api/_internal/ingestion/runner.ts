@@ -12,6 +12,7 @@ import {
   checkContentHashExists,
   getSupabaseClient,
   upsertSourceHealth,
+  updateContentItemAISummary,
 } from "./db.js";
 import { checkAndIncrementBudget } from "./budget.js";
 import { getAdapter } from "./adapters/index.js";
@@ -19,10 +20,16 @@ import {
   canonicalPublishedTime,
   generateContentHash,
 } from "../contentHash.js";
+import {
+  generateAISummary,
+  shouldSkipSummarization,
+  createSummaryStats,
+} from "./ai-summary.js";
 import type {
   IngestionOptions,
   IngestionResult,
   NormalizedItem,
+  AISummaryStats,
 } from "./types.js";
 
 const DEFAULT_REFRESH_HOURS = 3;
@@ -173,6 +180,15 @@ export async function runIngestion(
   let itemsUpdated = 0;
   let errorMessage: string | undefined;
 
+  // AI Summary stats for observability
+  const summaryStats: AISummaryStats = createSummaryStats();
+
+  // Check if this source should skip AI summarization
+  const skipAISummary = shouldSkipSummarization(source.config ?? null);
+  if (skipAISummary) {
+    console.log(`[Ingestion] AI summarization disabled for source: ${sourceKey} (ai_generated=true)`);
+  }
+
   try {
     console.log(`[Ingestion] Getting adapter for source: ${sourceKey}`);
     const adapter = getAdapter(sourceKey, { maxItemsPerRun });
@@ -276,8 +292,53 @@ export async function runIngestion(
         }
       }
 
+      // Generate AI summary for newly created item (unless source is ai_generated)
+      if (!skipAISummary) {
+        try {
+          const summaryResult = await generateAISummary(
+            item.title,
+            item.excerpt ?? "",
+            inserted.id
+          );
+
+          if (summaryResult) {
+            const { error: summaryError } = await updateContentItemAISummary(
+              inserted.id,
+              summaryResult
+            );
+
+            if (summaryError) {
+              console.warn(
+                `[Ingestion] Failed to save AI summary for ${inserted.id}:`,
+                summaryError.message
+              );
+              summaryStats.failed += 1;
+            } else {
+              summaryStats.generated += 1;
+            }
+          } else {
+            // generateAISummary returns null on failure or quality issues
+            summaryStats.failed += 1;
+          }
+        } catch (summaryErr: any) {
+          // Don't block ingestion on summary failures
+          console.warn(
+            `[Ingestion] AI summary error for ${inserted.id}:`,
+            summaryErr?.message || summaryErr
+          );
+          summaryStats.failed += 1;
+        }
+      } else {
+        summaryStats.skipped += 1;
+      }
+
       itemsCreated += 1;
     }
+
+    // Log AI summary stats
+    console.log(
+      `[Ingestion] AI Summary stats for ${sourceKey}: generated=${summaryStats.generated}, skipped=${summaryStats.skipped}, failed=${summaryStats.failed}`
+    );
 
     await updateContentRun(run.id, {
       status: "completed",
@@ -286,6 +347,11 @@ export async function runIngestion(
       items_skipped: itemsSkipped,
       items_updated: itemsUpdated,
       completed_at: new Date().toISOString(),
+      metadata: {
+        summaries_generated: summaryStats.generated,
+        summaries_skipped: summaryStats.skipped,
+        summaries_failed: summaryStats.failed,
+      },
     });
 
     // Update source health (success case)

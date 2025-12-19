@@ -6,6 +6,7 @@ import type {
   DbResult,
   InsertContentItemInput,
   UpdateContentItemInput,
+  AISummaryResult,
 } from "./types.js";
 
 let client: SupabaseClient | null = null;
@@ -239,6 +240,54 @@ export async function insertItemCategories(
   }));
   const { error } = await supabase.from("content_item_categories").insert(rows);
   return { data: null, error };
+}
+
+/**
+ * Update a content item with AI summary data
+ *
+ * @param itemId - The content item ID
+ * @param result - The AI summary result containing summary, model, timestamp, and length
+ */
+export async function updateContentItemAISummary(
+  itemId: string,
+  result: AISummaryResult
+): Promise<DbResult<{ id: string }>> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("content_items")
+    .update({
+      ai_summary: result.summary,
+      ai_summary_model: result.model,
+      ai_summary_generated_at: result.generatedAt,
+      ai_summary_length: result.length,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", itemId)
+    .select("id")
+    .single();
+  return { data, error };
+}
+
+/**
+ * Check if a content item already has an AI summary
+ *
+ * @param itemId - The content item ID
+ * @returns true if the item already has an AI summary
+ */
+export async function hasAISummary(itemId: string): Promise<boolean> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("content_items")
+    .select("ai_summary")
+    .eq("id", itemId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[DB] Error checking AI summary:", error.message);
+    return false;
+  }
+
+  return Boolean(data?.ai_summary);
 }
 
 /**
