@@ -13,7 +13,7 @@ interface MediastackRapidApiAdapterOptions {
 }
 
 const DEFAULT_OPTIONS: Omit<MediastackRapidApiAdapterOptions, "maxItemsPerRun"> = {
-  baseUrl: "https://mediastack.p.rapidapi.com/news",
+  baseUrl: "https://mediastack.p.rapidapi.com/v1/news",
   host: "mediastack.p.rapidapi.com",
   limit: 50,
   keywords: "news",
@@ -55,7 +55,26 @@ export class MediastackRapidApiAdapter extends BaseAdapter {
     });
     
     if (!response.ok) {
-      throw new Error(`Mediastack RapidAPI fetch failed: ${response.status}`);
+      // Enhanced error logging for debugging 404s
+      let errorDetail = `Mediastack RapidAPI fetch failed: ${response.status}`;
+      try {
+        const errorText = await response.text();
+        if (errorText) {
+          errorDetail += ` - ${errorText.substring(0, 200)}`;
+        }
+      } catch (e) {
+        // Ignore errors reading response body
+      }
+      
+      // Log the actual URL and host for debugging
+      console.error(`[Mediastack RapidAPI] Request failed:`, {
+        url,
+        host,
+        status: response.status,
+        statusText: response.statusText,
+      });
+      
+      throw new Error(errorDetail);
     }
     return response.json();
   }
