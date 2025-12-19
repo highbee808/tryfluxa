@@ -53,13 +53,17 @@ interface OrchestrationResult {
 function validateCron(req: VercelRequest): boolean {
   // #region agent log
   console.log('[DEBUG validateCron] Entry - Header keys:', Object.keys(req.headers || {}));
-  console.log('[DEBUG validateCron] User-Agent:', req.headers['user-agent']);
+  const userAgent = req.headers['user-agent'];
+  console.log('[DEBUG validateCron] User-Agent:', userAgent);
   // #endregion
   
   // ✅ Allow Vercel scheduled cron jobs
+  // Method 1: Check x-vercel-cron header (primary method)
   // Vercel sends x-vercel-cron header with value "1" for scheduled cron jobs
-  // Headers in @vercel/node are typically lowercase
-  const cronHeaderValue = req.headers['x-vercel-cron'];
+  // Headers in @vercel/node are typically lowercase, but check case-insensitively
+  const headerKeys = Object.keys(req.headers || {});
+  const cronHeaderKey = headerKeys.find(k => k.toLowerCase() === 'x-vercel-cron');
+  const cronHeaderValue = cronHeaderKey ? req.headers[cronHeaderKey] : undefined;
   
   // #region agent log
   console.log('[DEBUG validateCron] x-vercel-cron header:', { 
@@ -76,13 +80,23 @@ function validateCron(req: VercelRequest): boolean {
     const isVercelCron = headerStr === "1" || headerStr === "true" || headerStr.toLowerCase() === "1";
     
     // #region agent log
-    console.log('[DEBUG validateCron] Vercel cron check result:', { isVercelCron, headerStr });
+    console.log('[DEBUG validateCron] Vercel cron header check result:', { isVercelCron, headerStr });
     // #endregion
     
     if (isVercelCron) {
       console.log('[DEBUG validateCron] ✅ Validated via Vercel cron header');
       return true;
     }
+  }
+  
+  // Method 2: Fallback to User-Agent check (vercel-cron/1.0)
+  // This is a reliable indicator when header is missing or not accessible
+  const userAgentStr = Array.isArray(userAgent) ? userAgent[0] : (typeof userAgent === 'string' ? userAgent : String(userAgent || ''));
+  if (userAgentStr && userAgentStr.startsWith('vercel-cron/')) {
+    // #region agent log
+    console.log('[DEBUG validateCron] ✅ Validated via User-Agent:', userAgentStr);
+    // #endregion
+    return true;
   }
 
   // ✅ Allow manual runs via secret
