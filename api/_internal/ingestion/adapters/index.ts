@@ -8,6 +8,12 @@ import { ApiSportsAdapter } from "./api-sports.js";
 import { GoogleNewsAdapter } from "./google-news.js";
 import { NewsXAdapter } from "./newsx.js";
 import { BizNewsAdapter } from "./biz-news.js";
+import { WebitNewsSearchAdapter } from "./webit-news-search.js";
+import { RealTimeSportsNewsApiAdapter } from "./real-time-sports-news-api.js";
+import { TheRundownAdapter } from "./therundown.js";
+import { SoccerSportsOpenDataAdapter } from "./soccer-sports-open-data.js";
+import { GamesDetailsAdapter } from "./games-details.js";
+import { FreeApiLiveFootballDataAdapter } from "./free-api-live-football-data.js";
 
 interface AdapterFactoryOptions {
   maxItemsPerRun: number;
@@ -40,6 +46,18 @@ export function getAdapter(
       return new NewsApiRapidApiAdapter({ maxItemsPerRun });
     case "rapidapi-sports":
       return new RapidApiSportsAdapter({ maxItemsPerRun });
+    case "webit-news-search":
+      return new WebitNewsSearchAdapter({ maxItemsPerRun });
+    case "real-time-sports-news-api":
+      return new RealTimeSportsNewsApiAdapter({ maxItemsPerRun });
+    case "therundown":
+      return new TheRundownAdapter({ maxItemsPerRun });
+    case "soccer-sports-open-data":
+      return new SoccerSportsOpenDataAdapter({ maxItemsPerRun });
+    case "games-details":
+      return new GamesDetailsAdapter({ maxItemsPerRun });
+    case "free-api-live-football-data":
+      return new FreeApiLiveFootballDataAdapter({ maxItemsPerRun });
     // Other active adapters
     case "tmdb":
       return new TmdbAdapter({ maxItemsPerRun });
@@ -56,7 +74,7 @@ export function getAdapter(
       throw new Error(`Adapter "newsapi" is expired. Use "newsapi-rapidapi" instead`);
     default:
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'adapters/index.ts:default case',message:'Adapter not found - default case hit',data:{sourceKey,sourceKeyLength:sourceKey.length,sourceKeyChars:sourceKey.split('').map(c=>c.charCodeAt(0)),allCases:['google-news','newsx','biz-news-api','mediastack-rapidapi','newsapi-rapidapi','rapidapi-sports','tmdb','ticketmaster','api-sports']},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/4e847be9-02b3-4671-b7a4-bc34e135c5dc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'adapters/index.ts:default case',message:'Adapter not found - default case hit',data:{sourceKey,sourceKeyLength:sourceKey.length,sourceKeyChars:sourceKey.split('').map(c=>c.charCodeAt(0)),allCases:['google-news','newsx','biz-news-api','mediastack-rapidapi','newsapi-rapidapi','rapidapi-sports','webit-news-search','real-time-sports-news-api','therundown','soccer-sports-open-data','games-details','free-api-live-football-data','tmdb','ticketmaster','api-sports']},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
       // #endregion
       throw new Error(`Adapter not found for sourceKey: ${sourceKey}`);
   }
