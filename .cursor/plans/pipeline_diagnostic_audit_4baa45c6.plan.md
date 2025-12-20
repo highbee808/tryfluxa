@@ -280,4 +280,3 @@ After running the diagnostic, we can answer:
 
 - How many pipelines are running: 1 (legacy)
 - Which one cron uses: /api/cron/generate
-- Why Admin vs feeds diverge: Legacy pipeline bypasses source registry
