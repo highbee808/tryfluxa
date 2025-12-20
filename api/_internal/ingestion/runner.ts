@@ -89,13 +89,36 @@ export async function runIngestion(
   }
   if (!source.is_active) {
     // Create a skipped run record for observability
-    const { data: skippedRun } = await createSkippedRun(source.id, "disabled");
-    const runId = skippedRun?.id || "";
+    const { data: skippedRun, error: skipError } = await createSkippedRun(source.id, "disabled");
+    
+    // Extract runId - ensure we have a valid ID
+    let runId = "";
+    if (skippedRun?.id) {
+      runId = skippedRun.id;
+    } else if (skipError) {
+      console.error(`[Ingestion] Failed to create skipped run record for disabled source (continuing anyway):`, {
+        sourceKey,
+        sourceId: source.id,
+        error: skipError.message,
+        code: skipError.code
+      });
+    } else {
+      console.warn(`[Ingestion] Skipped run created but no ID returned for disabled source:`, {
+        sourceKey,
+        sourceId: source.id
+      });
+    }
     
     // Update source health (failure case - source disabled)
     if (runId) {
       await upsertSourceHealth(source.id, runId, false, 0, "Source is disabled");
     }
+    
+    console.log(`[Ingestion] Source skipped (disabled):`, {
+      sourceKey,
+      sourceId: source.id,
+      runId
+    });
     
     return {
       success: false,
@@ -144,19 +167,34 @@ export async function runIngestion(
       if (elapsedHours < effectiveRefreshHours) {
         // Create a skipped run record for observability
         const { data: skippedRun, error: skipError } = await createSkippedRun(source.id, "cadence");
-        const runId = skippedRun?.id || "";
         
-        // #region agent log
-        console.log(`[DEBUG runIngestion] Cadence skip - createSkippedRun result:`, {
+        // Extract runId - ensure we have a valid ID
+        let runId = "";
+        if (skippedRun?.id) {
+          runId = skippedRun.id;
+        } else if (skipError) {
+          // Log error but continue - this is observability, not critical path
+          console.error(`[Ingestion] Failed to create skipped run record (continuing anyway):`, {
+            sourceKey,
+            sourceId: source.id,
+            error: skipError.message,
+            code: skipError.code
+          });
+        } else {
+          // This should not happen with improved createSkippedRun, but handle gracefully
+          console.warn(`[Ingestion] Skipped run created but no ID returned:`, {
+            sourceKey,
+            sourceId: source.id
+          });
+        }
+        
+        console.log(`[Ingestion] Source skipped due to cadence:`, {
+          sourceKey,
           sourceId: source.id,
-          sourceKey: sourceKey,
-          skippedRun: skippedRun ? { id: skippedRun.id } : null,
-          skipError: skipError ? { message: skipError.message, code: skipError.code } : null,
           runId,
           elapsedHours: elapsedHours.toFixed(2),
           effectiveRefreshHours
         });
-        // #endregion
         
         return {
           success: true,

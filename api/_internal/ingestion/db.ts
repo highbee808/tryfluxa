@@ -135,13 +135,11 @@ export async function createSkippedRun(
     items_updated: 0,
   };
   
-  // #region agent log
-  console.log(`[DEBUG createSkippedRun] Attempting to create skipped run:`, {
+  console.log(`[createSkippedRun] Creating skipped run record:`, {
     sourceId,
     skippedReason,
-    insertPayload
+    timestamp: now
   });
-  // #endregion
   
   const { data, error } = await supabase
     .from("content_runs")
@@ -149,16 +147,38 @@ export async function createSkippedRun(
     .select("id")
     .single();
   
-  // #region agent log
-  console.log(`[DEBUG createSkippedRun] Database result:`, {
+  if (error) {
+    console.error(`[createSkippedRun] Failed to create skipped run:`, {
+      sourceId,
+      skippedReason,
+      error: error.message,
+      code: error.code,
+      details: error.details
+    });
+    // Return error - caller should handle this
+    return { data: null, error };
+  }
+  
+  if (!data || !data.id) {
+    console.error(`[createSkippedRun] Insert succeeded but no ID returned:`, {
+      sourceId,
+      skippedReason,
+      data
+    });
+    // This should not happen, but handle gracefully
+    return { 
+      data: null, 
+      error: { message: "Insert succeeded but no ID returned", code: "NO_ID_RETURNED" } as any 
+    };
+  }
+  
+  console.log(`[createSkippedRun] Successfully created skipped run:`, {
     sourceId,
     skippedReason,
-    data: data ? { id: data.id } : null,
-    error: error ? { message: error.message, code: error.code, details: error.details } : null
+    runId: data.id
   });
-  // #endregion
   
-  return { data, error };
+  return { data, error: null };
 }
 
 export async function updateContentRun(
