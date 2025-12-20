@@ -351,7 +351,7 @@ export async function upsertSourceHealth(
 
   try {
     if (success) {
-      // Success case: update last_success_at and reset consecutive_failures
+      // Success case: update last_success_at, reset consecutive_failures, and clear error reason
       const { error } = await supabase
         .from("content_source_health")
         .upsert(
@@ -361,6 +361,7 @@ export async function upsertSourceHealth(
             items_generated_last_run: itemsCreated,
             last_success_at: now,
             consecutive_failures: 0,
+            last_error_reason: null, // Clear previous error on success
             updated_at: now,
           },
           {

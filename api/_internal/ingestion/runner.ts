@@ -196,6 +196,11 @@ export async function runIngestion(
           effectiveRefreshHours
         });
         
+        // Update health to clear any previous errors (cadence skip is successful, not a failure)
+        if (runId) {
+          await upsertSourceHealth(source.id, runId, true, 0);
+        }
+        
         return {
           success: true,
           runId,
