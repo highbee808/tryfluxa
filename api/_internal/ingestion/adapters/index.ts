@@ -7,6 +7,7 @@ import { TicketmasterAdapter } from "./ticketmaster.js";
 import { ApiSportsAdapter } from "./api-sports.js";
 import { GoogleNewsAdapter } from "./google-news.js";
 import { NewsXAdapter } from "./newsx.js";
+import { BizNewsAdapter } from "./biz-news.js";
 
 interface AdapterFactoryOptions {
   maxItemsPerRun: number;
@@ -23,6 +24,8 @@ export function getAdapter(
       return new GoogleNewsAdapter({ maxItemsPerRun });
     case "newsx":
       return new NewsXAdapter({ maxItemsPerRun });
+    case "biz-news-api":
+      return new BizNewsAdapter({ maxItemsPerRun });
     case "mediastack-rapidapi":
       return new MediastackRapidApiAdapter({ maxItemsPerRun });
     case "newsapi-rapidapi":
