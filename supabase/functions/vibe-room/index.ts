@@ -122,14 +122,13 @@ serve(async (req) => {
         }
 
         // Add host as member (ignore duplicate errors)
-        await supabase
+        const { error: memberError } = await supabase
           .from("vibe_room_members")
-          .insert({ room_id: room.id, user_id: hostId })
-          .select("id, room_id, user_id")
-          .single()
-          .catch((e) => {
-            console.error("create-room membership insert error", e);
-          });
+          .insert({ room_id: room.id, user_id: hostId });
+
+        if (memberError) {
+          console.error("create-room membership insert error (non-fatal):", memberError.message);
+        }
 
         return new Response(JSON.stringify({ success: true, room }), {
           status: 200,
@@ -194,9 +193,7 @@ serve(async (req) => {
       try {
         const { error } = await supabase
           .from("vibe_room_members")
-          .insert({ room_id: roomId, user_id: userId })
-          .select("id")
-          .single();
+          .insert({ room_id: roomId, user_id: userId });
 
         if (error && !String(error.message).includes("duplicate")) {
           console.error("join-room insert error", error);
