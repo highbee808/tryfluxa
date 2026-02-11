@@ -14,7 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { useToast } from "@/hooks/use-toast";
 import BottomNavigation from "@/components/BottomNavigation";
 import { Music, Plus, Users, Crown, Lock, Unlock } from "lucide-react";
-import { getSpotifyLoginUrlWithPKCE, isSpotifyConnected } from "@/lib/spotifyAuth";
+import { isSpotifyConnected, checkSpotifyConnection } from "@/lib/spotifyAuth";
+import { SpotifyLoginButton } from "@/components/SpotifyLoginButton";
 
 export default function VibeRoomsList() {
   const navigate = useNavigate();
@@ -27,9 +28,7 @@ export default function VibeRoomsList() {
   const [roomName, setRoomName] = useState("");
   const [privacy, setPrivacy] = useState<"public" | "private">("public");
   const [creating, setCreating] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
   const [spotifyConnected, setSpotifyConnected] = useState<boolean>(isSpotifyConnected());
-  const [spotifyError, setSpotifyError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
 
   const searchParams = new URLSearchParams(location.search);
@@ -39,14 +38,12 @@ export default function VibeRoomsList() {
   useEffect(() => {
     if (spotifyParam === "connected") {
       setSpotifyConnected(true);
-      setSpotifyError(null);
       toast({
         title: "Spotify connected",
         description: "You can now create and join vibe rooms.",
       });
     } else if (errorParam === "spotify-auth-failed") {
       setSpotifyConnected(false);
-      setSpotifyError("Spotify connection failed. Please try again.");
       toast({
         title: "Spotify error",
         description: "Spotify connection failed. Please try again.",
@@ -54,6 +51,13 @@ export default function VibeRoomsList() {
       });
     }
   }, [spotifyParam, errorParam, toast]);
+
+  // Confirm connection status from server
+  useEffect(() => {
+    checkSpotifyConnection().then((status) => {
+      setSpotifyConnected(status.connected);
+    });
+  }, []);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -136,23 +140,6 @@ export default function VibeRoomsList() {
     }
   };
 
-  const handleConnectSpotify = async () => {
-    try {
-      setIsConnecting(true);
-      const authUrl = await getSpotifyLoginUrlWithPKCE();
-      window.location.href = authUrl;
-    } catch (error) {
-      console.error("Spotify connect failed:", error);
-      toast({
-        title: "Spotify error",
-        description: error instanceof Error ? error.message : "Failed to start Spotify auth",
-        variant: "destructive",
-      });
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-background/80 pb-32 md:pb-20">
@@ -165,17 +152,11 @@ export default function VibeRoomsList() {
               <h1 className="text-3xl md:text-4xl font-bold">Vibe Rooms</h1>
             </div>
             <div className="flex items-center gap-2">
-              <Button
+              <SpotifyLoginButton
                 variant="outline"
                 size="sm"
-                onClick={handleConnectSpotify}
-                disabled={spotifyConnected || isConnecting}
-              >
-                {spotifyConnected ? "Spotify connected" : isConnecting ? "Connecting..." : "Connect Spotify"}
-              </Button>
-              {spotifyError && (
-                <span className="text-destructive text-sm">{spotifyError}</span>
-              )}
+                onDisconnect={() => setSpotifyConnected(false)}
+              />
               <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
                 <DialogTrigger asChild>
                   <Button disabled={!spotifyConnected}>
