@@ -4,7 +4,7 @@ import {
   disconnectSpotify,
   getSpotifyLoginUrlWithPKCE,
   isSpotifyConnected,
-  getRedirectUriSafe,
+  checkSpotifyConnection,
 } from "@/lib/spotifyAuth";
 import { Music, Check, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -27,16 +27,26 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Instant render from localStorage
     setConnected(isSpotifyConnected());
+
+    // Async confirmation from server
+    checkSpotifyConnection().then((status) => {
+      setConnected(status.connected);
+      // Sync localStorage if server says not connected
+      if (!status.connected) {
+        localStorage.removeItem("spotify_access_token");
+        localStorage.removeItem("spotify_refresh_token");
+        localStorage.removeItem("spotify_expires_in");
+        localStorage.removeItem("spotify_token_timestamp");
+      }
+    });
   }, []);
 
   const handleConnect = async () => {
     try {
       setLoading(true);
-      // Ensure redirect base is resolved safely (dev/prod)
       const authUrl = await getSpotifyLoginUrlWithPKCE();
-
-      // Hard redirect to Spotify login page
       window.location.href = authUrl;
     } catch (err: any) {
       console.error("[SpotifyLoginButton] Spotify connect error:", err);
@@ -50,8 +60,8 @@ const SpotifyLoginButton: React.FC<SpotifyLoginButtonProps> = ({
     }
   };
 
-  const handleDisconnect = () => {
-    disconnectSpotify();
+  const handleDisconnect = async () => {
+    await disconnectSpotify();
     setConnected(false);
     toast({
       title: "Spotify Disconnected",
@@ -97,8 +107,17 @@ export { SpotifyLoginButton };
 export function useSpotifyConnection() {
   const [connected, setConnected] = useState(isSpotifyConnected());
 
+  useEffect(() => {
+    checkSpotifyConnection().then((status) => {
+      setConnected(status.connected);
+    });
+  }, []);
+
   const checkConnection = () => {
     setConnected(isSpotifyConnected());
+    checkSpotifyConnection().then((status) => {
+      setConnected(status.connected);
+    });
   };
 
   return { connected, checkConnection };

@@ -1,9 +1,6 @@
 /**
  * Spotify OAuth Callback Handler
  * Receives authorization code from OAuth flow, exchanges it for tokens
- *
- * PATCH: use supabase.functions.invoke("spotify-token") instead of fetch()
- * to avoid CORS and ensure authenticated token exchange.
  */
 
 import { useEffect, useState } from "react";
@@ -14,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import {
   clearSpotifyOAuthParams,
   readSpotifyOAuthParams,
+  getSpotifyRedirectUri,
 } from "@/lib/spotifyAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -31,15 +29,15 @@ export default function SpotifyCallback() {
       const state = params.get("state");
       const error = params.get("error");
 
-      console.log("🔵 Received Spotify callback with code:", code);
-
       if (error) {
-        navigate("/music/vibe-rooms?error=spotify-auth-failed");
+        setErrorMessage("Spotify authorization was denied or failed.");
+        setIsProcessing(false);
         return;
       }
 
       if (!code) {
-        navigate("/music/vibe-rooms?error=missing-code");
+        setErrorMessage("Missing authorization code from Spotify.");
+        setIsProcessing(false);
         return;
       }
 
@@ -60,21 +58,20 @@ export default function SpotifyCallback() {
       }
 
       try {
-        const { data, error } = await supabase.functions.invoke("spotify-token", {
+        const { data, error: invokeError } = await supabase.functions.invoke("spotify-token", {
           method: "POST",
           body: {
             code,
-            code_verifier: localStorage.getItem("spotify_pkce_verifier") ?? codeVerifier,
+            code_verifier: codeVerifier,
+            redirect_uri: getSpotifyRedirectUri(),
           },
         });
 
-        console.log("🔵 Spotify token response:", { data, error });
-
-        if (error) {
-          throw error;
+        if (invokeError) {
+          throw invokeError;
         }
 
-        // SUCCESS - Store tokens
+        // SUCCESS - Store tokens in localStorage for quick access
         if (data.access_token) {
           localStorage.setItem("spotify_access_token", data.access_token);
           if (data.refresh_token) {
@@ -94,14 +91,24 @@ export default function SpotifyCallback() {
           description: "Spotify Connected!",
         });
         navigate("/music/vibe-rooms?spotify=connected");
-      } catch (err) {
+      } catch (err: any) {
         console.error("[SpotifyCallback] Token exchange failed:", err);
-        navigate("/music/vibe-rooms?error=spotify-auth-failed");
+        const message =
+          err?.message ||
+          err?.context?.error ||
+          "Token exchange failed. Please try again.";
+        setErrorMessage(message);
+        setIsProcessing(false);
       }
     }
 
     process();
   }, [navigate, toast]);
+
+  const handleRetry = () => {
+    clearSpotifyOAuthParams();
+    navigate("/music/vibe-rooms");
+  };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
@@ -109,6 +116,13 @@ export default function SpotifyCallback() {
         <div className="text-center space-y-4">
           <Loader2 className="w-12 h-12 animate-spin mx-auto text-primary" />
           <p className="text-muted-foreground">Connecting to Spotify...</p>
+        </div>
+      ) : errorMessage ? (
+        <div className="text-center space-y-4 max-w-md px-4">
+          <p className="text-destructive font-medium">{errorMessage}</p>
+          <Button onClick={handleRetry} variant="outline">
+            Back to Vibe Rooms
+          </Button>
         </div>
       ) : (
         <div className="text-center space-y-4">
