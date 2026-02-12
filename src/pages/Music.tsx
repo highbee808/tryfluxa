@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   fetchTrendingMusic,
   fetchLatestReleases,
-  getArtworkForMusicItem,
   type MusicItem,
 } from "@/lib/musicService";
 import MusicCard from "@/components/MusicCard";
@@ -131,7 +130,7 @@ export default function Music() {
             <div>
               <h1 className="text-3xl md:text-4xl font-bold">Music</h1>
               <p className="text-sm md:text-base text-muted-foreground">
-                Your daily mix of artists, vibes, and gossip.
+                Artist reviews, streaming stats, and vibe rooms.
               </p>
             </div>
           </div>
@@ -153,7 +152,7 @@ export default function Music() {
               <div className="flex flex-col text-left">
                 <span className="text-sm font-semibold">Vibe Rooms</span>
                 <span className="text-xs opacity-80">
-                  Join live listening parties and gossip in real-time
+                  Join live listening parties and chat in real-time
                 </span>
               </div>
             </div>
@@ -202,16 +201,9 @@ export default function Music() {
             </Card>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {state.latest.map((item) => {
-                const artwork = getArtworkForMusicItem(item);
-                console.log("[Latest] FINAL render:", {
-                  title: item.title,
-                  artwork: artwork,
-                  source: item.source,
-                });
-
-                return <MusicCard key={item.id} item={item} />;
-              })}
+              {state.latest.map((item) => (
+                <MusicCard key={item.id} item={item} />
+              ))}
             </div>
           )}
         </section>

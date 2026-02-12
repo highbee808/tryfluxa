@@ -88,7 +88,7 @@ export type MusicItem = {
 // Legacy interface for backward compatibility (if needed elsewhere)
 export interface LegacyMusicItem {
   id: string;
-  type: 'track' | 'album' | 'news' | 'gossip';
+  type: 'track' | 'album' | 'news' | 'update';
   title: string;
   summary?: string;
   imageUrl?: string;
@@ -1669,7 +1669,7 @@ export async function fetchMusicFeed(limit: number = 20): Promise<MusicItem[]> {
 }
 
 /**
- * Fetch artist news/gossip
+ * Fetch artist news and updates
  */
 export async function fetchArtistNews(artistId: string, limit: number = 10): Promise<MusicItem[]> {
   try {
@@ -1677,7 +1677,7 @@ export async function fetchArtistNews(artistId: string, limit: number = 10): Pro
       .from('music_items')
       .select('*')
       .eq('artist_id', artistId)
-      .in('type', ['news', 'gossip'])
+      .in('type', ['news', 'update'])
       .order('published_at', { ascending: false })
       .limit(limit);
 

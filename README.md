@@ -1,73 +1,42 @@
-# Welcome to your Lovable project
+# Fluxa
 
-## Project info
+**Your daily dose of entertainment. Facts first. No bias.**
 
-**URL**: https://lovable.dev/projects/bc4402e7-503b-45f8-b6d2-c41556bcd1f0
+Fluxa is an all-in-one entertainment platform covering News, Sports, Music, and Facts — built with React, TypeScript, and Supabase.
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- **News Feed** — Breaking stories from multiple sources, deduplicated and ranked
+- **Sports Hub** — Live scores, match stats, and team-specific content
+- **Music** — Artist reviews, trending tracks, Apple Music search, and Vibe Rooms
+- **Fluxa AI** — Ask questions about trending topics and get fact-checked insights
+- **Personalization** — Interest-based onboarding with sub-niche selection
 
-**Use Lovable**
+## Tech Stack
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/bc4402e7-503b-45f8-b6d2-c41556bcd1f0) and start prompting.
+- **Frontend:** Vite + React + TypeScript + Tailwind CSS + shadcn/ui
+- **Backend:** Supabase (Postgres, Edge Functions, Auth, Realtime)
+- **Deployment:** Vercel
+- **Content Pipeline:** Hourly cron ingestion from 15+ adapters (news, sports, entertainment APIs)
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Getting Started
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Clone the repo
 git clone <YOUR_GIT_URL>
+cd tryfluxa
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Install dependencies
+npm install
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start the dev server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Environment Variables
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Copy `env.example` to `.env` and fill in required values (Supabase URL, anon key, API keys).
 
-**Use GitHub Codespaces**
+## Live
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/bc4402e7-503b-45f8-b6d2-c41556bcd1f0) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+[tryfluxa.vercel.app](https://tryfluxa.vercel.app)

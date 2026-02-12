@@ -350,7 +350,7 @@ const FluxaMode = () => {
               </div>
               <h2 className="text-2xl font-bold text-foreground">Hey bestie! 👋</h2>
               <p className="text-muted-foreground">
-                Ask me about trending gossip, celebrities, or what's hot right now!
+                Ask me about trending news, sports, music, or what's hot right now!
               </p>
             </div>
           )}

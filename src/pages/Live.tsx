@@ -97,7 +97,7 @@ const Live = () => {
             Fluxa Live 🎙️
           </h1>
           <p className="text-muted-foreground">
-            Join real-time gossip sessions hosted by Fluxa
+            Join real-time live sessions hosted by Fluxa
           </p>
         </motion.div>
 

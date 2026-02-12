@@ -470,10 +470,8 @@ const SportsHub = () => {
   }, []);
 
   const handlePlay = useCallback((id: string, audioUrl: string | null | undefined, url?: string) => {
-    // Play audio if available, otherwise navigate to URL
     if (audioUrl) {
-      // Audio playback logic can be added here if needed
-      console.log("Playing audio:", audioUrl);
+      // TODO: Audio playback
     } else if (url) {
       window.open(url, '_blank');
     }

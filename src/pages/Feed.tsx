@@ -1,4 +1,3 @@
-console.log("CURSOR SYNC TEST", new Date().toISOString());
 import { useState, useEffect, useRef, useCallback } from "react";
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -782,8 +781,7 @@ const Feed = () => {
   // Auto-reload feed every 30 minutes
   useEffect(() => {
     const interval = setInterval(() => {
-      console.log("🔄 Auto-reloading feed...");
-      loadGists(true); // showToast = true
+      loadGists(true);
     }, 30 * 60 * 1000); // 30 minutes
 
     return () => clearInterval(interval);

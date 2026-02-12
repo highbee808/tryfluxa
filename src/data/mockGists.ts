@@ -5,7 +5,7 @@ export const mockGists = [
     headline: "Drake unfollowed somebody 👀",
     context: "The internet is screaming.\nEveryone wants answers.",
     audioIndex: 1,
-    topic: "Celebrity Gossip",
+    topic: "Celebrity News",
   },
   {
     id: 2,
@@ -29,7 +29,7 @@ export const mockGists = [
     headline: "Influencer apology again 🎭",
     context: "Tears, soft music.\nAre we believing this one?",
     audioIndex: 4,
-    topic: "Celebrity Gossip",
+    topic: "Celebrity News",
   },
   {
     id: 5,

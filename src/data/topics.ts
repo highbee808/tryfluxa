@@ -14,10 +14,10 @@ export interface TopicData {
 
 export const topics: TopicData[] = [
   {
-    id: "celebrity-gossip",
-    label: "Celebrity Gossip",
+    id: "celebrity-news",
+    label: "Celebrity News",
     emoji: "⭐",
-    description: "Hot celebrity news and entertainment gossip",
+    description: "Hot celebrity news and entertainment updates",
     subTopics: [
       { id: "reality-tv", label: "Reality TV", emoji: "📺" },
       { id: "movie-stars", label: "Movie Stars", emoji: "🎬" },

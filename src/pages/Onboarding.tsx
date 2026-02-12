@@ -161,7 +161,7 @@ const Onboarding = () => {
           <h1 className="text-6xl md:text-7xl font-bold text-foreground">
             Welcome to Fluxa 🎙️
           </h1>
-          <p className="text-2xl text-foreground font-medium">What do you want gist about?</p>
+          <p className="text-2xl text-foreground font-medium">What are you into?</p>
           <p className="text-base text-muted-foreground">Select at least 3 interests to personalize your feed</p>
         </div>
 
